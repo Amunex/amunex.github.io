@@ -28,16 +28,31 @@
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css?family=DM+Sans:400,400i,500,500i,700,700i&display=swap"></noscript>
   <link rel="preload" as="style" href="assets/mobirise/css/mbr-additional.css"><link rel="stylesheet" href="assets/mobirise/css/mbr-additional.css" type="text/css">
   
-  <style>
-  body {
-    overflow-x: hidden;
+<style>
+  /* Reset default styles */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 
-  img {
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  img, video {
     max-width: 100%;
     height: auto;
     display: block;
   }
+
+  /* Optional: uncomment to debug overflow visually */
+  /*
+  * {
+    outline: 1px solid red;
+  }
+  */
 </style>
   
   
@@ -489,5 +504,15 @@
   
  <div id="scrollToTop" class="scrollToTop mbr-arrow-up"><a style="text-align: center;"><i class="mbr-arrow-up-icon mbr-arrow-up-icon-cm cm-icon cm-icon-smallarrow-up"></i></a></div>
     <input name="animation" type="hidden">
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const viewportWidth = document.documentElement.clientWidth;
+    document.querySelectorAll("*").forEach(el => {
+      if (el.scrollWidth > viewportWidth) {
+        console.warn("⚠️ Overflowing element:", el);
+      }
+    });
+  });
+</script>
   </body>
 </html>

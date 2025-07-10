@@ -31,17 +31,32 @@
   <link rel="preload" href="https://fonts.googleapis.com/css?family=DM+Sans:400,400i,500,500i,700,700i&display=swap" as="style" onload="this.onload=null;this.rel='stylesheet'">
   <noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css?family=DM+Sans:400,400i,500,500i,700,700i&display=swap"></noscript>
   <link rel="preload" as="style" href="assets/mobirise/css/mbr-additional.css"><link rel="stylesheet" href="assets/mobirise/css/mbr-additional.css" type="text/css">
- <style>
-  body {
-    overflow-x: hidden;
+<style>
+  /* Reset default styles */
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
   }
 
-  img {
+  html, body {
+    overflow-x: hidden;
+    width: 100%;
+  }
+
+  img, video {
     max-width: 100%;
     height: auto;
     display: block;
   }
-</style> 
+
+  /* Optional: uncomment to debug overflow visually */
+  /*
+  * {
+    outline: 1px solid red;
+  }
+  */
+</style>
   <style>
   @media (min-width: 992px) {
     .text-lg-start {
@@ -68,7 +83,63 @@
     }
   }
 </style>
-  
+<style>
+  @media (max-width: 767px) {
+    /* Shrink animated logo section no more than 90% */
+    #features09-cl .image-element img {
+      width: 90% !important;
+      height: auto !important;
+      max-height: 240px;
+      object-fit: contain;
+      display: block;
+      margin: 0 auto;
+    }
+
+    /* Tighten section spacing */
+    #features09-cl {
+      padding-top: 0.5rem !important;
+      padding-bottom: 0.5rem !important;
+    }
+
+    #content04-cd,
+    #content04-cg {
+      padding-top: 1.5rem !important;
+      padding-bottom: 0.5rem !important;
+    }
+
+    /* Remove unnecessary spacing if wrapper is empty */
+    #features09-cl .wrapper {
+      display: none !important;
+    }
+  }
+</style>
+ <style>
+  /* Tighten spacing and font size for hero on mobile */
+  @media (max-width: 767px) {
+    #content04-cd {
+      padding-top: 2rem !important;
+      padding-bottom: 1rem !important;
+    }
+
+    #content04-cd h1.mbr-section-title {
+      font-size: 1.5rem !important;
+      margin-bottom: 0.5rem !important;
+    }
+
+    #content04-cd p.mbr-text {
+      font-size: 1.1rem !important;
+      margin-bottom: 1rem !important;
+    }
+
+    #features09-cl .p-4 {
+      padding: 0.5rem !important;
+    }
+
+    #features09-cl img {
+      margin-top: 0 !important;
+    }
+  }
+</style> 
   
 </head>
 <body>
@@ -245,24 +316,26 @@
   </div>
 </section>
 
-<section class="content04 photom4_content04 cid-uQtpBwrp2l" id="content04-cp">
+<section class="content04 photom4_content04 cid-uQtpBwrp2l" id="content04-cp" style="padding-top: 1rem !important; padding-bottom: 1rem !important;">
 
-    
+  <div class="container align-center">
+    <div class="row justify-content-md-center">
+      <div class="mbr-black col-md-10 col-lg-6">
 
-    
+        <h1 class="mbr-section-title mbr-bold pb-2 mbr-fonts-style display-5">
+          <span style="font-weight: normal;">Here’s all you need to do:</span>
+        </h1>
 
-    <div class="container align-center">
-        <div class="row justify-content-md-center">
-            <div class="mbr-black col-md-10 col-lg-6">
-                
-                <h1 class="mbr-section-title mbr-bold pb-3 mbr-fonts-style display-5"><span style="font-weight: normal;">Here’s all you need to do:</span></h1>
-                <p class="mbr-text pb-3 mbr-fonts-style display-4"><strong>
-                    1.-</strong>  Fill out the short form  <strong>2.- </strong>Upload your logo<strong>  3.-</strong> Check your inbox</p>
-                <div class="mbr-section-btn"><a class="btn btn-md btn-secondary display-4" href="freelogo.html#content04-ct"> Let’s Get Started — Upload My Logo</a></div>
-            </div>
-        </div>
+        <p class="mbr-text pb-2 mbr-fonts-style display-4">
+          <strong>1.–</strong> Fill out the short form  
+          <strong>2.–</strong> Upload your logo  
+          <strong>3.–</strong> Check your inbox
+        </p>
+
+      </div>
     </div>
-    
+  </div>
+
 </section>
 
 <section class="content02 photom4_content02 cid-uQtaipUfO6" id="content02-ch">
@@ -289,9 +362,7 @@
             Your logo isn’t just decoration, it’s your brand in motion.<br>
             Motion tells a story. And story is motion. Static is fine. But motion sticks.
           </p>
-          <div class="mbr-section-btn text-center text-lg-start">
-            <a class="btn btn-md btn-success display-4" href="https://mobiri.se">Bring My Logo to Life</a>
-          </div>
+          
         </div>
       </div>
 
@@ -341,17 +412,14 @@
       <!-- TEXT -->
       <div class="col-md-12 col-lg-6 d-flex align-items-center" style="padding: 1rem 2rem;">
         <div>
-          <h1 class="mbr-section-title mbr-bold pb-3 mbr-fonts-style display-2 text-center text-lg-start">
+          <h2 class="mbr-section-title mbr-bold pb-3 mbr-fonts-style display-2 text-center text-lg-start">
             The data doesn’t lie:
-          </h1>
+          </h2>
           <p class="mbr-text mbr-fonts-style display-7 text-center text-lg-start">
             <strong>+80% brand recall</strong> when logos appear in the first 2 seconds (<em>HubSpot</em>)<br>
             <strong>+25% CTR</strong> on ads featuring logo animation (<em>Meta Ads Report</em>)<br>
             Up to <strong>300% more engagement</strong> on videos with animated intros (<em>Socialinsider 2024</em>)
           </p>
-          <div class="mbr-section-btn text-center text-lg-start">
-            <a class="btn btn-md btn-success display-4" href="freelogo.html#content04-ct">Get My Custom Animation Now</a>
-          </div>
         </div>
       </div>
 
@@ -384,59 +452,82 @@
 </section>
 
 <section class="form form01 photom4_form01 cid-uQtqQYZ3m0" id="form01-cr">
-	
-	
-	<div class="container">
-		<div class="row">
-			<div class="col-lg-12 mx-auto mbr-form" data-form-type="formoid">
-				<!--Formbuilder Form-->
-				<form action="https://mobirise.eu/" method="POST" class="mbr-form form-with-styler" data-form-title="Form Name"><input type="hidden" name="email" data-form-email="true" value="J2F7dFzWIG91kTLg8o8U+6Fppoo8uYt+q6LfICxW29eABHZ6COB9M1ALClrmx56IJ81VDbIWPQfrbEbErQ7ALeLz+v3BgxyQyLJ4E1Xkitx8ttc1MyyWgHsHqLO2oVxj">
-					<div class="form-row">
-						<div hidden="hidden" data-form-alert="" class="alert alert-success col-12">Thanks for filling out
-							the form!</div>
-						<div hidden="hidden" data-form-alert-danger="" class="alert alert-danger col-12">Oops...! some
-							problem!</div>
-					</div>
-					<div class="dragArea form-row">
-						<div class="col-lg-12 col-md-12 col-sm-12 form-group">
-							<div class="form-row">
-								<div class="col">
-									<span class="mbr-iconfont mobi-mbri-user-2 mobi-mbri"></span>
-									<input type="text" name="nameFirst" placeholder="First Name" data-form-field="nameFirst" class="form-control text-multiple" value="" id="nameFirst-form01-cr">
-								</div>
-								<div class="col">
-									<span class="mbr-iconfont mobi-mbri-user-2 mobi-mbri"></span>
-									<input type="text" name="nameLast" placeholder="Last Name" data-form-field="nameLast" class="form-control text-multiple" value="" id="nameLast-form01-cr">
-								</div>
-							</div>
-						</div>
-						<div class="col-lg-6 col-md-12 col-sm-12 form-group" data-for="email">
-							<span class="mbr-iconfont mobi-mbri-letter mobi-mbri"></span>
-							<input type="email" name="email" placeholder="Email" data-form-field="email" class="form-control display-7" value="" id="email-form01-cr">
-						</div>
-						<div class="col-lg-6 col-md-12 col-sm-12 form-group" style="" data-for="phone">
-							<span class="mbr-iconfont mobi-mbri-phone mobi-mbri"></span>
-							<input type="tel" name="phone" placeholder="Phone" data-form-field="phone" class="form-control display-7" pattern="*" value="" id="phone-form01-cr">
-						</div>
-						<div data-for="subject" class="col-lg-12 col-md-12 col-sm-12 form-group">
-							<span class="mbr-iconfont mobi-mbri-contact-form mobi-mbri"></span>
-							<input type="text" name="subject" placeholder="Subject" data-form-field="subject" class="form-control display-7" value="" id="subject-form01-cr">
-						</div>
-						<div class="col-lg-12 col-md-12 col-sm-12 form-group" data-for="message">
-							<span class="mbr-iconfont mobi-mbri-contact-form mobi-mbri"></span>
-							<textarea name="message" placeholder="Message" data-form-field="message" class="form-control display-7" id="message-form01-cr"></textarea>
-						</div>
-						<div class="col-lg-12 col-md-12 col-sm-12 form-group" data-for="how" style="">
-							<span class="mbr-iconfont mobi-mbri-contact-form mobi-mbri"></span>
-							<input type="text" name="how" placeholder="How did your hear about us" data-form-field="how" class="form-control display-7" value="" id="how-form01-cr">
-						</div>
-						<div class="col-auto m-auto"><button type="submit" class="btn btn-success display-7">Get My Free Logo Animation</button></div>
-					</div>
-				</form>
-				<!--Formbuilder Form-->
-			</div>
-		</div>
-	</div>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-12 mx-auto mbr-form" data-form-type="formoid">
+
+        <form 
+  action="https://getform.io/f/amdmegqb" 
+  method="POST" 
+  enctype="multipart/form-data" 
+  class="mbr-form form-with-styler text-center" 
+  data-form-title="Free Logo Animation Form">
+
+          <div class="dragArea form-row justify-content-center">
+
+            <!-- Full Name -->
+            <div class="col-lg-12 form-group">
+              <div class="form-row">
+                <div class="col">
+                  <span class="mbr-iconfont mobi-mbri-user-2 mobi-mbri"></span>
+                  <input type="text" name="First Name" placeholder="First Name" class="form-control text-multiple text-center" required>
+                </div>
+                <div class="col">
+                  <span class="mbr-iconfont mobi-mbri-user-2 mobi-mbri"></span>
+                  <input type="text" name="Last Name" placeholder="Last Name" class="form-control text-multiple text-center" required>
+                </div>
+              </div>
+            </div>
+
+            <!-- Email -->
+            <div class="col-lg-6 form-group">
+              <span class="mbr-iconfont mobi-mbri-letter mobi-mbri"></span>
+              <input type="email" name="Email" placeholder="Your Email (for delivery)" class="form-control text-center" required>
+            </div>
+
+            <!-- Phone -->
+            <div class="col-lg-6 form-group">
+              <span class="mbr-iconfont mobi-mbri-phone mobi-mbri"></span>
+              <input type="tel" name="Phone" placeholder="Phone (optional)" class="form-control text-center">
+            </div>
+
+            <!-- Project Name -->
+            <div class="col-lg-12 form-group">
+              <span class="mbr-iconfont mobi-mbri-contact-form mobi-mbri"></span>
+              <input type="text" name="Project Name" placeholder="What’s the name of your brand or project?" class="form-control text-center" required>
+            </div>
+
+            <!-- Usage -->
+            <div class="col-lg-12 form-group">
+              <span class="mbr-iconfont mobi-mbri-contact-form mobi-mbri"></span>
+              <textarea name="Usage" placeholder="Where do you plan to use your logo animation? (e.g. website, Instagram, YouTube, etc.)" class="form-control text-center" required></textarea>
+            </div>
+
+            <!-- Referral -->
+            <div class="col-lg-12 form-group">
+              <span class="mbr-iconfont mobi-mbri-contact-form mobi-mbri"></span>
+              <input type="text" name="Referral" placeholder="How did you find this offer?" class="form-control text-center" required>
+            </div>
+
+            <!-- File Upload -->
+            <div class="col-lg-12 form-group">
+              <label for="logo-upload" class="mbr-fonts-style display-7" style="color: white;">Upload your logo (Max 10MB, PNG/SVG/PDF):</label>
+              <input type="file" name="file" id="logo-upload" class="form-control text-center" accept=".png,.svg,.jpg,.jpeg,.pdf,.ai,.eps" required>
+            </div>
+
+            <!-- Anti-spam honeypot -->
+            <input type="text" name="_gotcha" style="display:none">
+
+            <!-- Submit Button -->
+            <div class="col-auto m-auto">
+              <button type="submit" class="btn btn-success display-7">Get My Free Logo Animation</button>
+            </div>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
 </section>
 
 <section class="content04 photom4_content04 cid-uQtrxkZjq1" id="content04-cu">
@@ -550,11 +641,21 @@
   <script src="assets/mbr-switch-arrow/mbr-switch-arrow.js"></script>
   <script src="assets/sociallikes/social-likes.js"></script>
   <script src="assets/theme/js/script.js"></script>
-  <script src="assets/formoid/formoid.min.js"></script>
+
   
   
   
  <div id="scrollToTop" class="scrollToTop mbr-arrow-up"><a style="text-align: center;"><i class="mbr-arrow-up-icon mbr-arrow-up-icon-cm cm-icon cm-icon-smallarrow-up"></i></a></div>
     <input name="animation" type="hidden">
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const viewportWidth = document.documentElement.clientWidth;
+    document.querySelectorAll("*").forEach(el => {
+      if (el.scrollWidth > viewportWidth) {
+        console.warn("⚠️ Overflowing element:", el);
+      }
+    });
+  });
+</script>
   </body>
 </html>

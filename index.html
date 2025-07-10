@@ -744,6 +744,15 @@
     });
   });
 </script>
-
+<script>
+  document.addEventListener("DOMContentLoaded", function () {
+    const viewportWidth = document.documentElement.clientWidth;
+    document.querySelectorAll("*").forEach(el => {
+      if (el.scrollWidth > viewportWidth) {
+        console.warn("⚠️ Overflowing element:", el);
+      }
+    });
+  });
+</script>
   </body>
 </html>
