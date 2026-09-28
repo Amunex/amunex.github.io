@@ -442,6 +442,23 @@ function render() {
   if (v === 'home') renderHome(); else if (v === 'practice') renderPracticeSetup(); else if (v === 'lobby') renderLobby();
   else if (v === 'spectate') renderSpectate(); else if (v === 'draft') renderDraft(); else if (v === 'build') renderBuild();
 }
+let heroIdx = null, heroTimer = null;
+function heroCycleHTML() {
+  const keys = Object.keys(POOLS);
+  if (heroIdx == null) heroIdx = Math.max(0, keys.indexOf(S.settings.pool));
+  return `<div class="pack-cycle" id="packCycle" aria-hidden="true">${keys.map((k, i) => `<div class="cyc ${i === heroIdx ? 'on' : ''}">${packHTML(k)}</div>`).join('')}</div>`;
+}
+function startHeroCycle() {
+  clearInterval(heroTimer); heroTimer = null;
+  if (reduceMotion || !$('#packCycle')) return;
+  heroTimer = setInterval(() => {
+    const box = $('#packCycle');
+    if (!box) { clearInterval(heroTimer); heroTimer = null; return; }
+    if (document.hidden) return;
+    const items = [...box.children]; heroIdx = (heroIdx + 1) % items.length;
+    items.forEach((el, i) => el.classList.toggle('on', i === heroIdx));
+  }, 4200);
+}
 function renderHome() {
   setBar('', []);
   if (S.connecting) { $('#app').innerHTML = `<p class="loading">Connecting to room ${esc(S.pendingCode || '')}…</p>`; return; }
@@ -461,7 +478,8 @@ function renderHome() {
       <div class="block"><h3>Host a draft</h3><p>Create a room, send the invite link, and start when everyone’s in.</p><div class="row"><button class="cta" type="button" data-act="create">Create a room</button></div></div>
       <div class="block"><h3><label for="codeIn">Join with a code</label></h3><div class="row"><input class="text code" id="codeIn" maxlength="4" autocomplete="off" placeholder="ABCD"><button class="ghost" type="button" data-act="join">Join</button></div></div>
       <div class="block"><h3>Practice</h3><p>Draft alone against bots. Nothing goes online.</p><div class="row"><button class="ghost" type="button" data-act="practice">Practice vs bots</button></div></div>${err}`;
-  $('#app').innerHTML = `<section class="home"><div class="hero-pack">${packHTML(S.settings.pool)}</div><div>${body}</div></section>`;
+  $('#app').innerHTML = `<section class="home"><div class="hero-pack">${heroCycleHTML()}</div><div>${body}</div></section>`;
+  startHeroCycle();
 }
 function renderPracticeSetup() {
   setBar('<span>Practice vs bots</span>', [`<button class="ghost" type="button" data-act="home">Back</button>`]);
