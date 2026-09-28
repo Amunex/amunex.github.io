@@ -217,11 +217,7 @@ main{padding:clamp(12px,3vw,28px);max-width:1320px;margin:0 auto}
 }
 @keyframes inR{from{transform:translateX(46px);opacity:0}to{transform:none;opacity:1}}
 @keyframes inL{from{transform:translateX(-46px);opacity:0}to{transform:none;opacity:1}}
-.opening{position:absolute;inset:0;display:grid;place-items:center;z-index:5;pointer-events:none}
-.opening .pack{transition:opacity .35s ease .15s,transform .35s ease}
-.opening .strip{transition:transform .5s cubic-bezier(.3,.7,.3,1),opacity .5s}
-.opening.torn .strip{transform:translate(70px,-120px) rotate(22deg);opacity:0}
-.opening.gone .pack{opacity:0;transform:scale(.92)}
+
 
 /* build */
 .buildbar{position:sticky;top:calc(env(safe-area-inset-top,0px) + var(--bar-h,58px));z-index:10;display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center;
@@ -269,3 +265,44 @@ details summary{cursor:pointer;font-weight:600}
 .roomstatus .seats{margin:0}
 .okline{display:inline-flex;align-items:center;gap:6px;font-weight:700;color:var(--turq)}
 .okline svg{width:18px;height:18px}
+
+/* v3: pools, MD rarities, pack art per pool */
+.field.stack{flex-direction:column;align-items:flex-start;gap:8px}
+.field.stack .seg{flex-wrap:wrap}
+.bN{background:linear-gradient(#F1F3F6,#9AA3AE);color:#1B2130}
+.bR{background:linear-gradient(#9FD2FF,#2F7BE0);color:#fff}
+.pill.md0{background:#DCE1E7;color:#1B2130;border-color:transparent}
+.pill.md1{background:#2F7BE0;color:#fff;border-color:transparent}
+.pack .label .goat.long{font-size:40px}
+.pk-edison .body{background:radial-gradient(120% 60% at 30% 20%,rgba(255,255,255,.4),transparent 55%),linear-gradient(160deg,#0E3B4A 0%,#1F6F8B 34%,#C9D6DF 68%,#3C5566 100%)}
+.pk-edison .strip{background:linear-gradient(160deg,#123F4F,#2A7E9C)}
+.pk-mdnr .body{background:radial-gradient(120% 60% at 30% 20%,rgba(255,255,255,.35),transparent 55%),linear-gradient(160deg,#0B1B3F 0%,#1D3F8C 34%,#6FB7FF 68%,#1A2C5A 100%)}
+.pk-mdnr .strip{background:linear-gradient(160deg,#0F2350,#2A56B8)}
+.pack .tearglow{position:absolute;left:4%;right:4%;top:12.2%;height:3px;border-radius:3px;z-index:3;opacity:0;
+  background:linear-gradient(90deg,transparent,#FFF6D8 20%,#FFFFFF 50%,#FFF6D8 80%,transparent);box-shadow:0 0 12px 4px rgba(255,236,170,.85),0 0 30px 10px rgba(244,204,98,.45)}
+.poolnote{margin:0 0 12px;color:var(--ink-soft);font-size:15px}
+.chip.tab{font-weight:700}
+.chip-gap{flex-basis:100%;height:0}
+
+/* v3: pack opening */
+.opening{position:absolute;inset:0;z-index:6;display:grid;place-items:center;border-radius:18px;overflow:hidden;cursor:pointer}
+.opening .shade{position:absolute;inset:0;background:radial-gradient(70% 60% at 50% 45%,rgba(10,8,30,.35),rgba(10,8,30,.72));pointer-events:none}
+.opening .packs{display:flex;gap:28px;align-items:center;justify-content:center}
+.opening .pack{width:clamp(130px,17vw,190px)}
+.opening .flash{position:absolute;left:50%;top:40%;width:560px;height:560px;margin:-280px 0 0 -280px;border-radius:50%;opacity:0;pointer-events:none;
+  background:radial-gradient(circle,rgba(255,255,255,.95) 0%,rgba(255,236,170,.75) 22%,rgba(244,204,98,.25) 48%,transparent 70%)}
+.opening .skip{position:absolute;bottom:10px;left:0;right:0;margin:0;text-align:center;font-weight:600;font-size:13px;color:#F1E6C8;opacity:.75}
+.opening .spark{position:absolute;width:7px;height:7px;border-radius:50%;pointer-events:none;box-shadow:0 0 8px 2px rgba(255,240,190,.8)}
+.opening .ring{position:absolute;border-radius:10px;pointer-events:none}
+.opening .raretag{position:absolute;white-space:nowrap;font:400 22px/1 var(--display);letter-spacing:.04em;pointer-events:none;
+  text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 14px rgba(255,236,170,.8)}
+.card .back{position:absolute;inset:0;z-index:4;border-radius:6px;display:grid;place-items:center;pointer-events:none;
+  background:radial-gradient(55% 40% at 50% 50%,#4B3A9C 0%,#241B5C 55%,#120E33 100%);border:3px solid #6B4A14;box-shadow:inset 0 0 0 2px #C9962D,inset 0 0 22px rgba(0,0,0,.6)}
+.card .back::before{content:"";position:absolute;inset:18% 14%;border-radius:50%;border:2px solid rgba(244,204,98,.7);box-shadow:inset 0 0 18px rgba(244,204,98,.35)}
+.card .back svg{width:52%;height:auto;color:#E9C46A;position:relative}
+@media (prefers-reduced-motion:reduce){.opening{display:none}}
+
+/* v4: Duelist Kingdom pack */
+.pack .label .goat.xlong{font-size:31px;letter-spacing:.02em}
+.pk-dk .body{background:radial-gradient(120% 60% at 30% 20%,rgba(255,255,255,.32),transparent 55%),linear-gradient(160deg,#3A0F14 0%,#8C1C24 34%,#D9A441 68%,#5A1810 100%)}
+.pk-dk .strip{background:linear-gradient(160deg,#4A1219,#A0242E)}
