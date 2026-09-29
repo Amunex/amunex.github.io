@@ -1,5 +1,5 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 11;
+const V = 12;
 const HOME_PACKS = [["dk","LOB","Legend of Blue Eyes White Dragon","2002"],["dk","MRD","Metal Raiders","2002"],["goat","MRL","Magic Ruler","2002"],["goat","PSV","Pharaoh's Servant","2002"],["goat","LON","Labyrinth of Nightmare","2003"],["goat","LOD","Legacy of Darkness","2003"],["goat","PGD","Pharaonic Guardian","2003"],["goat","MFC","Magician's Force","2003"],["goat","DCR","Dark Crisis","2003"],["goat","IOC","Invasion of Chaos","2004"],["goat","AST","Ancient Sanctuary","2004"],["goat","EP1","Exclusive Pack","2004"],["goat","SOD","Soul of the Duelist","2004"],["goat","RDS","Rise of Destiny","2004"],["goat","FET","Flaming Eternity","2005"],["goat","TLM","The Lost Millennium","2005"],["edison","CRV","Cybernetic Revolution","2005"],["edison","EEN","Elemental Energy","2005"],["edison","DP2","Duelist Pack: Chazz Princeton","2006"],["edison","DP1","Duelist Pack: Jaden Yuki","2006"],["edison","SOI","Shadow of Infinity","2006"],["edison","EOJ","Enemy of Justice","2006"],["edison","POTD","Power of the Duelist","2006"],["edison","CDIP","Cyberdark Impact","2006"],["edison","DP05","Duelist Pack: Aster Phoenix","2007"],["edison","DP03","Duelist Pack: Jaden Yuki 2","2007"],["edison","STON","Strike of Neos","2007"],["edison","DP04","Duelist Pack: Zane Truesdale","2007"],["edison","FOTB","Force of the Breaker","2007"],["edison","PP01","Premium Pack (TCG)","2007"],["edison","TAEV","Tactical Evolution","2007"],["edison","GLAS","Gladiator's Assault","2007"],["edison","DP06","Duelist Pack: Jaden Yuki 3","2008"],["edison","DP07","Duelist Pack: Jesse Anderson","2008"],["edison","PTDN","Phantom Darkness","2008"],["edison","LODT","Light of Destruction","2008"],["edison","PP02","Premium Pack 2 (TCG)","2008"],["edison","TDGS","The Duelist Genesis","2008"],["edison","CSOC","Crossroads of Chaos","2008"],["edison","DLG1","Dark Legends","2008"],["edison","DP08","Duelist Pack: Yusei","2009"],["edison","CRMS","Crimson Crisis","2009"],["edison","RGBT","Raging Battle","2009"],["edison","DPYG","Duelist Pack: Yugi","2009"],["edison","ANPR","Ancient Prophecy","2009"],["edison","HA01","Hidden Arsenal","2009"],["edison","SOVR","Stardust Overdrive","2009"],["edison","DP09","Duelist Pack: Yusei 2","2010"],["edison","ABPF","Absolute Powerforce","2010"],["edison","DPKB","Duelist Pack: Kaiba","2010"]];
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
@@ -715,30 +715,31 @@ function playOpen(poolKey, packs, label) {
       const back = document.createElement('span'); back.className = 'back'; el.appendChild(back);
       const tilt = (k % 5 - 2) * 6;
       if (!rare) {
-        const delay = t; t += step; const dur = 920;
+        const delay = t; t += step; const dur = 920; const E = 'cubic-bezier(.3,.7,.35,1)';
         A(el, [
-          { transform: `translate(${dx}px,${dy + 30}px) scale(.4) rotateY(180deg) rotateZ(${tilt}deg)`, opacity: 0 },
-          { transform: `translate(${dx}px,${dy - 120}px) scale(.62) rotateY(180deg) rotateZ(${tilt}deg)`, opacity: 1, offset: .28 },
-          { transform: `translate(${dx * .45}px,${dy * .45 - 150}px) scale(1.05) rotateY(90deg) rotateZ(${tilt / 2}deg)`, offset: .62 },
-          { transform: 'translate(0,-14px) scale(1.08) rotateY(0deg) rotateZ(0deg)', offset: .85 },
+          { transform: `translate(${dx}px,${dy + 30}px) scale(.4) rotateY(180deg) rotateZ(${tilt}deg)`, opacity: 0, easing: E },
+          { transform: `translate(${dx}px,${dy - 120}px) scale(.62) rotateY(180deg) rotateZ(${tilt}deg)`, opacity: 1, offset: .28, easing: 'ease-in' },
+          { transform: `translate(${dx * .45}px,${dy * .45 - 150}px) scale(1.05) rotateY(90deg) rotateZ(${tilt / 2}deg)`, offset: .62, easing: 'ease-out' },
+          { transform: 'translate(0,-14px) scale(1.08) rotateY(0deg) rotateZ(0deg)', offset: .85, easing: 'ease-in-out' },
           { transform: 'translate(0,0) scale(1) rotateY(0deg) rotateZ(0deg)', opacity: 1 }
-        ], { duration: dur, delay, easing: 'cubic-bezier(.25,.7,.3,1)' });
-        A(back, [{ opacity: 1 }, { opacity: 1, offset: .62 }, { opacity: 0, offset: .63 }, { opacity: 0 }], { duration: dur, delay });
+        ], { duration: dur, delay });
+        A(back, [{ opacity: 1 }, { opacity: 1, offset: .62 }, { opacity: 0, offset: .621 }, { opacity: 0 }], { duration: dur, delay });
         end = Math.max(end, delay + dur);
       } else {
         const delay = t + 200; const dur = 2000; const cx2 = tcx - (r.left + r.width / 2), cy2 = tcy - (r.top + r.height / 2);
         A(el, [
-          { transform: `translate(${dx}px,${dy + 30}px) scale(.4) rotateY(180deg)`, opacity: 0 },
-          { transform: `translate(${dx}px,${dy - 120}px) scale(.62) rotateY(180deg)`, opacity: 1, offset: .12 },
-          { transform: `translate(${cx2}px,${cy2}px) scale(1.7) rotateY(180deg)`, offset: .36 },
-          { transform: `translate(${cx2}px,${cy2}px) scale(1.78) rotateY(180deg) rotateZ(-3deg)`, offset: .46 },
-          { transform: `translate(${cx2}px,${cy2}px) scale(1.78) rotateY(180deg) rotateZ(3deg)`, offset: .52 },
+          { transform: `translate(${dx}px,${dy + 30}px) scale(.4) rotateY(180deg) rotateZ(0deg)`, opacity: 0, easing: 'ease-out' },
+          { transform: `translate(${dx}px,${dy - 120}px) scale(.62) rotateY(180deg) rotateZ(0deg)`, opacity: 1, offset: .12, easing: 'cubic-bezier(.3,.7,.35,1)' },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.7) rotateY(180deg) rotateZ(0deg)`, offset: .36, easing: 'ease-in-out' },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.78) rotateY(180deg) rotateZ(-3deg)`, offset: .46, easing: 'ease-in-out' },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.78) rotateY(180deg) rotateZ(3deg)`, offset: .52, easing: 'ease-in' },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.82) rotateY(90deg) rotateZ(0deg)`, offset: .6, easing: 'ease-out' },
           { transform: `translate(${cx2}px,${cy2}px) scale(1.85) rotateY(0deg) rotateZ(0deg)`, offset: .68 },
-          { transform: `translate(${cx2}px,${cy2}px) scale(1.85) rotateY(0deg)`, offset: .84 },
-          { transform: 'translate(0,0) scale(1) rotateY(0deg)', opacity: 1 }
-        ], { duration: dur, delay, easing: 'cubic-bezier(.3,.6,.3,1)' });
-        A(back, [{ opacity: 1 }, { opacity: 1, offset: .6 }, { opacity: 0, offset: .61 }, { opacity: 0 }], { duration: dur, delay });
-        at(D0 + delay + dur * .66, () => { rareBurst(fx, el, top); jolt(6, 320); });
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.85) rotateY(0deg) rotateZ(0deg)`, offset: .84, easing: 'cubic-bezier(.4,0,.2,1)' },
+          { transform: 'translate(0,0) scale(1) rotateY(0deg) rotateZ(0deg)', opacity: 1 }
+        ], { duration: dur, delay });
+        A(back, [{ opacity: 1 }, { opacity: 1, offset: .6 }, { opacity: 0, offset: .601 }, { opacity: 0 }], { duration: dur, delay });
+        at(D0 + delay + dur * .68, () => { rareBurst(fx, el, top); jolt(6, 320); });
         end = Math.max(end, delay + dur);
       }
     });
