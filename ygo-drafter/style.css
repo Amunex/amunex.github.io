@@ -314,3 +314,11 @@ details summary{cursor:pointer;font-weight:600}
 .pack-cycle .cyc.on{opacity:1;transform:none}
 .pack-cycle .pack{width:100%}
 @media (prefers-reduced-motion:reduce){.pack-cycle .cyc{transition:none}}
+
+/* v6: product groups in the pool viewer, deck draft */
+.pgroup{margin:0 0 22px}
+.pgroup h3{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:0 0 8px;font:400 19px/1.2 var(--display);position:sticky;top:-14px;background:var(--bg);padding:8px 0 6px;z-index:1}
+.pgroup h3 span{font:600 14px/1 var(--ui);color:var(--ink-soft)}
+.jump{display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;font-weight:600;font-size:15px}
+.jump select{max-width:min(420px,70vw);padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 14px var(--ui)}
+.decksline{margin:12px 0 0;color:var(--ink-soft);font-size:14px}
