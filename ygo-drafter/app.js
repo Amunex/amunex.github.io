@@ -1,5 +1,6 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 9;
+const V = 10;
+const HOME_PACKS = [["dk","LOB","Legend of Blue Eyes White Dragon","2002"],["dk","MRD","Metal Raiders","2002"],["goat","MRL","Magic Ruler","2002"],["goat","PSV","Pharaoh's Servant","2002"],["goat","LON","Labyrinth of Nightmare","2003"],["goat","LOD","Legacy of Darkness","2003"],["goat","PGD","Pharaonic Guardian","2003"],["goat","MFC","Magician's Force","2003"],["goat","DCR","Dark Crisis","2003"],["goat","IOC","Invasion of Chaos","2004"],["goat","AST","Ancient Sanctuary","2004"],["goat","EP1","Exclusive Pack","2004"],["goat","SOD","Soul of the Duelist","2004"],["goat","RDS","Rise of Destiny","2004"],["goat","FET","Flaming Eternity","2005"],["goat","TLM","The Lost Millennium","2005"],["edison","CRV","Cybernetic Revolution","2005"],["edison","EEN","Elemental Energy","2005"],["edison","DP2","Duelist Pack: Chazz Princeton","2006"],["edison","DP1","Duelist Pack: Jaden Yuki","2006"],["edison","SOI","Shadow of Infinity","2006"],["edison","EOJ","Enemy of Justice","2006"],["edison","POTD","Power of the Duelist","2006"],["edison","CDIP","Cyberdark Impact","2006"],["edison","DP05","Duelist Pack: Aster Phoenix","2007"],["edison","DP03","Duelist Pack: Jaden Yuki 2","2007"],["edison","STON","Strike of Neos","2007"],["edison","DP04","Duelist Pack: Zane Truesdale","2007"],["edison","FOTB","Force of the Breaker","2007"],["edison","PP01","Premium Pack (TCG)","2007"],["edison","TAEV","Tactical Evolution","2007"],["edison","GLAS","Gladiator's Assault","2007"],["edison","DP06","Duelist Pack: Jaden Yuki 3","2008"],["edison","DP07","Duelist Pack: Jesse Anderson","2008"],["edison","PTDN","Phantom Darkness","2008"],["edison","LODT","Light of Destruction","2008"],["edison","PP02","Premium Pack 2 (TCG)","2008"],["edison","TDGS","The Duelist Genesis","2008"],["edison","CSOC","Crossroads of Chaos","2008"],["edison","DLG1","Dark Legends","2008"],["edison","DP08","Duelist Pack: Yusei","2009"],["edison","CRMS","Crimson Crisis","2009"],["edison","RGBT","Raging Battle","2009"],["edison","DPYG","Duelist Pack: Yugi","2009"],["edison","ANPR","Ancient Prophecy","2009"],["edison","HA01","Hidden Arsenal","2009"],["edison","SOVR","Stardust Overdrive","2009"],["edison","DP09","Duelist Pack: Yusei 2","2010"],["edison","ABPF","Absolute Powerforce","2010"],["edison","DPKB","Duelist Pack: Kaiba","2010"]];
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
   apiKey: 'AIzaSyAto8uv4bsHkhDGkhiCFa-PuILGZS9Hf08',
@@ -470,11 +471,15 @@ function render() {
   if (v === 'home') renderHome(); else if (v === 'practice') renderPracticeSetup(); else if (v === 'lobby') renderLobby();
   else if (v === 'spectate') renderSpectate(); else if (v === 'draft') renderDraft(); else if (v === 'build') renderBuild();
 }
-let heroIdx = null, heroTimer = null;
-function heroCycleHTML() {
-  const keys = Object.keys(POOLS);
-  if (heroIdx == null) heroIdx = Math.max(0, keys.indexOf(S.settings.pool));
-  return `<div class="pack-cycle" id="packCycle" aria-hidden="true">${keys.map((k, i) => `<div class="cyc ${i === heroIdx ? 'on' : ''}">${packHTML(k)}</div>`).join('')}</div>`;
+let heroIdx = 0, heroTimer = null, heroKey = null;
+function heroList(pool) { const l = pool ? HOME_PACKS.filter(p => p[0] === pool) : HOME_PACKS; return l.length ? l : HOME_PACKS; }
+function heroCycleHTML(pool) {
+  const list = heroList(pool); const key = pool || 'all';
+  if (heroKey !== key) { heroKey = key; heroIdx = 0; }
+  const p = list[heroIdx % list.length];
+  return `<div class="pack-cycle photo-cycle" id="packCycle" data-pool="${pool || ''}" aria-hidden="true">
+    <img class="cyc on" src="packs/${p[1]}.webp" alt="" width="300" height="540"><img class="cyc" alt="" width="300" height="540">
+    <p class="cyc-cap"><span class="cyc-name">${esc(p[2])}</span><span class="cyc-year">${p[3]}</span></p></div>`;
 }
 function startHeroCycle() {
   clearInterval(heroTimer); heroTimer = null;
@@ -483,9 +488,17 @@ function startHeroCycle() {
     const box = $('#packCycle');
     if (!box) { clearInterval(heroTimer); heroTimer = null; return; }
     if (document.hidden) return;
-    const items = [...box.children]; heroIdx = (heroIdx + 1) % items.length;
-    items.forEach((el, i) => el.classList.toggle('on', i === heroIdx));
-  }, 4200);
+    const list = heroList(box.dataset.pool || null); if (list.length < 2) return;
+    heroIdx = (heroIdx + 1) % list.length; const p = list[heroIdx];
+    const [a, b] = box.querySelectorAll('.cyc'); const cur = a.classList.contains('on') ? a : b, nxt = cur === a ? b : a;
+    const img = new Image(); img.onload = () => {
+      if (!box.isConnected) return;
+      nxt.src = img.src; cur.classList.remove('on'); nxt.classList.add('on');
+      const cap = box.querySelector('.cyc-cap'); cap.classList.add('swap');
+      setTimeout(() => { cap.querySelector('.cyc-name').textContent = p[2]; cap.querySelector('.cyc-year').textContent = p[3]; cap.classList.remove('swap'); }, 450);
+    };
+    img.src = `packs/${p[1]}.webp`;
+  }, 2800);
 }
 function renderHome() {
   setBar('', []);
@@ -506,14 +519,15 @@ function renderHome() {
       <div class="block"><h3>Host a draft</h3><p>Create a room, send the invite link, and start when everyone’s in.</p><div class="row"><button class="cta" type="button" data-act="create">Create a room</button></div></div>
       <div class="block"><h3><label for="codeIn">Join with a code</label></h3><div class="row"><input class="text code" id="codeIn" maxlength="4" autocomplete="off" placeholder="ABCD"><button class="ghost" type="button" data-act="join">Join</button></div></div>
       <div class="block"><h3>Practice</h3><p>Draft alone against bots. Nothing goes online.</p><div class="row"><button class="ghost" type="button" data-act="practice">Practice vs bots</button></div></div>${err}`;
-  $('#app').innerHTML = `<section class="home"><div class="hero-pack">${heroCycleHTML()}</div><div>${body}</div></section>`;
+  $('#app').innerHTML = `<section class="home"><div class="hero-pack">${heroCycleHTML(null)}</div><div>${body}</div></section>`;
   startHeroCycle();
 }
 function renderPracticeSetup() {
   setBar('<span>Practice vs bots</span>', [`<button class="ghost" type="button" data-act="home">Back</button>`]);
-  $('#app').innerHTML = `<section class="home"><div class="hero-pack">${packHTML(S.settings.pool)}</div>
+  $('#app').innerHTML = `<section class="home"><div class="hero-pack">${heroCycleHTML(S.settings.pool)}</div>
     <div><h2>Practice draft</h2><p class="lede">Same packs and rules as a live room, with bots in the other seats.</p>${settingsHTML(S.settings, true, false, 1)}
       <div class="row" style="margin-top:22px"><button class="cta" type="button" data-act="start-practice" ${S.busy ? 'disabled' : ''}>${S.busy ? 'Loading cards…' : 'Open your first pack'}</button></div></div></section>`;
+  startHeroCycle();
 }
 function lobbyMembers() { return Object.entries((S.room && S.room.members) || {}).map(([uid, m]) => ({ uid, name: (m && m.name) || 'Player', joined: (m && m.joined) || 0 })).sort((a, b) => a.joined - b.joined); }
 function humansInLobby() { return S.online && S.room ? lobbyMembers().filter(m => presenceOf(m.uid)).length : 1; }
@@ -616,12 +630,12 @@ function playOpen(poolKey, packs, label) {
   const table = $('#table'), grid = $('#packGrid');
   if (!table || !grid) return;
   const cards = [...grid.querySelectorAll('.card')];
-  const cleanup = () => cards.forEach(el => { el.getAnimations().forEach(a => a.cancel()); el.querySelectorAll('.back').forEach(b => b.remove()); el.style.opacity = ''; });
+  const cleanup = () => cards.forEach(el => { el.getAnimations().forEach(a => a.cancel()); el.querySelectorAll('.back').forEach(b => b.remove()); el.style.opacity = ''; el.style.zIndex = ''; });
   if (reduceMotion) { cleanup(); return; }
   const anims = []; const timers = []; let over = false;
-  const ov = document.createElement('div'); ov.className = 'opening'; ov.setAttribute('aria-hidden', 'true');
   const art = !label && P[poolKey] ? shuffle(P[poolKey].packs.slice()).map(x => x[1]) : [];
-  ov.innerHTML = `<div class="shade"></div><div class="flash"></div><div class="packs">${Array.from({ length: packs }, (_, i) => packHTML(poolKey, label || (art.length ? { img: art[i % art.length] } : {}))).join('')}</div>`;
+  const ov = document.createElement('div'); ov.className = 'opening'; ov.setAttribute('aria-hidden', 'true');
+  ov.innerHTML = `<div class="shade"></div><div class="rays"></div><div class="flash"></div><div class="packs">${Array.from({ length: packs }, (_, i) => packHTML(poolKey, label || (art.length ? { img: art[i % art.length] } : {}))).join('')}</div>`;
   table.appendChild(ov);
   cards.forEach(el => { el.style.opacity = '0'; });
   const A = (el, kf, opt) => { if (!el) return null; const a = el.animate(kf, { fill: 'both', ...opt }); anims.push(a); return a; };
@@ -631,52 +645,87 @@ function playOpen(poolKey, packs, label) {
     anims.forEach(a => { try { a.cancel(); } catch (_) {} });
     ov.remove(); cleanup();
   };
-  setTimeout(finish, 9000);
+  setTimeout(finish, 14000);
   const packEls = [...ov.querySelectorAll('.pack')];
-  // 1. packs drop onto the table
-  packEls.forEach((p, i) => A(p, [{ transform: 'translateY(-140px) scale(.7) rotate(-8deg)', opacity: 0 }, { transform: 'translateY(8px) scale(1.03) rotate(1deg)', opacity: 1, offset: .75 }, { transform: 'none', opacity: 1 }], { duration: 450, delay: i * 80, easing: 'cubic-bezier(.2,.9,.3,1.2)' }));
-  // 2. they shake while the tear line lights up
-  at(470, () => packEls.forEach((p, i) => {
-    A(p, [0, -3, 4, -6, 7, -8, 9, -5, 0].map(r => ({ transform: `rotate(${r}deg) scale(${1 + Math.abs(r) / 200})` })), { duration: 560, delay: i * 50, easing: 'ease-in-out' });
-    A(p.querySelector('.tearglow'), [{ opacity: 0, transform: 'scaleX(.2)' }, { opacity: 1, transform: 'scaleX(1)' }], { duration: 560, delay: i * 50, easing: 'ease-in' });
+  const jolt = (px, ms) => A(table, [0, px, -px, px * .7, -px * .6, px * .3, 0].map(x => ({ transform: `translate(${x}px, ${-x * .4}px)` })), { duration: ms, easing: 'ease-out', fill: 'none' });
+  // 1. the packs slam down onto the table
+  packEls.forEach((p, i) => A(p, [
+    { transform: 'translateY(-320px) scale(.5) rotate(-16deg)', opacity: 0 },
+    { transform: 'translateY(26px) scale(1.1) rotate(4deg)', opacity: 1, offset: .62 },
+    { transform: 'translateY(-10px) scale(.97) rotate(-2deg)', offset: .82 },
+    { transform: 'none', opacity: 1 }], { duration: 740, delay: i * 110, easing: 'cubic-bezier(.2,.8,.3,1)' }));
+  at(500, () => jolt(5, 320));
+  // 2. they hover and glow
+  at(780, () => packEls.forEach((p, i) => {
+    A(p, [{ transform: 'none' }, { transform: 'translateY(-16px) scale(1.04)' }, { transform: 'translateY(-4px) scale(1.02)' }], { duration: 520, delay: i * 60, easing: 'ease-in-out' });
+    A(p.querySelector('.tearglow'), [{ opacity: 0, transform: 'scaleX(.1)' }, { opacity: .55, transform: 'scaleX(.8)' }, { opacity: .3, transform: 'scaleX(.6)' }], { duration: 520, delay: i * 60 });
   }));
-  // 3. the top rips off in a flash
-  at(1040, () => {
+  // 3. a violent shake while the tear line blazes
+  at(1260, () => packEls.forEach((p, i) => {
+    A(p, [0, -4, 5, -7, 8, -10, 11, -13, 14, -15, 12, -8, 0].map((r, k) => ({ transform: `translateY(-4px) rotate(${r}deg) scale(${1.02 + k * .008})` })), { duration: 950, delay: i * 50, easing: 'ease-in' });
+    A(p.querySelector('.tearglow'), [{ opacity: .3 }, { opacity: .9 }, { opacity: .5 }, { opacity: 1 }, { opacity: .7 }, { opacity: 1, transform: 'scaleX(1.05) scaleY(1.6)' }], { duration: 950, delay: i * 50 });
+  }));
+  // 4. RIP: the top flies off, light pours out
+  at(2220, () => {
+    jolt(9, 420);
     packEls.forEach((p, i) => {
-      A(p.querySelector('.strip'), [{ transform: 'none', opacity: 1 }, { transform: `translate(${i % 2 ? -110 : 110}px,-170px) rotate(${i % 2 ? -34 : 34}deg)`, opacity: 0 }], { duration: 520, easing: 'cubic-bezier(.3,.7,.3,1)' });
-      A(p.querySelector('.tearglow'), [{ opacity: 1 }, { opacity: 0 }], { duration: 300 });
-      sparks(ov, p, ['#FFF3C4', '#F4CC62', '#FFFFFF'], 14);
+      A(p, [{ transform: 'translateY(-4px) scale(1.12)' }, { transform: 'translateY(6px) scale(1.02)' }], { duration: 380, easing: 'ease-out' });
+      A(p.querySelector('.strip'), [{ transform: 'none', opacity: 1 }, { transform: `translate(${i % 2 ? -90 : 90}px,-120px) rotate(${i % 2 ? -40 : 40}deg)`, opacity: 1, offset: .35 }, { transform: `translate(${i % 2 ? -230 : 230}px,-360px) rotate(${i % 2 ? -110 : 110}deg)`, opacity: 0 }], { duration: 1000, easing: 'cubic-bezier(.25,.7,.3,1)' });
+      A(p.querySelector('.tearglow'), [{ opacity: 1 }, { opacity: 0 }], { duration: 450 });
+      sparks(ov, p, ['#FFF3C4', '#F4CC62', '#FFFFFF', '#FFD27A'], 34);
     });
-    A(ov.querySelector('.flash'), [{ opacity: 0, transform: 'scale(.3)' }, { opacity: .95, transform: 'scale(1)', offset: .25 }, { opacity: 0, transform: 'scale(1.8)' }], { duration: 650, easing: 'ease-out' });
+    A(ov.querySelector('.flash'), [{ opacity: 0, transform: 'scale(.2)' }, { opacity: 1, transform: 'scale(1.1)', offset: .2 }, { opacity: 0, transform: 'scale(2.6)' }], { duration: 1000, easing: 'ease-out' });
+    A(ov.querySelector('.rays'), [{ opacity: 0, transform: 'rotate(0deg) scale(.4)' }, { opacity: .85, transform: 'rotate(40deg) scale(1)', offset: .3 }, { opacity: 0, transform: 'rotate(120deg) scale(1.4)' }], { duration: 1700, easing: 'ease-out' });
   });
-  // 4. cards fly out face down and flip face up as they land
-  at(1220, () => {
-    const centers = packEls.map(p => { const r = p.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height * .45]; });
+  // 5. the cards rise out one by one, soar across the table and flip face up
+  const D0 = 2520;
+  at(D0, () => {
+    const tr = table.getBoundingClientRect(); const tcx = tr.left + tr.width / 2, tcy = tr.top + Math.min(tr.height, window.innerHeight) * .42;
+    const centers = packEls.map(p => { const r = p.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height * .3]; });
     const tiers = cards.map(el => +el.dataset.tier || 0);
     const top = Math.max(...tiers); const rareIdx = top >= 1 ? tiers.lastIndexOf(top) : -1;
-    const step = cards.length > 10 ? 45 : 70;
-    packEls.forEach(p => A(p, [{ transform: 'none', opacity: 1 }, { transform: 'translateY(40px) scale(.9)', opacity: 0 }], { duration: 460, delay: 100, easing: 'ease-in' }));
+    const step = cards.length > 12 ? 62 : 105;
+    packEls.forEach(p => A(p, [{ transform: 'translateY(6px) scale(1.02)', opacity: 1 }, { transform: 'translateY(70px) scale(.85) rotate(-4deg)', opacity: 0 }], { duration: 800, delay: 350, easing: 'ease-in' }));
     let t = 0, end = 0;
-    cards.forEach((el, i) => {
+    const normals = cards.map((el, i) => i).filter(i => i !== rareIdx);
+    const order = rareIdx >= 0 ? normals.concat([rareIdx]) : normals;
+    order.forEach((i, k) => {
+      const el = cards[i];
       const [cx, cy] = centers[Math.min(packEls.length - 1, Math.floor(i * packEls.length / cards.length))];
       const r = el.getBoundingClientRect(); const dx = cx - (r.left + r.width / 2), dy = cy - (r.top + r.height / 2);
-      const rare = i === rareIdx; const delay = rare ? t + 220 : t; const dur = rare ? 900 : 600; t += step;
-      const flipAt = rare ? .75 : .55;
-      el.style.opacity = '';
+      const rare = i === rareIdx; el.style.opacity = ''; el.style.zIndex = '7';
       const back = document.createElement('span'); back.className = 'back'; back.innerHTML = EYE; el.appendChild(back);
-      A(el, [
-        { transform: `translate(${dx}px,${dy}px) scale(.42) rotateY(180deg) rotateZ(${(i % 5 - 2) * 4}deg)`, opacity: 0 },
-        { transform: `translate(${dx}px,${dy - 40}px) scale(.5) rotateY(180deg) rotateZ(${(i % 5 - 2) * 4}deg)`, opacity: 1, offset: .12 },
-        rare ? { transform: `translate(${dx * .35}px,${dy * .35 - 80}px) scale(1.2) rotateY(180deg) rotateZ(0deg)`, offset: .6 }
-             : { transform: `translate(${dx * .4}px,${dy * .4 - 70}px) scale(.9) rotateY(90deg) rotateZ(0deg)`, offset: .55 },
-        { transform: 'translate(0,0) scale(1) rotateY(0deg) rotateZ(0deg)', opacity: 1 }
-      ], { duration: dur, delay, easing: 'cubic-bezier(.2,.75,.25,1)' });
-      A(back, [{ opacity: 1 }, { opacity: 1, offset: flipAt }, { opacity: 0, offset: Math.min(1, flipAt + .01) }, { opacity: 0 }], { duration: dur, delay });
-      if (rare) at(1220 + delay + dur - 60, () => rareBurst(ov, el, top));
-      end = Math.max(end, delay + dur);
+      const tilt = (k % 5 - 2) * 6;
+      if (!rare) {
+        const delay = t; t += step; const dur = 920;
+        A(el, [
+          { transform: `translate(${dx}px,${dy + 30}px) scale(.4) rotateY(180deg) rotateZ(${tilt}deg)`, opacity: 0 },
+          { transform: `translate(${dx}px,${dy - 120}px) scale(.62) rotateY(180deg) rotateZ(${tilt}deg)`, opacity: 1, offset: .28 },
+          { transform: `translate(${dx * .45}px,${dy * .45 - 150}px) scale(1.05) rotateY(90deg) rotateZ(${tilt / 2}deg)`, offset: .62 },
+          { transform: 'translate(0,-14px) scale(1.08) rotateY(0deg) rotateZ(0deg)', offset: .85 },
+          { transform: 'translate(0,0) scale(1) rotateY(0deg) rotateZ(0deg)', opacity: 1 }
+        ], { duration: dur, delay, easing: 'cubic-bezier(.25,.7,.3,1)' });
+        A(back, [{ opacity: 1 }, { opacity: 1, offset: .62 }, { opacity: 0, offset: .63 }, { opacity: 0 }], { duration: dur, delay });
+        end = Math.max(end, delay + dur);
+      } else {
+        const delay = t + 200; const dur = 2000; const cx2 = tcx - (r.left + r.width / 2), cy2 = tcy - (r.top + r.height / 2);
+        A(el, [
+          { transform: `translate(${dx}px,${dy + 30}px) scale(.4) rotateY(180deg)`, opacity: 0 },
+          { transform: `translate(${dx}px,${dy - 120}px) scale(.62) rotateY(180deg)`, opacity: 1, offset: .12 },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.7) rotateY(180deg)`, offset: .36 },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.78) rotateY(180deg) rotateZ(-3deg)`, offset: .46 },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.78) rotateY(180deg) rotateZ(3deg)`, offset: .52 },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.85) rotateY(0deg) rotateZ(0deg)`, offset: .68 },
+          { transform: `translate(${cx2}px,${cy2}px) scale(1.85) rotateY(0deg)`, offset: .84 },
+          { transform: 'translate(0,0) scale(1) rotateY(0deg)', opacity: 1 }
+        ], { duration: dur, delay, easing: 'cubic-bezier(.3,.6,.3,1)' });
+        A(back, [{ opacity: 1 }, { opacity: 1, offset: .6 }, { opacity: 0, offset: .61 }, { opacity: 0 }], { duration: dur, delay });
+        at(D0 + delay + dur * .66, () => { rareBurst(ov, el, top); jolt(6, 320); });
+        end = Math.max(end, delay + dur);
+      }
     });
-    A(ov.querySelector('.shade'), [{ opacity: 1 }, { opacity: 0 }], { duration: 500, delay: Math.max(0, end - 300), easing: 'ease-out' });
-    at(1220 + end + (rareIdx >= 0 ? 650 : 120), finish);
+    A(ov.querySelector('.shade'), [{ opacity: 1 }, { opacity: 0 }], { duration: 700, delay: Math.max(0, end - 500), easing: 'ease-out' });
+    at(D0 + end + 450, finish);
   });
 }
 function sparks(ov, anchor, colors, n) {
@@ -696,13 +745,13 @@ function rareBurst(ov, el, tier) {
   const ring = document.createElement('span'); ring.className = 'ring';
   Object.assign(ring.style, { left: (r.left - box.left + r.width / 2) + 'px', top: (r.top - box.top + r.height / 2) + 'px', width: r.width * 1.1 + 'px', height: r.height * 1.1 + 'px', boxShadow: `0 0 34px 10px ${fx[0]}, inset 0 0 24px 6px ${fx[1]}` });
   ov.appendChild(ring);
-  ring.animate([{ transform: 'translate(-50%,-50%) scale(.8)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: .3 }, { transform: 'translate(-50%,-50%) scale(1.25)', opacity: 0 }], { duration: 900, easing: 'ease-out', fill: 'forwards' });
-  sparks(ov, el, [fx[0], fx[1], '#FFFFFF'], tier >= 3 ? 24 : 14);
+  ring.animate([{ transform: 'translate(-50%,-50%) scale(.8)', opacity: 0 }, { transform: 'translate(-50%,-50%) scale(1)', opacity: 1, offset: .3 }, { transform: 'translate(-50%,-50%) scale(1.25)', opacity: 0 }], { duration: 1300, easing: 'ease-out', fill: 'forwards' });
+  sparks(ov, el, [fx[0], fx[1], '#FFFFFF'], tier >= 3 ? 44 : 28);
   if (md) return;
   const tag = document.createElement('span'); tag.className = 'raretag'; tag.textContent = fx[2];
   Object.assign(tag.style, { left: (r.left - box.left + r.width / 2) + 'px', top: (r.top - box.top - 6) + 'px', color: tier === 4 ? '#FFD6F0' : fx[0] });
   ov.appendChild(tag);
-  tag.animate([{ transform: 'translate(-50%,0) scale(.6)', opacity: 0 }, { transform: 'translate(-50%,-14px) scale(1.05)', opacity: 1, offset: .25 }, { transform: 'translate(-50%,-26px) scale(1)', opacity: 0 }], { duration: 1100, easing: 'ease-out', fill: 'forwards' });
+  tag.animate([{ transform: 'translate(-50%,0) scale(.5)', opacity: 0 }, { transform: 'translate(-50%,-22px) scale(1.15)', opacity: 1, offset: .2 }, { transform: 'translate(-50%,-30px) scale(1)', opacity: 1, offset: .7 }, { transform: 'translate(-50%,-44px) scale(1)', opacity: 0 }], { duration: 1700, easing: 'ease-out', fill: 'forwards' });
 }
 
 /* ================= deck building screen ================= */
