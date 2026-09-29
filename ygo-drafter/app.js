@@ -1,5 +1,5 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 10;
+const V = 11;
 const HOME_PACKS = [["dk","LOB","Legend of Blue Eyes White Dragon","2002"],["dk","MRD","Metal Raiders","2002"],["goat","MRL","Magic Ruler","2002"],["goat","PSV","Pharaoh's Servant","2002"],["goat","LON","Labyrinth of Nightmare","2003"],["goat","LOD","Legacy of Darkness","2003"],["goat","PGD","Pharaonic Guardian","2003"],["goat","MFC","Magician's Force","2003"],["goat","DCR","Dark Crisis","2003"],["goat","IOC","Invasion of Chaos","2004"],["goat","AST","Ancient Sanctuary","2004"],["goat","EP1","Exclusive Pack","2004"],["goat","SOD","Soul of the Duelist","2004"],["goat","RDS","Rise of Destiny","2004"],["goat","FET","Flaming Eternity","2005"],["goat","TLM","The Lost Millennium","2005"],["edison","CRV","Cybernetic Revolution","2005"],["edison","EEN","Elemental Energy","2005"],["edison","DP2","Duelist Pack: Chazz Princeton","2006"],["edison","DP1","Duelist Pack: Jaden Yuki","2006"],["edison","SOI","Shadow of Infinity","2006"],["edison","EOJ","Enemy of Justice","2006"],["edison","POTD","Power of the Duelist","2006"],["edison","CDIP","Cyberdark Impact","2006"],["edison","DP05","Duelist Pack: Aster Phoenix","2007"],["edison","DP03","Duelist Pack: Jaden Yuki 2","2007"],["edison","STON","Strike of Neos","2007"],["edison","DP04","Duelist Pack: Zane Truesdale","2007"],["edison","FOTB","Force of the Breaker","2007"],["edison","PP01","Premium Pack (TCG)","2007"],["edison","TAEV","Tactical Evolution","2007"],["edison","GLAS","Gladiator's Assault","2007"],["edison","DP06","Duelist Pack: Jaden Yuki 3","2008"],["edison","DP07","Duelist Pack: Jesse Anderson","2008"],["edison","PTDN","Phantom Darkness","2008"],["edison","LODT","Light of Destruction","2008"],["edison","PP02","Premium Pack 2 (TCG)","2008"],["edison","TDGS","The Duelist Genesis","2008"],["edison","CSOC","Crossroads of Chaos","2008"],["edison","DLG1","Dark Legends","2008"],["edison","DP08","Duelist Pack: Yusei","2009"],["edison","CRMS","Crimson Crisis","2009"],["edison","RGBT","Raging Battle","2009"],["edison","DPYG","Duelist Pack: Yugi","2009"],["edison","ANPR","Ancient Prophecy","2009"],["edison","HA01","Hidden Arsenal","2009"],["edison","SOVR","Stardust Overdrive","2009"],["edison","DP09","Duelist Pack: Yusei 2","2010"],["edison","ABPF","Absolute Powerforce","2010"],["edison","DPKB","Duelist Pack: Kaiba","2010"]];
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
@@ -395,6 +395,10 @@ const CHECK = `<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.5l4.2 
 const DOTS = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12" r="2.2" fill="currentColor"/><circle cx="12" cy="12" r="2.2" fill="currentColor"/><circle cx="19" cy="12" r="2.2" fill="currentColor"/></svg>`;
 const EYE = `<svg viewBox="0 0 120 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 26c18-16 58-20 90-4 8 4 14 6 18 6"/><path d="M14 30c14 10 42 12 64 2"/><circle cx="52" cy="24" r="9" fill="currentColor"/><path d="M50 34v14c0 6-6 10-12 8"/><path d="M62 33c8 8 14 18 26 22"/></g></svg>`;
 const ZZ = (() => { const n = 14, top = [], bot = []; for (let i = 0; i <= n; i++) top.push(`${(i * 100 / n).toFixed(2)}% ${i % 2 ? 0 : 2.4}%`); for (let i = n; i >= 0; i--) bot.push(`${(i * 100 / n).toFixed(2)}% ${i % 2 ? 100 : 97.6}%`); return `polygon(${top.concat(bot).join(',')})`; })();
+function deckVisualHTML(v) {
+  if (v.img) return `<div class="pack photo deckbox"><div class="body" style="background-image:url('${v.img}')"></div><div class="tearglow"></div><span class="deckname">${esc(v.name)}</span></div>`;
+  return `<div class="pack deckstack"><div class="body"></div><div class="tearglow"></div><span class="deckname">${esc(v.name)}</span></div>`;
+}
 function packHTML(key = 'goat', o = {}) {
   if (o.img) return `<div class="pack photo"><div class="body" style="background-image:url('${o.img}')"></div><div class="strip" style="background-image:url('${o.img}')"></div><div class="tearglow"></div></div>`;
   const cfg = POOLS[key] || POOLS.goat; const big = o.big || cfg.big;
@@ -621,7 +625,15 @@ function renderDraft() {
     <aside class="detail ${S.expanded ? 'expanded' : ''}" id="detail" ${focus || wide() ? '' : 'hidden'}>
       ${focus ? detailHTML(focus, act) : `<p class="detail-empty">${done ? 'Your pick is in. The next pack arrives when everyone has picked.' : 'Tap a card to read it here.'}</p>`}
     </aside></section>`;
-  if (anim === 'open') playOpen(g.settings.pool, g.batch || 1, deckMode ? { big: 'DECKS', era: 'Deck draft', count: `${pack.length} cards` } : null);
+  if (anim === 'open') {
+    let label = null;
+    if (deckMode) {
+      const pdk = P[g.settings.pool]; const all = pdk ? pdk.decks.struct.concat(pdk.decks.comp) : [];
+      const names = shuffle([...new Set(g.decksUsed)]).slice(0, 3);
+      label = { decks: names.map(n => { const d = all.find(x => x.n === n); const i = n.indexOf(', '); return { img: d && d.img, name: i > 0 ? n.slice(0, i) : n }; }) };
+    }
+    playOpen(g.settings.pool, g.batch || 1, label);
+  }
 }
 
 /* ================= pack opening ================= */
@@ -635,15 +647,17 @@ function playOpen(poolKey, packs, label) {
   const anims = []; const timers = []; let over = false;
   const art = !label && P[poolKey] ? shuffle(P[poolKey].packs.slice()).map(x => x[1]) : [];
   const ov = document.createElement('div'); ov.className = 'opening'; ov.setAttribute('aria-hidden', 'true');
-  ov.innerHTML = `<div class="shade"></div><div class="rays"></div><div class="flash"></div><div class="packs">${Array.from({ length: packs }, (_, i) => packHTML(poolKey, label || (art.length ? { img: art[i % art.length] } : {}))).join('')}</div>`;
+  const visuals = label && label.decks ? label.decks.map(deckVisualHTML) : Array.from({ length: packs }, (_, i) => packHTML(poolKey, label || (art.length ? { img: art[i % art.length] } : {})));
+  ov.innerHTML = `<div class="shade"></div><div class="rays"></div><div class="flash"></div><div class="packs">${visuals.join('')}</div>`;
   table.appendChild(ov);
+  const fx = document.createElement('div'); fx.className = 'fxlayer'; fx.setAttribute('aria-hidden', 'true'); table.appendChild(fx);
   cards.forEach(el => { el.style.opacity = '0'; });
   const A = (el, kf, opt) => { if (!el) return null; const a = el.animate(kf, { fill: 'both', ...opt }); anims.push(a); return a; };
   const at = (ms, fn) => timers.push(setTimeout(() => { if (!over) fn(); }, ms));
   const finish = () => {
     if (over) return; over = true; timers.forEach(clearTimeout);
     anims.forEach(a => { try { a.cancel(); } catch (_) {} });
-    ov.remove(); cleanup();
+    ov.remove(); fx.remove(); cleanup();
   };
   setTimeout(finish, 14000);
   const packEls = [...ov.querySelectorAll('.pack')];
@@ -669,6 +683,10 @@ function playOpen(poolKey, packs, label) {
   at(2220, () => {
     jolt(9, 420);
     packEls.forEach((p, i) => {
+      if (p.classList.contains('deckbox') || p.classList.contains('deckstack')) {
+        A(p, [{ transform: 'translateY(-4px) scale(1.1)', opacity: 1 }, { transform: 'translateY(-10px) scale(1.25)', opacity: 1, offset: .3 }, { transform: 'translateY(-30px) scale(1.5)', opacity: 0 }], { duration: 750, easing: 'cubic-bezier(.3,.6,.3,1)' });
+        sparks(ov, p, ['#FFF3C4', '#F4CC62', '#FFFFFF', '#FFD27A'], 34); return;
+      }
       A(p, [{ transform: 'translateY(-4px) scale(1.12)' }, { transform: 'translateY(6px) scale(1.02)' }], { duration: 380, easing: 'ease-out' });
       A(p.querySelector('.strip'), [{ transform: 'none', opacity: 1 }, { transform: `translate(${i % 2 ? -90 : 90}px,-120px) rotate(${i % 2 ? -40 : 40}deg)`, opacity: 1, offset: .35 }, { transform: `translate(${i % 2 ? -230 : 230}px,-360px) rotate(${i % 2 ? -110 : 110}deg)`, opacity: 0 }], { duration: 1000, easing: 'cubic-bezier(.25,.7,.3,1)' });
       A(p.querySelector('.tearglow'), [{ opacity: 1 }, { opacity: 0 }], { duration: 450 });
@@ -693,8 +711,8 @@ function playOpen(poolKey, packs, label) {
       const el = cards[i];
       const [cx, cy] = centers[Math.min(packEls.length - 1, Math.floor(i * packEls.length / cards.length))];
       const r = el.getBoundingClientRect(); const dx = cx - (r.left + r.width / 2), dy = cy - (r.top + r.height / 2);
-      const rare = i === rareIdx; el.style.opacity = ''; el.style.zIndex = '7';
-      const back = document.createElement('span'); back.className = 'back'; back.innerHTML = EYE; el.appendChild(back);
+      const rare = i === rareIdx; el.style.opacity = ''; el.style.zIndex = rare ? '25' : '7';
+      const back = document.createElement('span'); back.className = 'back'; el.appendChild(back);
       const tilt = (k % 5 - 2) * 6;
       if (!rare) {
         const delay = t; t += step; const dur = 920;
@@ -720,7 +738,7 @@ function playOpen(poolKey, packs, label) {
           { transform: 'translate(0,0) scale(1) rotateY(0deg)', opacity: 1 }
         ], { duration: dur, delay, easing: 'cubic-bezier(.3,.6,.3,1)' });
         A(back, [{ opacity: 1 }, { opacity: 1, offset: .6 }, { opacity: 0, offset: .61 }, { opacity: 0 }], { duration: dur, delay });
-        at(D0 + delay + dur * .66, () => { rareBurst(ov, el, top); jolt(6, 320); });
+        at(D0 + delay + dur * .66, () => { rareBurst(fx, el, top); jolt(6, 320); });
         end = Math.max(end, delay + dur);
       }
     });
@@ -856,7 +874,8 @@ function renderDecksView(pd) {
       const main = cards.filter(([c]) => c.k !== 'F').reduce((n, [, q]) => n + q, 0), extra = cards.filter(([c]) => c.k === 'F').reduce((n, [, q]) => n + q, 0);
       const top = cards.slice().sort((a, b) => b[0].r - a[0].r || (b[0].w ?? b[0].u) - (a[0].w ?? a[0].u)).slice(0, 3);
       const [name, meta] = deckParts(d);
-      return `<details class="deck" data-src="${src}" data-i="${i}"><summary><span class="dthumbs">${top.map(([c]) => `<img src="${imgSrc(c.i)}" alt="" loading="lazy" width="42" height="61">`).join('')}</span>
+      const thumbs = d.img ? `<img class="dbox" src="${d.img}" alt="" loading="lazy" width="48" height="72">` : top.map(([c]) => `<img src="${imgSrc(c.i)}" alt="" loading="lazy" width="42" height="61">`).join('');
+      return `<details class="deck" data-src="${src}" data-i="${i}"><summary><span class="dthumbs">${thumbs}</span>
         <span class="dtext"><span class="dname">${esc(name)}</span><span class="dmeta">${meta ? esc(meta) + '. ' : ''}${main} main${extra ? `, ${extra} extra` : ''}</span></span></summary><div class="dcards"></div></details>`;
     }).join('')}</div>`;
   };

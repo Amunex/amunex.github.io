@@ -292,14 +292,11 @@ details summary{cursor:pointer;font-weight:600}
 .opening .flash{position:absolute;left:50%;top:40%;width:560px;height:560px;margin:-280px 0 0 -280px;border-radius:50%;opacity:0;pointer-events:none;
   background:radial-gradient(circle,rgba(255,255,255,.95) 0%,rgba(255,236,170,.75) 22%,rgba(244,204,98,.25) 48%,transparent 70%)}
 .opening .skip{position:absolute;bottom:10px;left:0;right:0;margin:0;text-align:center;font-weight:600;font-size:13px;color:#F1E6C8;opacity:.75}
-.opening .spark{position:absolute;width:7px;height:7px;border-radius:50%;pointer-events:none;box-shadow:0 0 8px 2px rgba(255,240,190,.8)}
-.opening .ring{position:absolute;border-radius:10px;pointer-events:none}
-.opening .raretag{position:absolute;z-index:9;white-space:nowrap;font:400 32px/1 var(--display);letter-spacing:.04em;pointer-events:none;
+.opening .spark,.fxlayer .spark{position:absolute;width:7px;height:7px;border-radius:50%;pointer-events:none;box-shadow:0 0 8px 2px rgba(255,240,190,.8)}
+.opening .ring,.fxlayer .ring{position:absolute;border-radius:10px;pointer-events:none}
+.opening .raretag,.fxlayer .raretag{position:absolute;z-index:9;white-space:nowrap;font:400 32px/1 var(--display);letter-spacing:.04em;pointer-events:none;
   text-shadow:0 2px 0 rgba(0,0,0,.6),0 0 14px rgba(255,236,170,.8)}
-.card .back{position:absolute;inset:0;z-index:4;border-radius:6px;display:grid;place-items:center;pointer-events:none;
-  background:radial-gradient(55% 40% at 50% 50%,#4B3A9C 0%,#241B5C 55%,#120E33 100%);border:3px solid #6B4A14;box-shadow:inset 0 0 0 2px #C9962D,inset 0 0 22px rgba(0,0,0,.6)}
-.card .back::before{content:"";position:absolute;inset:18% 14%;border-radius:50%;border:2px solid rgba(244,204,98,.7);box-shadow:inset 0 0 18px rgba(244,204,98,.35)}
-.card .back svg{width:52%;height:auto;color:#E9C46A;position:relative}
+.card .back{position:absolute;inset:0;z-index:4;border-radius:6px;pointer-events:none;background:#1a0f06 url('img/back.webp') center/100% 100% no-repeat;box-shadow:0 1px 0 rgba(0,0,0,.25),0 10px 18px -10px rgba(0,0,0,.6)}
 @media (prefers-reduced-motion:reduce){.opening{display:none}}
 
 /* v4: Duelist Kingdom pack */
@@ -353,7 +350,7 @@ details summary{cursor:pointer;font-weight:600}
   background:repeating-conic-gradient(from 0deg,rgba(255,232,160,.42) 0deg 5deg,transparent 5deg 16deg);
   -webkit-mask-image:radial-gradient(circle,#000 12%,transparent 62%);mask-image:radial-gradient(circle,#000 12%,transparent 62%)}
 .opening .ring{z-index:8}
-.opening .spark{z-index:9}
+.opening .spark,.fxlayer .spark{z-index:9}
 .pack-cycle.photo-cycle{aspect-ratio:auto;width:clamp(180px,20vw,250px);display:grid;justify-items:center}
 .photo-cycle .cyc{position:static;inset:auto;grid-area:1/1;width:100%;height:auto;opacity:0;transform:translateY(16px) scale(.93) rotate(-5deg);
   transition:opacity 1.2s ease,transform 1.5s cubic-bezier(.2,.7,.2,1);filter:drop-shadow(0 22px 26px rgba(0,0,0,.45))}
@@ -362,3 +359,15 @@ details summary{cursor:pointer;font-weight:600}
 .photo-cycle .cyc-cap.swap{opacity:0}
 .cyc-name{font:400 17px/1.2 var(--display);max-width:22ch}
 .cyc-year{font:600 14px/1 var(--ui);color:var(--ink-soft)}
+
+/* v11: effects layer above cards, deck boxes and card-back stacks */
+.fxlayer{position:absolute;inset:0;z-index:30;pointer-events:none}
+.pack.deckbox{aspect-ratio:2/3;width:clamp(120px,15vw,170px)}
+.pack.deckbox .body{clip-path:none;background-size:contain;background-position:center bottom;border-radius:6px}
+.pack.deckstack{aspect-ratio:210/306;width:clamp(110px,13vw,150px)}
+.pack.deckstack .body{background:#1a0f06 url('img/back.webp') center/100% 100% no-repeat;border-radius:6px;
+  box-shadow:3px 3px 0 #2b1a0a,6px 6px 0 #150d05,9px 9px 0 #2b1a0a,12px 12px 0 #150d05,14px 16px 22px rgba(0,0,0,.5)}
+.pack .deckname{position:absolute;left:50%;bottom:-30px;transform:translateX(-50%);white-space:nowrap;max-width:220px;overflow:hidden;text-overflow:ellipsis;
+  font:400 15px/1.2 var(--display);color:#FFF3D0;text-shadow:0 2px 6px rgba(0,0,0,.8)}
+.opening .packs{gap:40px}
+.dthumbs .dbox{width:40px;height:auto;border-radius:3px}
