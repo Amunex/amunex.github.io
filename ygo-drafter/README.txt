@@ -5,16 +5,18 @@ Upload (first time and every update; same-name files get replaced)
 2. Drag this whole "ygo-drafter" folder onto the page, then click Commit changes.
 3. Wait a minute, then open https://amunexanimation.com/ygo-drafter/
 
-Card pools (data/<pool>/pool.js) - every card released in each era; banned cards included; only deck rule is max 3 copies (players handle it)
-- dk:     Duelist Kingdom. Every TCG card released before Spell Ruler (348 cards, 7 products, 2 pre-built decks).
-- goat:   Every TCG card released up to The Lost Millennium (1,700 cards, 66 products, 10 pre-built decks).
-- edison: Every TCG card released up to Duelist Pack: Kaiba (3,706 cards, 226 products, 27 pre-built decks).
-Card images: img/<card id>.webp (loaded one by one as needed).
-Deck draft: one pre-built deck per seat (starter/structure decks of the era, exact card counts from Yugipedia), shuffled into stacks of 20.
+Card pools (data/<pool>/pool.js) - each format only has the cards first released in its own era; banned cards included; max 3 copies is handled by players
+- dk:     First released before Spell Ruler (Mar-Sep 2002). 348 cards: LOB, MRD, other releases.
+- goat:   First released after Duelist Kingdom up to The Lost Millennium (Sep 2002-Jul 2005). 1,352 cards in 14 booster sets + other releases, plus 15 earlier-era staples.
+- edison: First released after GOAT up to Duelist Pack: Kaiba (Aug 2005-Apr 2010). 2,006 cards in 35 booster sets + other releases, plus 33 earlier-era staples.
+Viewer groups cards by booster set; cards only in starter/structure decks, tins, tournament packs or promos are under "Other releases".
+Deck draft: one deck per seat from Competitive (Format Library top-4 event decks: 24 GOAT, 34 Edison), Structure (the era's starter/structure decks), or Both; shuffled into stacks of 20.
+Earlier-era staples: older cards in 10%+ of the format's decklists or 20%+ of its tournament decks.
+Card images: img/<card id>.webp. Original pack art: packs/<set code>.webp (Yugipedia; a few from YGOPRODeck).
 
 Notes
 - If GitHub warns that a file contains a secret, allow it. It's the Firebase web key,
   which is meant to be public. Access is controlled by the database rules.
 - If you republish your site from Mobirise, keep the ygo-drafter folder in the repo.
 - Firebase project: goat-draft-796f7 (Realtime Database + anonymous sign-in).
-- Card data and images: YGOPRODeck (re-hosted here, as their API rules ask). Deck lists: Yugipedia.
+- Card data and images: YGOPRODeck (re-hosted here, as their API rules ask). Structure deck lists: Yugipedia. Tournament decks: Format Library.

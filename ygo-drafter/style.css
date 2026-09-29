@@ -322,3 +322,28 @@ details summary{cursor:pointer;font-weight:600}
 .jump{display:inline-flex;align-items:center;gap:8px;margin:0 0 14px;font-weight:600;font-size:15px}
 .jump select{max-width:min(420px,70vw);padding:6px 8px;border-radius:8px;border:1px solid var(--line);background:var(--surface);color:var(--ink);font:500 14px var(--ui)}
 .decksline{margin:12px 0 0;color:var(--ink-soft);font-size:14px}
+
+/* v9: photo packs, decks view */
+.pack.photo{filter:drop-shadow(0 20px 26px rgba(0,0,0,.45))}
+.pack.photo .body{background-size:100% 100%;background-repeat:no-repeat;border-radius:4px;clip-path:inset(13.5% 0 0 0)}
+.pack.photo .strip{height:14%;background-size:100% auto;background-position:top center;background-repeat:no-repeat;border-radius:4px 4px 0 0;box-shadow:0 1px 0 rgba(0,0,0,.25)}
+.pack.photo .strip::after{display:none}
+.pack.photo .tearglow{top:13.6%}
+.opening .pack.photo{width:clamp(140px,18vw,200px)}
+.chip.view{font-weight:700}
+.dhead{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;margin:6px 0 10px;font:400 21px/1.2 var(--display)}
+.dhead span{font:600 14px/1 var(--ui);color:var(--ink-soft)}
+.decklist{display:grid;gap:8px;margin:0 0 22px}
+.deck{border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.deck summary{display:flex;align-items:center;gap:12px;padding:8px 12px;cursor:pointer;list-style:none}
+.deck summary::-webkit-details-marker{display:none}
+.deck[open] summary{border-bottom:1px solid var(--line)}
+.dthumbs{display:flex;gap:3px;flex:0 0 auto}
+.dthumbs img{width:34px;height:auto;border-radius:3px;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.dtext{display:grid;gap:2px;min-width:0}
+.dname{font-weight:700;font-size:16px}
+.dmeta{color:var(--ink-soft);font-size:14px}
+.dcards{padding:10px 12px 14px}
+.dsub{margin:4px 0 8px;font-weight:700;color:var(--ink-soft);font-size:14px}
+.dcards .zgrid{margin-bottom:10px}
+.qty{position:absolute;right:5px;bottom:5px;background:#17142F;color:#F4CC62;font:700 12px/1 var(--ui);padding:3px 6px;border-radius:4px;box-shadow:0 1px 3px rgba(0,0,0,.5)}

@@ -1,5 +1,5 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 5;
+const V = 9;
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
   apiKey: 'AIzaSyAto8uv4bsHkhDGkhiCFa-PuILGZS9Hf08',
@@ -18,11 +18,11 @@ const TIERS = {
 };
 const POOLS = {
   dk: { name: 'Duelist Kingdom', tab: 'Duelist Kingdom', title: 'Duelist Kingdom', big: 'KINGDOM', era: 'Duelist Kingdom', tiers: 'tcg', sample: 0, usage: false,
-    blurb: 'Every card released before Spell Ruler: Legend of Blue Eyes, Metal Raiders, the Yugi and Kaiba starter decks, Tournament Pack 1 and promos.' },
+    blurb: 'Cards first released before Spell Ruler (March to September 2002): Legend of Blue Eyes, Metal Raiders, the Yugi and Kaiba starter decks, Tournament Pack 1 and promos.' },
   goat: { name: 'GOAT', tab: 'GOAT 2005', title: 'GOAT format', big: 'GOAT', era: 'Format of 2005', tiers: 'tcg', sample: 300, usage: true,
-    blurb: 'Every card released up to The Lost Millennium: boosters, starter and structure decks, tins, tournament packs and promos.' },
+    blurb: 'Cards first released after Duelist Kingdom, up to The Lost Millennium (September 2002 to July 2005).' },
   edison: { name: 'Edison', tab: 'Edison 2010', title: 'Edison format', big: 'EDISON', era: 'Format of 2010', tiers: 'tcg', sample: 400, usage: true,
-    blurb: 'Every card released up to Duelist Pack: Kaiba: boosters, decks, tins, tournament packs and promos. Synchros included.' }
+    blurb: 'Cards first released after GOAT, up to Duelist Pack: Kaiba (August 2005 to April 2010). Synchros included.' }
 };
 const P = {};            // loaded pools: key -> { cards, byId, byR, cfg, tier }
 let ACT = null;          // pool used for lookups and rendering
@@ -36,7 +36,9 @@ function loadPool(key) {
     const raw = (window.YGO_POOLS || {})[key] || {};
     const cards = Array.isArray(raw) ? raw : (raw.cards || []);
     const byR = [[], [], [], [], []]; cards.forEach(c => byR[c.r].push(c));
-    P[key] = { key, cards, byId: new Map(cards.map(c => [c.i, c])), byR, cfg: POOLS[key], tier: TIERS[POOLS[key].tiers], products: raw.products || [], decks: raw.decks || [] };
+    const byId = new Map((raw.extra || []).map(c => [c.i, c])); cards.forEach(c => byId.set(c.i, c));
+    const decks = raw.decks && !Array.isArray(raw.decks) ? raw.decks : { struct: raw.decks || [], comp: [] };
+    P[key] = { key, cards, byId, byR, cfg: POOLS[key], tier: TIERS[POOLS[key].tiers], groups: raw.groups || raw.products || [], decks, packs: raw.packs || [] };
     return P[key];
   })().catch(e => { delete loading[key]; throw e; });
   return loading[key];
@@ -48,7 +50,8 @@ const MAX_COPIES = 3;
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
 const NAME_KEY = 'ygo-drafter-name';
 const MAX_SEATS = 10;
-const DEFAULTS = { pool: 'goat', mode: 'booster', bots: 3, packs: 6, atOnce: 1, perPick: 1, odds: 'booster' };
+const DEFAULTS = { pool: 'goat', mode: 'booster', src: 'comp', bots: 3, packs: 6, atOnce: 1, perPick: 1, odds: 'booster' };
+const deckList = (pd, src) => { const d = pd ? pd.decks : { struct: [], comp: [] }; const l = src === 'struct' ? d.struct : src === 'both' ? d.struct.concat(d.comp) : d.comp; return l.length ? l : (d.struct.length ? d.struct : d.comp); };
 const STACK = 20;
 const cidOf = x => typeof x === 'number' ? x : parseInt(x, 10);
 
@@ -123,10 +126,11 @@ function newGame(settings, humans) {
   const seats = shuffle(Array.from({ length: humans.length + bots }, (_, i) => i < humans.length
     ? { uid: humans[i].uid, name: humans[i].name, bot: false } : { uid: '', name: `Bot ${++b}`, bot: true }));
   const g = { id: Math.random().toString(36).slice(2, 10), seats, round: 0, turn: 0, opened: 0, finished: false,
-    settings: { pool: st.pool, mode: 'booster', packs: st.packs, atOnce: st.atOnce === 2 ? 2 : 1, odds: st.odds, perPick: st.perPick === 2 ? 2 : 1 } };
+    settings: { pool: st.pool, mode: 'booster', src: st.src || 'comp', packs: st.packs, atOnce: st.atOnce === 2 ? 2 : 1, odds: st.odds, perPick: st.perPick === 2 ? 2 : 1 } };
   const pd = P[st.pool];
-  if (st.mode === 'deck' && pd && pd.decks.length) {
-    const list = shuffle(pd.decks.slice()); const used = seats.map((_, k) => list[k % list.length]);
+  const srcList = deckList(pd, st.src);
+  if (st.mode === 'deck' && srcList.length) {
+    const list = shuffle(srcList.slice()); const used = seats.map((_, k) => list[k % list.length]);
     let serial = 0; const pile = [];
     used.forEach(d => d.l.forEach(([id, q]) => { for (let j = 0; j < q; j++) pile.push(`${id}~${serial++}`); }));
     g.settings.mode = 'deck'; g.pile = shuffle(pile); g.totalCards = pile.length; g.decksUsed = used.map(d => d.n);
@@ -204,7 +208,7 @@ async function createRoom() {
   const st = { ...DEFAULTS, ...S.settings };
   await F.set(F.ref(F.db, `rooms/${code}`), {
     v: 3, host: F.uid, created: F.serverTimestamp(), status: 'lobby',
-    settings: { pool: st.pool, bots: st.bots, packs: st.packs, atOnce: st.atOnce, odds: st.odds, perPick: st.perPick },
+    settings: { pool: st.pool, mode: st.mode, src: st.src, bots: st.bots, packs: st.packs, atOnce: st.atOnce, odds: st.odds, perPick: st.perPick },
     members: { [F.uid]: { name: myName(), joined: F.serverTimestamp() } }
   });
   await enterRoom(code);
@@ -391,6 +395,7 @@ const DOTS = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12"
 const EYE = `<svg viewBox="0 0 120 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 26c18-16 58-20 90-4 8 4 14 6 18 6"/><path d="M14 30c14 10 42 12 64 2"/><circle cx="52" cy="24" r="9" fill="currentColor"/><path d="M50 34v14c0 6-6 10-12 8"/><path d="M62 33c8 8 14 18 26 22"/></g></svg>`;
 const ZZ = (() => { const n = 14, top = [], bot = []; for (let i = 0; i <= n; i++) top.push(`${(i * 100 / n).toFixed(2)}% ${i % 2 ? 0 : 2.4}%`); for (let i = n; i >= 0; i--) bot.push(`${(i * 100 / n).toFixed(2)}% ${i % 2 ? 100 : 97.6}%`); return `polygon(${top.concat(bot).join(',')})`; })();
 function packHTML(key = 'goat', o = {}) {
+  if (o.img) return `<div class="pack photo"><div class="body" style="background-image:url('${o.img}')"></div><div class="strip" style="background-image:url('${o.img}')"></div><div class="tearglow"></div></div>`;
   const cfg = POOLS[key] || POOLS.goat; const big = o.big || cfg.big;
   return `<div class="pack pk-${key}"><div class="body" style="clip-path:${ZZ}"></div><div class="strip" style="clip-path:${ZZ}"></div><div class="tearglow"></div>
     <div class="label">${EYE}<span class="goat ${big.length > 6 ? 'xlong' : big.length > 5 ? 'long' : ''}">${esc(big)}</span><span class="yr">${esc(o.era || cfg.era)}</span><span class="count">${esc(o.count || '9 cards')}</span></div></div>`;
@@ -436,11 +441,14 @@ function settingsHTML(st, editable, online, humans = 1) {
   const bots = Math.max(minB, Math.min(maxB, typeof st.bots === 'number' ? st.bots : 3));
   const perRound = 9 * (st.atOnce || 1); const turns = Math.ceil(perRound / st.perPick) * roundsOf(st);
   const cfg = POOLS[st.pool] || POOLS.goat; const md = cfg.tiers === 'md';
-  const deck = st.mode === 'deck' && !md; const nDecks = P[st.pool] ? P[st.pool].decks.length : 0;
-  const deckInfo = `One pre-built deck per seat${nDecks ? ` (${nDecks} to pick from in this era${nDecks < 4 ? ', so they repeat' : ''})` : ''}, all shuffled into stacks of ${STACK}.`;
+  const deck = st.mode === 'deck' && !md; const pdx = P[st.pool]; const nComp = pdx ? pdx.decks.comp.length : 0, nStruct = pdx ? pdx.decks.struct.length : 0;
+  const src = nComp ? (st.src || 'comp') : 'struct';
+  const srcText = src === 'comp' ? `${nComp} tournament decks (top 4 finishes)` : src === 'struct' ? `${nStruct} starter and structure decks${nStruct < 4 ? ', repeated if needed' : ''}` : `${nComp} tournament decks and ${nStruct} starter and structure decks`;
+  const deckInfo = `One deck per seat, picked at random from ${srcText}, all shuffled into stacks of ${STACK}.`;
   return `<div class="settings ${editable ? '' : 'readonly'}">
     <div class="field stack"><div class="lbl">Card pool<small>${esc(cfg.blurb)}</small></div>${seg('pool', Object.entries(POOLS).map(([k, v]) => [k, v.tab]))}</div>
     <div class="field stack"><div class="lbl">Draft style<small>${md ? 'Master Duel N/R uses booster packs.' : deck ? esc(deckInfo) : 'Random booster packs from the whole era.'}</small></div>${md ? '' : seg('mode', [['booster', 'Booster packs'], ['deck', 'Deck draft']])}</div>
+    ${deck ? `<div class="field stack"><div class="lbl">Decks to use<small>${nComp ? 'Tournament decks come from Format Library event results.' : 'No tournament decklists exist for Duelist Kingdom, so it uses the starter decks.'}</small></div>${nComp ? seg('src', [['comp', 'Competitive'], ['struct', 'Structure'], ['both', 'Both']]) : ''}</div>` : ''}
     <div class="field"><div class="lbl">Bots<small>${online ? 'Bots take the seats your friends don’t' : 'Bots take the other seats'}</small></div>
       <div class="stepper"><button type="button" data-set="bots" data-d="-1" aria-label="Fewer bots" ${dis || (bots <= minB ? 'disabled' : '')}>−</button><output>${bots}</output><button type="button" data-set="bots" data-d="1" aria-label="More bots" ${dis || (bots >= maxB ? 'disabled' : '')}>+</button></div></div>
     ${deck ? '' : `<div class="field"><div class="lbl">Packs each<small>${st.packs * 9} cards each, ${turns} turns</small></div>
@@ -531,7 +539,7 @@ function renderLobby() {
       <div class="invite"><button class="cta" type="button" data-act="copy-link">Copy invite link</button><code id="inviteLink">${esc(link)}</code></div>
       <h3>Players (${humans})</h3><ul class="people">${members.map(row).join('')}</ul>
       ${S.error ? `<p class="err" role="alert" style="margin-top:10px">${esc(S.error)}</p>` : ''}
-      <p class="summary">${esc(cfg.title)}, ${st.mode === 'deck' && cfg.tiers !== 'md' ? 'deck draft' : 'booster draft'}. ${humans} player${humans === 1 ? '' : 's'} and ${bots} bot${bots === 1 ? '' : 's'}: ${seatsN} seats, ${st.mode === 'deck' && cfg.tiers !== 'md' ? `${seatsN} pre-built decks in stacks of ${STACK}` : `${st.packs * 9} cards each`}.</p>
+      <p class="summary">${esc(cfg.title)}, ${st.mode === 'deck' && cfg.tiers !== 'md' ? `deck draft (${({ comp: 'competitive', struct: 'structure', both: 'competitive and structure' })[P[st.pool] && P[st.pool].decks.comp.length ? (st.src || 'comp') : 'struct']} decks)` : 'booster draft'}. ${humans} player${humans === 1 ? '' : 's'} and ${bots} bot${bots === 1 ? '' : 's'}: ${seatsN} seats, ${st.mode === 'deck' && cfg.tiers !== 'md' ? `${seatsN} pre-built decks in stacks of ${STACK}` : `${st.packs * 9} cards each`}.</p>
       ${host ? `<div class="row" style="margin-top:14px"><button class="cta" type="button" data-act="start-online" ${S.busy || seatsN < 2 || tooMany ? 'disabled' : ''}>${S.busy ? 'Starting…' : 'Start the draft'}</button></div>
         <p class="waitnote">${tooMany ? `The table holds ${MAX_SEATS}. Ask someone to leave first.` : seatsN < 2 ? 'Add a bot or wait for a friend. A draft needs at least 2 seats.' : 'Seats are shuffled when you start. Anyone who joins after that can only watch.'}</p>`
       : `<p class="waitnote">Waiting for ${esc(hostName)} to start the draft.</p>${hostOnline ? '' : '<div class="row" style="margin-top:10px"><span class="err">The host is offline.</span><button class="ghost" type="button" data-act="take-host">Take over as host</button></div>'}`}
@@ -612,7 +620,8 @@ function playOpen(poolKey, packs, label) {
   if (reduceMotion) { cleanup(); return; }
   const anims = []; const timers = []; let over = false;
   const ov = document.createElement('div'); ov.className = 'opening'; ov.setAttribute('aria-hidden', 'true');
-  ov.innerHTML = `<div class="shade"></div><div class="flash"></div><div class="packs">${Array.from({ length: packs }, () => packHTML(poolKey, label || {})).join('')}</div><p class="skip">Tap to skip</p>`;
+  const art = !label && P[poolKey] ? shuffle(P[poolKey].packs.slice()).map(x => x[1]) : [];
+  ov.innerHTML = `<div class="shade"></div><div class="flash"></div><div class="packs">${Array.from({ length: packs }, (_, i) => packHTML(poolKey, label || (art.length ? { img: art[i % art.length] } : {}))).join('')}</div>`;
   table.appendChild(ov);
   cards.forEach(el => { el.style.opacity = '0'; });
   const A = (el, kf, opt) => { if (!el) return null; const a = el.animate(kf, { fill: 'both', ...opt }); anims.push(a); return a; };
@@ -620,10 +629,9 @@ function playOpen(poolKey, packs, label) {
   const finish = () => {
     if (over) return; over = true; timers.forEach(clearTimeout);
     anims.forEach(a => { try { a.cancel(); } catch (_) {} });
-    ov.remove(); cleanup(); table.removeEventListener('pointerdown', onTap, true);
+    ov.remove(); cleanup();
   };
-  const onTap = e => { e.stopPropagation(); finish(); };
-  table.addEventListener('pointerdown', onTap, true);
+  setTimeout(finish, 9000);
   const packEls = [...ov.querySelectorAll('.pack')];
   // 1. packs drop onto the table
   packEls.forEach((p, i) => A(p, [{ transform: 'translateY(-140px) scale(.7) rotate(-8deg)', opacity: 0 }, { transform: 'translateY(8px) scale(1.03) rotate(1deg)', opacity: 1, offset: .75 }, { transform: 'none', opacity: 1 }], { duration: 450, delay: i * 80, easing: 'cubic-bezier(.2,.9,.3,1.2)' }));
@@ -766,26 +774,59 @@ async function renderPool() {
   $('#poolBody').scrollTop = 0;
   $('#poolCount').textContent = `${pd.cards.length} cards`;
   const tabs = locked ? '' : Object.entries(POOLS).map(([k, v]) => `<button class="chip tab" type="button" data-pv="${k}" aria-pressed="${k === key}">${esc(v.tab)}</button>`).join('') + '<span class="chip-gap"></span>';
+  const nDecks = pd.decks.comp.length + pd.decks.struct.length;
+  const views = `<button class="chip view" type="button" data-ptab="cards" aria-pressed="${S.poolTab !== 'decks'}">Cards</button>${nDecks ? `<button class="chip view" type="button" data-ptab="decks" aria-pressed="${S.poolTab === 'decks'}">Decks (${nDecks})</button>` : ''}<span class="chip-gap"></span>`;
+  if (S.poolTab === 'decks' && nDecks) { $('#poolChips').innerHTML = tabs + views; renderDecksView(pd); ACT = prev && (S.view === 'draft' || S.view === 'build') ? prev : pd; return; }
   const tiers = pd.tier.label.map((l, i) => [l, i]).filter(([, i]) => pd.byR[i].length);
-  $('#poolChips').innerHTML = tabs + [`<button class="chip" type="button" data-pf="-1" aria-pressed="${S.poolFilter === -1}">All ${pd.cards.length}</button>`]
+  $('#poolChips').innerHTML = tabs + views + [`<button class="chip" type="button" data-pf="-1" aria-pressed="${S.poolFilter === -1}">All ${pd.cards.length}</button>`]
     .concat(tiers.map(([l, i]) => `<button class="chip" type="button" data-pf="${i}" aria-pressed="${S.poolFilter === i}">${esc(l)} ${pd.byR[i].length}</button>`)).join('');
   const list = (S.poolFilter < 0 || !pd.byR[S.poolFilter] ? pd.cards : pd.byR[S.poolFilter]);
-  const decksNote = pd.decks.length ? `<p class="poolnote">Pre-built decks for Deck draft: ${esc(listNames(pd.decks.map(d => d.n)))}.</p>` : '';
-  if (pd.products.length) {
-    const groups = pd.products.map(([name, date], gi) => ({ gi, name, date, cards: [] }));
+  const dn = pd.decks.comp.length, sn = pd.decks.struct.length;
+  const decksNote = dn || sn ? `<p class="poolnote">Deck draft can use ${dn ? `${dn} tournament decks and ` : ''}${sn} starter and structure decks from this era.</p>` : '';
+  if (pd.groups.length) {
+    const groups = pd.groups.map(([name, date], gi) => ({ gi, name, date, cards: [] }));
     list.forEach(c => groups[c.g] && groups[c.g].cards.push(c));
     const shown = groups.filter(x => x.cards.length);
     shown.forEach(x => x.cards.sort((a, b) => b.r - a.r || a.n.localeCompare(b.n)));
     const month = d => { const [y, m] = (d || '').split('-'); return m ? `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1]} ${y}` : ''; };
-    $('#poolBody').innerHTML = `<p class="poolnote">${esc(pd.cfg.blurb)} Grouped by the product each card first came out in, oldest first.</p>${decksNote}
+    $('#poolBody').innerHTML = `<p class="poolnote">${esc(pd.cfg.blurb)} Grouped by booster set, oldest first. Cards that only came in starter decks, tins, tournament packs or promos are under Other releases.</p>${decksNote}
       <label class="jump">Jump to <select id="pgJump">${shown.map(x => `<option value="${x.gi}">${esc(x.name)} (${x.cards.length})</option>`).join('')}</select></label>
-      ${shown.map(x => `<section class="pgroup" id="pg-${x.gi}"><h3>${esc(x.name)}<span>${month(x.date)}, ${x.cards.length} card${x.cards.length === 1 ? '' : 's'}</span></h3><div class="zgrid">${x.cards.map(c => cardHTML(c)).join('')}</div></section>`).join('')}`;
+      ${shown.map(x => `<section class="pgroup" id="pg-${x.gi}"><h3>${esc(x.name)}<span>${x.name === 'Other releases' ? 'Starter decks, tins, tournament packs and promos' : month(x.date)}, ${x.cards.length} card${x.cards.length === 1 ? '' : 's'}</span></h3><div class="zgrid">${x.cards.map(c => cardHTML(c)).join('')}</div></section>`).join('')}`;
   } else {
     const sorted = list.slice().sort((a, b) => b.r - a.r || b.u - a.u);
     $('#poolBody').innerHTML = `<p class="poolnote">${esc(pd.cfg.blurb)}</p>${decksNote}<div class="zgrid">${sorted.map(c => cardHTML(c)).join('')}</div>`;
   }
   ACT = prev && (S.view === 'draft' || S.view === 'build') ? prev : pd;
 }
+function deckParts(d) { const i = d.n.indexOf(', '); return i > 0 ? [d.n.slice(0, i), d.n.slice(i + 2)] : [d.n, '']; }
+function renderDecksView(pd) {
+  const sec = (src, title, sub) => {
+    const list = pd.decks[src]; if (!list.length) return '';
+    return `<h3 class="dhead">${title}<span>${sub}</span></h3><div class="decklist">${list.map((d, i) => {
+      const cards = d.l.map(([id, q]) => [pd.byId.get(id), q]).filter(x => x[0]);
+      const main = cards.filter(([c]) => c.k !== 'F').reduce((n, [, q]) => n + q, 0), extra = cards.filter(([c]) => c.k === 'F').reduce((n, [, q]) => n + q, 0);
+      const top = cards.slice().sort((a, b) => b[0].r - a[0].r || (b[0].w ?? b[0].u) - (a[0].w ?? a[0].u)).slice(0, 3);
+      const [name, meta] = deckParts(d);
+      return `<details class="deck" data-src="${src}" data-i="${i}"><summary><span class="dthumbs">${top.map(([c]) => `<img src="${imgSrc(c.i)}" alt="" loading="lazy" width="42" height="61">`).join('')}</span>
+        <span class="dtext"><span class="dname">${esc(name)}</span><span class="dmeta">${meta ? esc(meta) + '. ' : ''}${main} main${extra ? `, ${extra} extra` : ''}</span></span></summary><div class="dcards"></div></details>`;
+    }).join('')}</div>`;
+  };
+  $('#poolBody').innerHTML = `<p class="poolnote">The decks Deck draft can use in this era. Open one to see its cards.</p>
+    ${sec('comp', 'Competitive', `${pd.decks.comp.length} top-4 tournament decks from Format Library`)}
+    ${sec('struct', 'Structure', `${pd.decks.struct.length} starter and structure decks`)}`;
+}
+function fillDeck(el) {
+  const box = el.querySelector('.dcards'); if (!box || box.childElementCount) return;
+  const pd = P[poolForViewer()]; if (!pd) return;
+  const d = pd.decks[el.dataset.src][+el.dataset.i]; const prev = ACT; ACT = pd;
+  const ord = c => ({ M: 0, S: 1, T: 2, F: 3 }[c.k] * 100000 - (c.k === 'M' ? (c.lv || 0) * 1000 : 0));
+  const cards = d.l.map(([id, q]) => [pd.byId.get(id), q]).filter(x => x[0]).sort((a, b) => ord(a[0]) - ord(b[0]) || a[0].n.localeCompare(b[0].n));
+  const grid = list => `<div class="zgrid">${list.map(([c, q]) => cardHTML(c, { num: 0 }).replace('</button>', `${q > 1 ? `<span class="qty">×${q}</span>` : ''}</button>`)).join('')}</div>`;
+  const main = cards.filter(([c]) => c.k !== 'F'), extra = cards.filter(([c]) => c.k === 'F');
+  box.innerHTML = `<p class="dsub">Main deck</p>${grid(main)}${extra.length ? `<p class="dsub">Extra deck</p>${grid(extra)}` : ''}`;
+  ACT = prev;
+}
+document.addEventListener('toggle', e => { const d = e.target; if (d && d.classList && d.classList.contains('deck') && d.open) fillDeck(d); }, true);
 function openPool() { S.poolFilter = -1; renderPool(); $('#poolModal').hidden = false; $('#poolClose').focus(); }
 function closePool() { $('#poolModal').hidden = true; }
 
@@ -816,6 +857,7 @@ document.addEventListener('click', e => {
     setSetting(k, Math.max(lim[0], Math.min(lim[1], cur + d))); return;
   }
   const pv = t.closest('[data-pv]'); if (pv) { S.poolView = pv.dataset.pv; S.poolFilter = -1; renderPool(); return; }
+  const ptab = t.closest('[data-ptab]'); if (ptab) { S.poolTab = ptab.dataset.ptab; renderPool(); return; }
   const chip = t.closest('[data-pf]'); if (chip) { S.poolFilter = +chip.dataset.pf; renderPool(); return; }
   if (t.closest('#poolClose')) { closePool(); return; }
   const a = t.closest('[data-act]')?.dataset.act;
