@@ -1,5 +1,5 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 12;
+const V = 14;
 const HOME_PACKS = [["dk","LOB","Legend of Blue Eyes White Dragon","2002"],["dk","MRD","Metal Raiders","2002"],["goat","MRL","Magic Ruler","2002"],["goat","PSV","Pharaoh's Servant","2002"],["goat","LON","Labyrinth of Nightmare","2003"],["goat","LOD","Legacy of Darkness","2003"],["goat","PGD","Pharaonic Guardian","2003"],["goat","MFC","Magician's Force","2003"],["goat","DCR","Dark Crisis","2003"],["goat","IOC","Invasion of Chaos","2004"],["goat","AST","Ancient Sanctuary","2004"],["goat","EP1","Exclusive Pack","2004"],["goat","SOD","Soul of the Duelist","2004"],["goat","RDS","Rise of Destiny","2004"],["goat","FET","Flaming Eternity","2005"],["goat","TLM","The Lost Millennium","2005"],["edison","CRV","Cybernetic Revolution","2005"],["edison","EEN","Elemental Energy","2005"],["edison","DP2","Duelist Pack: Chazz Princeton","2006"],["edison","DP1","Duelist Pack: Jaden Yuki","2006"],["edison","SOI","Shadow of Infinity","2006"],["edison","EOJ","Enemy of Justice","2006"],["edison","POTD","Power of the Duelist","2006"],["edison","CDIP","Cyberdark Impact","2006"],["edison","DP05","Duelist Pack: Aster Phoenix","2007"],["edison","DP03","Duelist Pack: Jaden Yuki 2","2007"],["edison","STON","Strike of Neos","2007"],["edison","DP04","Duelist Pack: Zane Truesdale","2007"],["edison","FOTB","Force of the Breaker","2007"],["edison","PP01","Premium Pack (TCG)","2007"],["edison","TAEV","Tactical Evolution","2007"],["edison","GLAS","Gladiator's Assault","2007"],["edison","DP06","Duelist Pack: Jaden Yuki 3","2008"],["edison","DP07","Duelist Pack: Jesse Anderson","2008"],["edison","PTDN","Phantom Darkness","2008"],["edison","LODT","Light of Destruction","2008"],["edison","PP02","Premium Pack 2 (TCG)","2008"],["edison","TDGS","The Duelist Genesis","2008"],["edison","CSOC","Crossroads of Chaos","2008"],["edison","DLG1","Dark Legends","2008"],["edison","DP08","Duelist Pack: Yusei","2009"],["edison","CRMS","Crimson Crisis","2009"],["edison","RGBT","Raging Battle","2009"],["edison","DPYG","Duelist Pack: Yugi","2009"],["edison","ANPR","Ancient Prophecy","2009"],["edison","HA01","Hidden Arsenal","2009"],["edison","SOVR","Stardust Overdrive","2009"],["edison","DP09","Duelist Pack: Yusei 2","2010"],["edison","ABPF","Absolute Powerforce","2010"],["edison","DPKB","Duelist Pack: Kaiba","2010"]];
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
@@ -39,7 +39,8 @@ function loadPool(key) {
     const byR = [[], [], [], [], []]; cards.forEach(c => byR[c.r].push(c));
     const byId = new Map((raw.extra || []).map(c => [c.i, c])); cards.forEach(c => byId.set(c.i, c));
     const decks = raw.decks && !Array.isArray(raw.decks) ? raw.decks : { struct: raw.decks || [], comp: [] };
-    P[key] = { key, cards, byId, byR, cfg: POOLS[key], tier: TIERS[POOLS[key].tiers], groups: raw.groups || raw.products || [], decks, packs: raw.packs || [] };
+    const sets = (raw.sets || []).map(s => { const sb = [[], [], [], [], []]; const rOf = new Map(); s.l.forEach(([id, r]) => { const c = byId.get(id); if (c) { sb[r].push(c); rOf.set(id, r); } }); return { n: s.n, img: s.img, l: s.l, byR: sb, rOf, size: s.l.length }; });
+    P[key] = { key, cards, byId, byR, cfg: POOLS[key], tier: TIERS[POOLS[key].tiers], groups: raw.groups || raw.products || [], decks, packs: raw.packs || [], sets, goodies: raw.goodies || [] };
     return P[key];
   })().catch(e => { delete loading[key]; throw e; });
   return loading[key];
@@ -51,7 +52,7 @@ const MAX_COPIES = 3;
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
 const NAME_KEY = 'ygo-drafter-name';
 const MAX_SEATS = 10;
-const DEFAULTS = { pool: 'goat', mode: 'booster', src: 'comp', bots: 3, packs: 6, atOnce: 1, perPick: 1, odds: 'booster' };
+const DEFAULTS = { pool: 'goat', mode: 'booster', src: 'comp', contents: 'sets', bonus: 'on', bots: 3, packs: 6, atOnce: 1, perPick: 1, odds: 'booster' };
 const deckList = (pd, src) => { const d = pd ? pd.decks : { struct: [], comp: [] }; const l = src === 'struct' ? d.struct : src === 'both' ? d.struct.concat(d.comp) : d.comp; return l.length ? l : (d.struct.length ? d.struct : d.comp); };
 const STACK = 20;
 const cidOf = x => typeof x === 'number' ? x : parseInt(x, 10);
@@ -79,7 +80,8 @@ function norm(g) {
   const seats = toArr(g.seats); const n = seats.length;
   g.seats = seats.map((s, i) => ({ uid: s.uid || '', name: s.name || `Seat ${i + 1}`, bot: !!s.bot }));
   const Pk = g.packs || {}, K = g.picks || {}, D = g.done || {};
-  g.packs = Array.from({ length: n }, (_, i) => toArr(Pk[i]).map(x => typeof x === 'string' && x.includes('~') ? x : Number(x)));
+  g.packs = Array.from({ length: n }, (_, i) => toArr(Pk[i]).map(x => typeof x === 'string' && (x.includes('~') || x.includes('^')) ? x : Number(x)));
+  g.opens = Array.from({ length: n }, (_, i) => toArr((g.opens || {})[i]).map(Number));
   g.pile = toArr(g.pile);
   g.picks = Array.from({ length: n }, (_, i) => toArr(K[i]).map(Number));
   g.done = Array.from({ length: n }, (_, i) => !!D[i]);
@@ -105,12 +107,31 @@ function makePackIds(pd, odds, used) {
   const slots = odds === 'arena' ? Array.from({ length: 9 }, () => arenaSlot(pd)).sort((a, b) => a - b) : [0, 0, 0, 0, 0, 0, 0, 0, rareSlot(pd)];
   return slots.map(r => draw(pd, r, used)).filter(Boolean).map(c => c.i);
 }
+function pickSets(pd, n) {
+  const out = [], all = pd.sets.map((_, i) => i);
+  for (let k = 0; k < n; k++) {
+    const cand = all.filter(i => !out.includes(i)); const list = cand.length ? cand : all;
+    let x = Math.random() * list.reduce((a, i) => a + pd.sets[i].size, 0), pick = list[0];
+    for (const i of list) { x -= pd.sets[i].size; if (x < 0) { pick = i; break; } }
+    out.push(pick);
+  }
+  return out;
+}
+function makeSetPack(pd, set, odds, used) {
+  const slots = odds === 'arena' ? Array.from({ length: 9 }, () => arenaSlot(pd)).sort((a, b) => a - b) : [0, 0, 0, 0, 0, 0, 0, 0, rareSlot(pd)];
+  return slots.map(r => { const c = draw(set, r, used); return c ? `${c.i}^${set.rOf.get(c.i)}` : null; }).filter(Boolean);
+}
 function openBatch(g) {
   const pd = P[g.settings.pool];
   const n = Math.max(1, Math.min(g.settings.atOnce, g.settings.packs - g.opened));
-  g.packs = g.seats.map(() => { const used = new Set(); let ids = []; for (let k = 0; k < n; k++) ids = ids.concat(makePackIds(pd, g.settings.odds, used)); return ids; });
+  if (pd && pd.sets && pd.sets.length && g.settings.contents !== 'pool') {
+    g.opens = g.seats.map(() => pickSets(pd, n));
+    g.packs = g.opens.map(idx => { const used = new Set(); let ids = []; idx.forEach(si => { ids = ids.concat(makeSetPack(pd, pd.sets[si], g.settings.odds, used)); }); return ids; });
+  } else g.packs = g.seats.map(() => { const used = new Set(); let ids = []; for (let k = 0; k < n; k++) ids = ids.concat(makePackIds(pd, g.settings.odds, used)); return ids; });
   g.opened += n; g.batch = n;
 }
+const rOf = (e, c) => typeof e === 'string' && e.includes('^') ? +e.split('^')[1] : c.r;
+const withR = (c, r) => !c || r === c.r ? c : Object.assign({}, c, { r });
 function dealStacks(g) {
   const n = g.seats.length, rem = g.pile.length;
   if (rem >= n * STACK) g.packs = g.seats.map(() => g.pile.splice(0, STACK));
@@ -127,13 +148,18 @@ function newGame(settings, humans) {
   const seats = shuffle(Array.from({ length: humans.length + bots }, (_, i) => i < humans.length
     ? { uid: humans[i].uid, name: humans[i].name, bot: false } : { uid: '', name: `Bot ${++b}`, bot: true }));
   const g = { id: Math.random().toString(36).slice(2, 10), seats, round: 0, turn: 0, opened: 0, finished: false,
-    settings: { pool: st.pool, mode: 'booster', src: st.src || 'comp', packs: st.packs, atOnce: st.atOnce === 2 ? 2 : 1, odds: st.odds, perPick: st.perPick === 2 ? 2 : 1 } };
+    settings: { pool: st.pool, mode: 'booster', src: st.src || 'comp', contents: st.contents === 'pool' ? 'pool' : 'sets', packs: st.packs, atOnce: st.atOnce === 2 ? 2 : 1, odds: st.odds, perPick: st.perPick === 2 ? 2 : 1 } };
   const pd = P[st.pool];
   const srcList = deckList(pd, st.src);
   if (st.mode === 'deck' && srcList.length) {
     const list = shuffle(srcList.slice()); const used = seats.map((_, k) => list[k % list.length]);
     let serial = 0; const pile = [];
     used.forEach(d => d.l.forEach(([id, q]) => { for (let j = 0; j < q; j++) pile.push(`${id}~${serial++}`); }));
+    g.bonusPacks = 0;
+    if (st.bonus !== 'off' && pd.goodies.length) {
+      g.bonusPacks = Math.ceil(seats.length / 2);
+      shuffle(pd.goodies.slice()).slice(0, g.bonusPacks * 10).forEach(id => pile.push(`${id}~${serial++}`));
+    }
     g.settings.mode = 'deck'; g.pile = shuffle(pile); g.totalCards = pile.length; g.decksUsed = used.map(d => d.n);
     dealStacks(g);
   } else openBatch(g);
@@ -209,7 +235,7 @@ async function createRoom() {
   const st = { ...DEFAULTS, ...S.settings };
   await F.set(F.ref(F.db, `rooms/${code}`), {
     v: 3, host: F.uid, created: F.serverTimestamp(), status: 'lobby',
-    settings: { pool: st.pool, mode: st.mode, src: st.src, bots: st.bots, packs: st.packs, atOnce: st.atOnce, odds: st.odds, perPick: st.perPick },
+    settings: { pool: st.pool, mode: st.mode, src: st.src, contents: st.contents, bonus: st.bonus, bots: st.bots, packs: st.packs, atOnce: st.atOnce, odds: st.odds, perPick: st.perPick },
     members: { [F.uid]: { name: myName(), joined: F.serverTimestamp() } }
   });
   await enterRoom(code);
@@ -400,7 +426,7 @@ function deckVisualHTML(v) {
   return `<div class="pack deckstack"><div class="body"></div><div class="tearglow"></div><span class="deckname">${esc(v.name)}</span></div>`;
 }
 function packHTML(key = 'goat', o = {}) {
-  if (o.img) return `<div class="pack photo"><div class="body" style="background-image:url('${o.img}')"></div><div class="strip" style="background-image:url('${o.img}')"></div><div class="tearglow"></div></div>`;
+  if (o.img) return `<div class="pack photo"><div class="body" style="background-image:url('${o.img}')"></div><div class="strip" style="background-image:url('${o.img}')"></div><div class="tearglow"></div>${o.name ? `<span class="deckname">${esc(o.name)}</span>` : ''}</div>`;
   const cfg = POOLS[key] || POOLS.goat; const big = o.big || cfg.big;
   return `<div class="pack pk-${key}"><div class="body" style="clip-path:${ZZ}"></div><div class="strip" style="clip-path:${ZZ}"></div><div class="tearglow"></div>
     <div class="label">${EYE}<span class="goat ${big.length > 6 ? 'xlong' : big.length > 5 ? 'long' : ''}">${esc(big)}</span><span class="yr">${esc(o.era || cfg.era)}</span><span class="count">${esc(o.count || '9 cards')}</span></div></div>`;
@@ -452,7 +478,9 @@ function settingsHTML(st, editable, online, humans = 1) {
   const deckInfo = `One deck per seat, picked at random from ${srcText}, all shuffled into stacks of ${STACK}.`;
   return `<div class="settings ${editable ? '' : 'readonly'}">
     <div class="field stack"><div class="lbl">Card pool<small>${esc(cfg.blurb)}</small></div>${seg('pool', Object.entries(POOLS).map(([k, v]) => [k, v.tab]))}</div>
-    <div class="field stack"><div class="lbl">Draft style<small>${md ? 'Master Duel N/R uses booster packs.' : deck ? esc(deckInfo) : 'Random booster packs from the whole era.'}</small></div>${md ? '' : seg('mode', [['booster', 'Booster packs'], ['deck', 'Deck draft']])}</div>
+    <div class="field stack"><div class="lbl">Draft style<small>${md ? 'Master Duel N/R uses booster packs.' : deck ? esc(deckInfo) : 'Open booster packs, keep a card and pass the rest.'}</small></div>${md ? '' : seg('mode', [['booster', 'Booster packs'], ['deck', 'Deck draft']])}</div>
+    ${!deck && !md ? `<div class="field stack"><div class="lbl">Pack contents<small>${st.contents === 'pool' ? 'Packs mix every card of the era, including starter deck cards, tins, promos and staples.' : 'Each pack is a random real booster set with only that set\'s cards.'}</small></div>${seg('contents', [['sets', 'Real sets'], ['pool', 'Whole pool']])}</div>` : ''}
+    ${deck ? `<div class="field stack"><div class="lbl">Bonus packs<small>${st.bonus === 'off' ? 'Only the decks go into the stacks.' : 'Adds 1 pack of 10 staples and rares for every 2 players, shuffled in with the decks.'}</small></div>${seg('bonus', [['on', 'On'], ['off', 'Off']])}</div>` : ''}
     ${deck ? `<div class="field stack"><div class="lbl">Decks to use<small>${nComp ? 'Tournament decks come from Format Library event results.' : 'No tournament decklists exist for Duelist Kingdom, so it uses the starter decks.'}</small></div>${nComp ? seg('src', [['comp', 'Competitive'], ['struct', 'Structure'], ['both', 'Both']]) : ''}</div>` : ''}
     <div class="field"><div class="lbl">Bots<small>${online ? 'Bots take the seats your friends don’t' : 'Bots take the other seats'}</small></div>
       <div class="stepper"><button type="button" data-set="bots" data-d="-1" aria-label="Fewer bots" ${dis || (bots <= minB ? 'disabled' : '')}>−</button><output>${bots}</output><button type="button" data-set="bots" data-d="1" aria-label="More bots" ${dis || (bots >= maxB ? 'disabled' : '')}>+</button></div></div>
@@ -557,7 +585,7 @@ function renderLobby() {
       <div class="invite"><button class="cta" type="button" data-act="copy-link">Copy invite link</button><code id="inviteLink">${esc(link)}</code></div>
       <h3>Players (${humans})</h3><ul class="people">${members.map(row).join('')}</ul>
       ${S.error ? `<p class="err" role="alert" style="margin-top:10px">${esc(S.error)}</p>` : ''}
-      <p class="summary">${esc(cfg.title)}, ${st.mode === 'deck' && cfg.tiers !== 'md' ? `deck draft (${({ comp: 'competitive', struct: 'structure', both: 'competitive and structure' })[P[st.pool] && P[st.pool].decks.comp.length ? (st.src || 'comp') : 'struct']} decks)` : 'booster draft'}. ${humans} player${humans === 1 ? '' : 's'} and ${bots} bot${bots === 1 ? '' : 's'}: ${seatsN} seats, ${st.mode === 'deck' && cfg.tiers !== 'md' ? `${seatsN} pre-built decks in stacks of ${STACK}` : `${st.packs * 9} cards each`}.</p>
+      <p class="summary">${esc(cfg.title)}, ${st.mode === 'deck' && cfg.tiers !== 'md' ? `deck draft (${({ comp: 'competitive', struct: 'structure', both: 'competitive and structure' })[P[st.pool] && P[st.pool].decks.comp.length ? (st.src || 'comp') : 'struct']} decks)` : `booster draft (${st.contents === 'pool' ? 'whole pool' : 'real sets'})`}. ${humans} player${humans === 1 ? '' : 's'} and ${bots} bot${bots === 1 ? '' : 's'}: ${seatsN} seats, ${st.mode === 'deck' && cfg.tiers !== 'md' ? `${seatsN} pre-built decks${st.bonus !== 'off' ? ` plus ${Math.ceil(seatsN / 2)} bonus pack${Math.ceil(seatsN / 2) === 1 ? '' : 's'}` : ''} in stacks of ${STACK}` : `${st.packs * 9} cards each`}.</p>
       ${host ? `<div class="row" style="margin-top:14px"><button class="cta" type="button" data-act="start-online" ${S.busy || seatsN < 2 || tooMany ? 'disabled' : ''}>${S.busy ? 'Starting…' : 'Start the draft'}</button></div>
         <p class="waitnote">${tooMany ? `The table holds ${MAX_SEATS}. Ask someone to leave first.` : seatsN < 2 ? 'Add a bot or wait for a friend. A draft needs at least 2 seats.' : 'Seats are shuffled when you start. Anyone who joins after that can only watch.'}</p>`
       : `<p class="waitnote">Waiting for ${esc(hostName)} to start the draft.</p>${hostOnline ? '' : '<div class="row" style="margin-top:10px"><span class="err">The host is offline.</span><button class="ghost" type="button" data-act="take-host">Take over as host</button></div>'}`}
@@ -600,7 +628,7 @@ function renderDraft() {
   const waitbar = done && waitingOn.length ? `<div class="waitbar"><span>Waiting for ${esc(listNames(waitingOn.map(x => x.s.name)))}.</span>
       ${waitingOn.filter(x => !x.s.bot && (host || !presenceOf(x.s.uid))).map(x => `<button class="ghost" type="button" data-act="bot-for" data-seat="${x.i}">Let a bot pick for ${esc(x.s.name)}</button>`).join('')}</div>` : '';
   const hint = done ? 'Your pick is in.' : (n === 2 ? `Pick 2 cards. ${S.sel.length} of 2 chosen.` : 'Tap a card, then pick it.');
-  const focus = S.focus != null ? C(cidOf(S.focus)) : null;
+  const focus = S.focus != null ? withR(C(cidOf(S.focus)), rOf(S.focus, C(cidOf(S.focus)) || {})) : null;
   let act = '';
   if (!done && focus) {
     if (n === 1) act = `<button class="cta" type="button" data-act="pick" ${S.busy ? 'disabled' : ''}>Pick ${esc(focus.n)}</button><p class="hint">Or tap the card again.</p>`;
@@ -611,12 +639,12 @@ function renderDraft() {
   S.lastSig = sig;
   const groups = { M: 0, S: 0, T: 0, F: 0 }; picks.forEach(id => { const c = C(id); if (c) groups[c.k]++; });
   const title = deckMode ? 'Your stack' : g.batch === 2 ? 'Your packs' : 'Your pack';
-  const decksLine = deckMode && g.decksUsed.length ? `<p class="decksline">In the mix: ${esc(listNames([...new Set(g.decksUsed)]))}.</p>` : '';
+  const decksLine = deckMode && g.decksUsed.length ? `<p class="decksline">In the mix: ${esc(listNames([...new Set(g.decksUsed)]))}${g.bonusPacks ? `, plus ${g.bonusPacks} bonus pack${g.bonusPacks === 1 ? '' : 's'} of staples and rares` : ''}.</p>` : '';
   $('#app').innerHTML = `<section class="draft"><div>
       <div id="seatsWrap">${seatsHTML}</div><div id="waitWrap">${reclaim}${waitbar}</div>
       <div class="table" id="table">
         <div class="table-head"><h2>${title}</h2><p>${pack.length} card${pack.length === 1 ? '' : 's'} left. ${hint}</p></div>
-        <div class="grid ${anim && anim !== 'open' ? anim : ''} ${done ? 'waiting' : ''}" id="packGrid">${pack.map(e => { const key = String(e); const k = S.sel.indexOf(key); return cardHTML({ u: key, c: C(cidOf(e)) }, { pressed: k >= 0, num: n === 2 && k >= 0 ? k + 1 : 0 }); }).join('')}</div>
+        <div class="grid ${anim && anim !== 'open' ? anim : ''} ${done ? 'waiting' : ''}" id="packGrid">${pack.map(e => { const key = String(e); const k = S.sel.indexOf(key); const c0 = C(cidOf(e)); return cardHTML({ u: key, c: withR(c0, rOf(e, c0 || {})) }, { pressed: k >= 0, num: n === 2 && k >= 0 ? k + 1 : 0 }); }).join('')}</div>
         ${decksLine}
       </div>
       <div class="picks"><div class="picks-head"><h3>Your picks</h3><div class="tally"><span>${picks.length} total</span><span>${groups.M} monsters</span><span>${groups.S} spells</span><span>${groups.T} traps</span><span>${groups.F} extra deck</span></div></div>
@@ -632,6 +660,8 @@ function renderDraft() {
       const names = shuffle([...new Set(g.decksUsed)]).slice(0, 3);
       label = { decks: names.map(n => { const d = all.find(x => x.n === n); const i = n.indexOf(', '); return { img: d && d.img, name: i > 0 ? n.slice(0, i) : n }; }) };
     }
+    else if (g.settings.contents === 'pool') label = {};
+    else { const pdx = P[g.settings.pool]; const mine = (g.opens && g.opens[me]) || []; if (pdx && pdx.sets.length && mine.length) label = { sets: mine.map(si => pdx.sets[si]).filter(Boolean) }; }
     playOpen(g.settings.pool, g.batch || 1, label);
   }
 }
@@ -647,7 +677,9 @@ function playOpen(poolKey, packs, label) {
   const anims = []; const timers = []; let over = false;
   const art = !label && P[poolKey] ? shuffle(P[poolKey].packs.slice()).map(x => x[1]) : [];
   const ov = document.createElement('div'); ov.className = 'opening'; ov.setAttribute('aria-hidden', 'true');
-  const visuals = label && label.decks ? label.decks.map(deckVisualHTML) : Array.from({ length: packs }, (_, i) => packHTML(poolKey, label || (art.length ? { img: art[i % art.length] } : {})));
+  const visuals = label && label.decks ? label.decks.map(deckVisualHTML)
+    : label && label.sets ? label.sets.map(s => s.img ? packHTML(poolKey, { img: s.img, name: s.n }) : packHTML(poolKey, { big: 'PACK', era: s.n }))
+    : Array.from({ length: packs }, (_, i) => packHTML(poolKey, label || (art.length ? { img: art[i % art.length] } : {})));
   ov.innerHTML = `<div class="shade"></div><div class="rays"></div><div class="flash"></div><div class="packs">${visuals.join('')}</div>`;
   table.appendChild(ov);
   const fx = document.createElement('div'); fx.className = 'fxlayer'; fx.setAttribute('aria-hidden', 'true'); table.appendChild(fx);
@@ -851,7 +883,22 @@ async function renderPool() {
   const list = (S.poolFilter < 0 || !pd.byR[S.poolFilter] ? pd.cards : pd.byR[S.poolFilter]);
   const dn = pd.decks.comp.length, sn = pd.decks.struct.length;
   const decksNote = dn || sn ? `<p class="poolnote">Deck draft can use ${dn ? `${dn} tournament decks and ` : ''}${sn} starter and structure decks from this era.</p>` : '';
-  if (pd.groups.length) {
+  if (pd.sets.length) {
+    const f = S.poolFilter; const keep = r => f < 0 || r === f;
+    const month = d => { const [y, m] = (d || '').split('-'); return m ? `${['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][+m - 1]} ${y}` : ''; };
+    const secs = pd.sets.map((st, si) => ({ id: 's' + si, name: st.n, sub: `Booster pack, ${st.size} cards`, cards: st.l.map(([id, r]) => withR(pd.byId.get(id), r)).filter(c => c && keep(c.r)) }));
+    const inPacks = new Set(pd.sets.flatMap(st => st.l.map(([id]) => id)));
+    pd.groups.forEach(([name], gi) => {
+      if (name !== 'Other releases' && name !== 'Earlier-era staples') return;
+      const cs = pd.cards.filter(c => c.g === gi && !inPacks.has(c.i) && keep(c.r));
+      secs.push({ id: 'g' + gi, name: name === 'Other releases' ? 'Not in packs: starter decks, tins and promos' : 'Not in packs: earlier-era staples', sub: 'These show up in Deck draft', cards: cs });
+    });
+    const shown = secs.filter(x => x.cards.length);
+    shown.forEach(x => x.cards.sort((a, b) => b.r - a.r || a.n.localeCompare(b.n)));
+    $('#poolBody').innerHTML = `<p class="poolnote">${esc(pd.cfg.blurb)} Every pack is a real booster set: it only contains that set's cards, at that set's rarities.</p>${decksNote}
+      <label class="jump">Jump to <select id="pgJump">${shown.map(x => `<option value="${x.id}">${esc(x.name)} (${x.cards.length})</option>`).join('')}</select></label>
+      ${shown.map(x => `<section class="pgroup" id="pg-${x.id}"><h3>${esc(x.name)}<span>${esc(x.sub)}, ${x.cards.length} shown</span></h3><div class="zgrid">${x.cards.map(c => cardHTML(c)).join('')}</div></section>`).join('')}`;
+  } else if (pd.groups.length) {
     const groups = pd.groups.map(([name, date], gi) => ({ gi, name, date, cards: [] }));
     list.forEach(c => groups[c.g] && groups[c.g].cards.push(c));
     const shown = groups.filter(x => x.cards.length);

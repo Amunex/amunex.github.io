@@ -371,3 +371,6 @@ details summary{cursor:pointer;font-weight:600}
   font:400 15px/1.2 var(--display);color:#FFF3D0;text-shadow:0 2px 6px rgba(0,0,0,.8)}
 .opening .packs{gap:40px}
 .dthumbs .dbox{width:40px;height:auto;border-radius:3px}
+
+/* v13: set name under photo packs */
+.pack.photo .deckname{bottom:-28px}
