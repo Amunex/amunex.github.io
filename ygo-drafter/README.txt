@@ -20,3 +20,11 @@ Notes
 - If you republish your site from Mobirise, keep the ygo-drafter folder in the repo.
 - Firebase project: goat-draft-796f7 (Realtime Database + anonymous sign-in).
 - Card data and images: YGOPRODeck (re-hosted here, as their API rules ask). Structure deck lists: Yugipedia. Tournament decks: Format Library.
+
+Tournament (online rooms with 3+ players)
+- Lobby setting "Tournament after the draft": Off, Round robin, Swiss or Single elimination; matches best of 1 or 3.
+- When players mark their deck ready, the deck is registered for the tournament (rooms/<code>/decks/<draft>/<uid>).
+- The host starts it from the ready panel; anyone not ready is left out. Players report each game (I won / I lost, with undo);
+  the host can also report for others and moves to the next round. Standings: 3 points per match win, ties broken by
+  opponents' win rate, then game difference. "Download results and decks" saves a text file.
+- Duel test (beta): duel/ runs EDOPro's rules engine with GOAT rules, hot-seat, with undo (see duel/README.txt).

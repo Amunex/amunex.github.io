@@ -374,3 +374,47 @@ details summary{cursor:pointer;font-weight:600}
 
 /* v13: set name under photo packs */
 .pack.photo .deckname{bottom:-28px}
+
+/* v15: tournament */
+.ttabs{display:flex;gap:6px;margin:0 0 14px}
+.ttabs button{font:700 15px/1 var(--ui);padding:10px 16px;border-radius:999px;border:1px solid var(--line);background:var(--surface);color:var(--ink);cursor:pointer}
+.ttabs button[aria-selected="true"]{background:var(--cta);color:var(--cta-ink);border-color:transparent}
+.tourstart{margin-top:14px;padding-top:12px;border-top:1px solid var(--line);display:grid;gap:10px}
+.tourstart p{margin:0}
+.tourstart small{display:block;color:var(--ink-soft);font-size:14px;margin-top:2px}
+.seg.small span{padding:7px 12px;font-size:14px}
+.ghost.small{padding:6px 10px;font-size:13px}
+.tourview{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:22px;align-items:start}
+@media (max-width:900px){.tourview{grid-template-columns:1fr}}
+.mymatch{background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:16px;margin:0 0 18px;display:grid;gap:8px}
+.mymatch h3{margin:0;font:400 21px/1.2 var(--display)}
+.mymatch p{margin:0}
+.mymatch.won{border-color:var(--turq)} .mymatch.lost{opacity:.85}
+.bigscore{font:700 40px/1 var(--ui);font-variant-numeric:tabular-nums}
+.tround h2{font:400 24px/1.2 var(--display);margin:6px 0 10px}
+.tround h2 small{font:600 15px/1 var(--ui);color:var(--ink-soft)}
+.pairings{list-style:none;margin:0 0 12px;padding:0;display:grid;gap:8px}
+.pairings li{display:grid;grid-template-columns:1fr auto 1fr;gap:4px 12px;align-items:center;padding:10px 14px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.pairings li.mine{border-color:var(--gold)}
+.pairings .p{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.pairings .p.b{text-align:right}
+.pairings .p.win{color:var(--turq)}
+.pairings .score{font:700 18px/1 var(--ui);font-variant-numeric:tabular-nums;text-align:center}
+.pairings .mstat{grid-column:1/-1;color:var(--ink-soft);font-size:13.5px}
+.pairings .mctl{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:6px}
+.tpast details{border:1px solid var(--line);border-radius:12px;padding:8px 12px;margin:0 0 8px;background:var(--surface)}
+.tpast summary{cursor:pointer;font-weight:700}
+.tpast .pairings{margin-top:8px}
+.tside{position:sticky;top:calc(env(safe-area-inset-top,0px) + 76px);background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:14px;display:grid;gap:10px}
+.tside h3{margin:0;font:400 21px/1.2 var(--display)}
+.standings{width:100%;border-collapse:collapse;font-size:14.5px}
+.standings th,.standings td{text-align:left;padding:7px 6px;border-bottom:1px solid var(--line)}
+.standings th{font-size:13px;color:var(--ink-soft)}
+.standings td:nth-child(n+3),.standings th:nth-child(n+3){text-align:right;font-variant-numeric:tabular-nums}
+.standings tr.me td{font-weight:700}
+.standings tr.first td{color:var(--gold)}
+.standings small{color:var(--ink-soft)}
+.champ{display:grid;justify-items:center;gap:4px;padding:18px;margin:0 0 18px;border-radius:16px;background:radial-gradient(80% 90% at 50% 0%,rgba(244,204,98,.25),transparent 70%),var(--surface);border:1px solid var(--gold)}
+.champ .trophy svg{width:54px;height:54px;color:var(--gold)}
+.champ .lbl{margin:0;color:var(--ink-soft);font-weight:600}
+.champ .who{margin:0;font:400 30px/1.1 var(--display)}

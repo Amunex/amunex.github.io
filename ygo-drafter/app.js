@@ -1,5 +1,5 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 14;
+const V = 15;
 const HOME_PACKS = [["dk","LOB","Legend of Blue Eyes White Dragon","2002"],["dk","MRD","Metal Raiders","2002"],["goat","MRL","Magic Ruler","2002"],["goat","PSV","Pharaoh's Servant","2002"],["goat","LON","Labyrinth of Nightmare","2003"],["goat","LOD","Legacy of Darkness","2003"],["goat","PGD","Pharaonic Guardian","2003"],["goat","MFC","Magician's Force","2003"],["goat","DCR","Dark Crisis","2003"],["goat","IOC","Invasion of Chaos","2004"],["goat","AST","Ancient Sanctuary","2004"],["goat","EP1","Exclusive Pack","2004"],["goat","SOD","Soul of the Duelist","2004"],["goat","RDS","Rise of Destiny","2004"],["goat","FET","Flaming Eternity","2005"],["goat","TLM","The Lost Millennium","2005"],["edison","CRV","Cybernetic Revolution","2005"],["edison","EEN","Elemental Energy","2005"],["edison","DP2","Duelist Pack: Chazz Princeton","2006"],["edison","DP1","Duelist Pack: Jaden Yuki","2006"],["edison","SOI","Shadow of Infinity","2006"],["edison","EOJ","Enemy of Justice","2006"],["edison","POTD","Power of the Duelist","2006"],["edison","CDIP","Cyberdark Impact","2006"],["edison","DP05","Duelist Pack: Aster Phoenix","2007"],["edison","DP03","Duelist Pack: Jaden Yuki 2","2007"],["edison","STON","Strike of Neos","2007"],["edison","DP04","Duelist Pack: Zane Truesdale","2007"],["edison","FOTB","Force of the Breaker","2007"],["edison","PP01","Premium Pack (TCG)","2007"],["edison","TAEV","Tactical Evolution","2007"],["edison","GLAS","Gladiator's Assault","2007"],["edison","DP06","Duelist Pack: Jaden Yuki 3","2008"],["edison","DP07","Duelist Pack: Jesse Anderson","2008"],["edison","PTDN","Phantom Darkness","2008"],["edison","LODT","Light of Destruction","2008"],["edison","PP02","Premium Pack 2 (TCG)","2008"],["edison","TDGS","The Duelist Genesis","2008"],["edison","CSOC","Crossroads of Chaos","2008"],["edison","DLG1","Dark Legends","2008"],["edison","DP08","Duelist Pack: Yusei","2009"],["edison","CRMS","Crimson Crisis","2009"],["edison","RGBT","Raging Battle","2009"],["edison","DPYG","Duelist Pack: Yugi","2009"],["edison","ANPR","Ancient Prophecy","2009"],["edison","HA01","Hidden Arsenal","2009"],["edison","SOVR","Stardust Overdrive","2009"],["edison","DP09","Duelist Pack: Yusei 2","2010"],["edison","ABPF","Absolute Powerforce","2010"],["edison","DPKB","Duelist Pack: Kaiba","2010"]];
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
@@ -52,7 +52,7 @@ const MAX_COPIES = 3;
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ';
 const NAME_KEY = 'ygo-drafter-name';
 const MAX_SEATS = 10;
-const DEFAULTS = { pool: 'goat', mode: 'booster', src: 'comp', contents: 'sets', bonus: 'on', bots: 3, packs: 6, atOnce: 1, perPick: 1, odds: 'booster' };
+const DEFAULTS = { pool: 'goat', mode: 'booster', src: 'comp', contents: 'sets', bonus: 'on', tour: 'off', bestOf: 1, bots: 3, packs: 6, atOnce: 1, perPick: 1, odds: 'booster' };
 const deckList = (pd, src) => { const d = pd ? pd.decks : { struct: [], comp: [] }; const l = src === 'struct' ? d.struct : src === 'both' ? d.struct.concat(d.comp) : d.comp; return l.length ? l : (d.struct.length ? d.struct : d.comp); };
 const STACK = 20;
 const cidOf = x => typeof x === 'number' ? x : parseInt(x, 10);
@@ -235,7 +235,7 @@ async function createRoom() {
   const st = { ...DEFAULTS, ...S.settings };
   await F.set(F.ref(F.db, `rooms/${code}`), {
     v: 3, host: F.uid, created: F.serverTimestamp(), status: 'lobby',
-    settings: { pool: st.pool, mode: st.mode, src: st.src, contents: st.contents, bonus: st.bonus, bots: st.bots, packs: st.packs, atOnce: st.atOnce, odds: st.odds, perPick: st.perPick },
+    settings: { pool: st.pool, mode: st.mode, src: st.src, contents: st.contents, bonus: st.bonus, tour: st.tour || 'off', bestOf: +st.bestOf === 3 ? 3 : 1, bots: st.bots, packs: st.packs, atOnce: st.atOnce, odds: st.odds, perPick: st.perPick },
     members: { [F.uid]: { name: myName(), joined: F.serverTimestamp() } }
   });
   await enterRoom(code);
@@ -271,7 +271,11 @@ async function renameMe(name) {
   if (nameClash(S.room, F.uid, name)) throw new Error(`Someone here already goes by ${name}. Pick another username.`);
   await F.update(roomRef(F, `/members/${F.uid}`), { name }); store.set(NAME_KEY, name);
 }
-async function setReady(v) { const F = await fb(); const g = game(); if (!g) return; await F.set(roomRef(F, `/ready/${g.id}/${F.uid}`), v); }
+async function setReady(v) {
+  const F = await fb(); const g = game(); if (!g) return;
+  if (v) await F.set(roomRef(F, `/decks/${g.id}/${F.uid}`), { name: myName() || 'Player', ydk: ydkText() });
+  await F.set(roomRef(F, `/ready/${g.id}/${F.uid}`), v);
+}
 async function enterRoom(code) {
   const F = await fb();
   S.online = true; S.code = code; S.uid = F.uid; S.lastKey = null; S.sel = []; S.focus = null; S.pendingCode = null;
@@ -324,7 +328,7 @@ async function startOnline() {
   } catch (e) { toast('Couldn’t start the draft. Try again.'); console.error(e); }
   S.busy = false; render();
 }
-async function newDraftSameRoom() { const F = await fb(); await F.update(roomRef(F), { status: 'lobby', game: null }); }
+async function newDraftSameRoom() { const F = await fb(); await F.update(roomRef(F), { status: 'lobby', game: null, tour: null }); S.tab = null; }
 async function takeHost() { const F = await fb(); await F.update(roomRef(F), { host: F.uid }); }
 async function botTakeover(i) {
   const F = await fb(); await loadPool(roomPool());
@@ -367,7 +371,12 @@ function ensureDeck() {
   if (saved) { try { const d = JSON.parse(saved); S.deck = { main: new Set(d.main), extra: new Set(d.extra), side: new Set(d.side) }; return; } catch (_) {} }
   autoBuild();
 }
-function saveDeck() { const g = game(); if (!g || !S.deck) return; store.set(deckKey(g), JSON.stringify({ main: [...S.deck.main], extra: [...S.deck.extra], side: [...S.deck.side] })); }
+function saveDeck() {
+  const g = game(); if (!g || !S.deck) return;
+  store.set(deckKey(g), JSON.stringify({ main: [...S.deck.main], extra: [...S.deck.extra], side: [...S.deck.side] }));
+  const m = new Map(myPicks().map(p => [p.u, p.c.i]));
+  store.set('ygo-drafter:lastdeck', JSON.stringify({ pool: g.settings.pool, main: [...S.deck.main].map(u => m.get(u)).filter(Boolean), extra: [...S.deck.extra].map(u => m.get(u)).filter(Boolean) }));
+}
 function zoneOf(u) { for (const z of ['main', 'extra', 'side']) if (S.deck[z].has(u)) return z; return 'pool'; }
 function autoBuild() {
   S.deck = { main: new Set(), extra: new Set(), side: new Set() };
@@ -479,6 +488,8 @@ function settingsHTML(st, editable, online, humans = 1) {
   return `<div class="settings ${editable ? '' : 'readonly'}">
     <div class="field stack"><div class="lbl">Card pool<small>${esc(cfg.blurb)}</small></div>${seg('pool', Object.entries(POOLS).map(([k, v]) => [k, v.tab]))}</div>
     <div class="field stack"><div class="lbl">Draft style<small>${md ? 'Master Duel N/R uses booster packs.' : deck ? esc(deckInfo) : 'Open booster packs, keep a card and pass the rest.'}</small></div>${md ? '' : seg('mode', [['booster', 'Booster packs'], ['deck', 'Deck draft']])}</div>
+    ${online && humans >= 3 ? `<div class="field stack"><div class="lbl">Tournament after the draft<small>${esc(TOUR_HELP[st.tour] || 'Optional. The host can still start one when decks are done.')}</small></div>${seg('tour', [['off', 'Off'], ['rr', 'Round robin'], ['swiss', 'Swiss'], ['se', 'Single elimination']])}</div>
+    ${st.tour && st.tour !== 'off' ? `<div class="field"><div class="lbl">Matches<small>${+st.bestOf === 3 ? 'First to win 2 games' : 'One game per match'}</small></div>${seg('bestOf', [[1, 'Best of 1'], [3, 'Best of 3']])}</div>` : ''}` : ''}
     ${!deck && !md ? `<div class="field stack"><div class="lbl">Pack contents<small>${st.contents === 'pool' ? 'Packs mix every card of the era, including starter deck cards, tins, promos and staples.' : 'Each pack is a random real booster set with only that set\'s cards.'}</small></div>${seg('contents', [['sets', 'Real sets'], ['pool', 'Whole pool']])}</div>` : ''}
     ${deck ? `<div class="field stack"><div class="lbl">Bonus packs<small>${st.bonus === 'off' ? 'Only the decks go into the stacks.' : 'Adds 1 pack of 10 staples and rares for every 2 players, shuffled in with the decks.'}</small></div>${seg('bonus', [['on', 'On'], ['off', 'Off']])}</div>` : ''}
     ${deck ? `<div class="field stack"><div class="lbl">Decks to use<small>${nComp ? 'Tournament decks come from Format Library event results.' : 'No tournament decklists exist for Duelist Kingdom, so it uses the starter decks.'}</small></div>${nComp ? seg('src', [['comp', 'Competitive'], ['struct', 'Structure'], ['both', 'Both']]) : ''}</div>` : ''}
@@ -550,7 +561,8 @@ function renderHome() {
       <p class="playing">Playing as ${esc(name)}. <button class="linkish" type="button" data-act="edit-name">Change username</button></p>
       <div class="block"><h3>Host a draft</h3><p>Create a room, send the invite link, and start when everyone’s in.</p><div class="row"><button class="cta" type="button" data-act="create">Create a room</button></div></div>
       <div class="block"><h3><label for="codeIn">Join with a code</label></h3><div class="row"><input class="text code" id="codeIn" maxlength="4" autocomplete="off" placeholder="ABCD"><button class="ghost" type="button" data-act="join">Join</button></div></div>
-      <div class="block"><h3>Practice</h3><p>Draft alone against bots. Nothing goes online.</p><div class="row"><button class="ghost" type="button" data-act="practice">Practice vs bots</button></div></div>${err}`;
+      <div class="block"><h3>Practice</h3><p>Draft alone against bots. Nothing goes online.</p><div class="row"><button class="ghost" type="button" data-act="practice">Practice vs bots</button></div></div>
+      <div class="block"><h3>Duel test (beta)</h3><p>Play a GOAT duel against yourself with automatic rules and an undo button.</p><div class="row"><a class="ghost" href="duel/">Open the duel table</a></div></div>${err}`;
   $('#app').innerHTML = `<section class="home"><div class="hero-pack">${heroCycleHTML(null)}</div><div>${body}</div></section>`;
   startHeroCycle();
 }
@@ -807,8 +819,12 @@ function rareBurst(ov, el, tier) {
 
 /* ================= deck building screen ================= */
 function renderBuild() {
-  const g = game(); if (!g || mySeat(g) < 0) { S.view = S.online ? 'lobby' : 'home'; render(); return; }
-  usePool(g.settings.pool); ensureDeck();
+  const g = game(); if (!g) { S.view = S.online ? 'lobby' : 'home'; render(); return; }
+  usePool(g.settings.pool);
+  const tour = S.online ? activeTour() : null;
+  if (tour && (S.tab !== 'deck' || mySeat(g) < 0)) { renderTourView(tour); return; }
+  if (mySeat(g) < 0) { S.view = S.online ? 'lobby' : 'home'; render(); return; }
+  ensureDeck();
   const picks = myPicks(); const m = new Map(picks.map(p => [p.u, p]));
   const zones = { main: [], extra: [], side: [], pool: [] }; picks.forEach(p => zones[zoneOf(p.u)].push(p));
   const ord = p => ({ M: 0, S: 1, T: 2, F: 3 }[p.c.k] * 100000 - (p.c.k === 'M' ? (p.c.lv || 0) * 1000 : 0));
@@ -829,6 +845,7 @@ function renderBuild() {
   }
   const md = ACT.cfg.tiers === 'md';
   $('#app').innerHTML = `<section class="build"><div>
+    ${tour ? tourTabs('deck') : ''}
     ${readyHTML(g)}
     <div class="buildbar"><span class="count ${mainN >= 40 && mainN <= 60 ? 'ok' : 'bad'}">Main ${mainN} / 40</span><span class="count ${exN <= 15 ? '' : 'bad'}">Extra ${exN}</span><span class="count ${sdN <= 15 ? '' : 'bad'}">Side ${sdN}</span><span class="spacer"></span>
       <button class="ghost" type="button" data-act="auto">Rebuild automatically</button><button class="ghost" type="button" data-act="fillside">Fill side from unused</button></div>
@@ -839,7 +856,7 @@ function renderBuild() {
     ${zoneBlock('pool', 'Unused picks', `${zones.pool.length} cards`, zones.pool, true)}
     <section class="export"><h3>Export</h3>
       <p>Same layout as a YGOPRODeck .ydk: #main, #extra and !side, one card ID per line, sorted by ID. ${md ? 'Import it into YGOPRODeck or a Master Duel deck-transfer tool to build it in Master Duel.' : 'Load it in DuelingBook, EDOPro or YGOPRODeck.'}</p>
-      <div class="row"><button class="cta" type="button" data-act="download" ${mainN ? '' : 'disabled'}>Download .ydk</button><button class="ghost" type="button" data-act="copy" ${mainN ? '' : 'disabled'}>Copy text</button></div>
+      <div class="row"><button class="cta" type="button" data-act="download" ${mainN ? '' : 'disabled'}>Download .ydk</button><button class="ghost" type="button" data-act="copy" ${mainN ? '' : 'disabled'}>Copy text</button>${ACT.key === 'goat' || ACT.key === 'dk' ? `<button class="ghost" type="button" data-act="duel" ${mainN >= 20 ? '' : 'disabled'}>Test it in a duel</button>` : ''}</div>
       <details><summary>Preview the file</summary><textarea id="ydkPreview" readonly spellcheck="false">${esc(ydkText())}</textarea></details></section>
     <div class="sheet-pad"></div></div>
     <aside class="detail ${S.expanded ? 'expanded' : ''}" id="detail" ${sel || wide() ? '' : 'hidden'}>
@@ -849,6 +866,17 @@ function readyInfo(g) {
   const rd = (S.room && S.room.ready && S.room.ready[g.id]) || {};
   const people = g.seats.filter(s => s.uid); const waiting = people.filter(s => rd[s.uid] !== true);
   return { rd, people, waiting, all: waiting.length === 0, meReady: rd[S.uid] === true };
+}
+function tourBoxHTML(g, people, waiting) {
+  if (people.length < 3) return '';
+  if (activeTour()) return `<div class="tourstart"><p><b>A tournament is running.</b> Open the Tournament tab to see your match.</p></div>`;
+  const st = Object.assign({}, DEFAULTS, (S.room && S.room.settings) || {}); const host = isHost();
+  const fmt = TFORMATS[st.tour] ? st.tour : 'rr'; const regs = tourRegistered(g);
+  const seg = (key, cur, opts) => `<div class="seg small" role="radiogroup">${opts.map(([v, l]) => `<label><input type="radio" name="set-${key}" value="${v}" ${String(cur) === String(v) ? 'checked' : ''} ${host ? '' : 'disabled'}><span>${esc(l)}</span></label>`).join('')}</div>`;
+  return `<div class="tourstart"><p><b>Tournament</b> ${regs.length >= 2 ? `with ${regs.length} ready players` : ''}<small>${esc(TOUR_HELP[fmt])} Optional: you can also just duel freely.</small></p>
+    ${host ? `${seg('tour', fmt, [['rr', 'Round robin'], ['swiss', 'Swiss'], ['se', 'Single elimination']])}${seg('bestOf', +st.bestOf === 3 ? 3 : 1, [[1, 'Best of 1'], [3, 'Best of 3']])}
+      <div class="row"><button class="cta" type="button" data-act="tour-start" ${regs.length >= 2 && !S.busy ? '' : 'disabled'}>Start the tournament</button>${regs.length < 2 ? '<span class="waitnote" style="margin:0">At least 2 players need to be ready.</span>' : waiting.length ? '<span class="waitnote" style="margin:0">Anyone not ready yet is left out.</span>' : ''}</div>`
+    : `<p class="waitnote" style="margin:0">The host can start a tournament (${esc(TFORMATS[fmt].toLowerCase())}, best of ${+st.bestOf === 3 ? 3 : 1}) once decks are ready.</p>`}</div>`;
 }
 function readyHTML(g) {
   if (!S.online) return '';
@@ -860,7 +888,198 @@ function readyHTML(g) {
     <p>${all ? `Everyone is ready. Time to ${where} and start dueling.` : `Deck building: ${people.length - waiting.length} of ${people.length} ready. Waiting for ${esc(listNames(names))}.`}</p>
     <ul class="seats">${chips}</ul>
     <div class="row">${meReady ? `<span class="okline">${CHECK}You’re ready.</span><button class="ghost" type="button" data-act="unready">Keep editing</button>` : `<button class="cta" type="button" data-act="ready">I’m done building</button><span class="waitnote" style="margin:0">Download your .ydk first, then tap this.</span>`}</div>
+    ${tourBoxHTML(g, people, waiting)}
   </div>`;
+}
+
+/* ================= tournament for the players of an online draft ================= */
+const TFORMATS = { rr: 'Round robin', swiss: 'Swiss', se: 'Single elimination' };
+const TOUR_HELP = { rr: 'Everyone plays everyone once.', swiss: 'A few rounds. Each round you face someone with a similar record.', se: 'Lose a match and you are out. The last one standing wins.' };
+const TROPHY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 3h10v2h3v3a4 4 0 0 1-4 4h-.3A5 5 0 0 1 13 15v2h3v3H8v-3h3v-2a5 5 0 0 1-2.7-3H8a4 4 0 0 1-4-4V5h3zm0 4H6v1a2 2 0 0 0 1 1.7zm10 0v2.7A2 2 0 0 0 18 8V7z"/></svg>';
+const tArr = x => Array.isArray(x) ? x : (x && typeof x === 'object' ? Object.keys(x).sort((a, b) => a - b).map(k => x[k]) : []);
+function normTour(t) {
+  if (!t) return null;
+  t.order = tArr(t.order).filter(Boolean); t.players = t.players || {};
+  t.rounds = tArr(t.rounds).map(r => ({ matches: tArr(r && r.matches).map(m => ({ a: m.a, b: m.b || null, games: m.games || {} })) }));
+  t.round = t.round || 0; t.done = !!t.done; t.bestOf = t.bestOf === 3 ? 3 : 1; t.total = t.total || tTotal(t.format, t.order.length);
+  return t;
+}
+function tTotal(format, n) { return format === 'rr' ? Math.max(1, n % 2 ? n : n - 1) : Math.max(1, Math.ceil(Math.log2(Math.max(2, n)))); }
+function tRoundRobin(uids) {
+  const list = uids.slice(); if (list.length % 2) list.push(null);
+  const n = list.length, rounds = [];
+  for (let r = 0; r < n - 1; r++) {
+    const matches = [];
+    for (let i = 0; i < n / 2; i++) { const a = list[i], b = list[n - 1 - i]; if (a == null && b == null) continue; matches.push(a == null ? { a: b, b: null } : { a, b }); }
+    matches.sort((x, y) => (x.b ? 0 : 1) - (y.b ? 0 : 1)); rounds.push({ matches }); list.splice(1, 0, list.pop());
+  }
+  return rounds;
+}
+function tSeedOrder(size) { let s = [1]; while (s.length < size) { const m = s.length * 2 + 1; s = s.flatMap(x => [x, m - x]); } return s; }
+function tBracket(uids) {
+  const size = 2 ** Math.ceil(Math.log2(Math.max(2, uids.length))); const ord = tSeedOrder(size); const matches = [];
+  for (let k = 0; k < size / 2; k++) { const a = uids[ord[2 * k] - 1] ?? null, b = uids[ord[2 * k + 1] - 1] ?? null; if (a == null && b == null) continue; matches.push(a == null ? { a: b, b: null } : { a, b }); }
+  return { matches };
+}
+function makeTour({ id, format, bestOf, players, gid }) {
+  const order = shuffle(players.map(p => p.uid));
+  const t = { id, gid, format: TFORMATS[format] ? format : 'rr', bestOf: bestOf === 3 ? 3 : 1, created: Date.now(), round: 0, done: false,
+    players: Object.fromEntries(players.map(p => [p.uid, { name: p.name, ydk: p.ydk || '' }])), order };
+  t.total = tTotal(t.format, order.length);
+  t.rounds = t.format === 'rr' ? tRoundRobin(order) : t.format === 'se' ? [tBracket(order)] : [tSwiss(t, order)];
+  return t;
+}
+const tNeed = t => (t.bestOf === 3 ? 2 : 1);
+function tResult(t, m) {
+  const n = tNeed(t);
+  if (!m.b) return { done: true, winner: m.a, wa: n, wb: 0, bye: true };
+  const g = Object.keys(m.games || {}).sort().map(k => m.games[k]);
+  const wa = g.filter(x => x === m.a).length, wb = g.filter(x => x === m.b).length;
+  const winner = wa >= n ? m.a : wb >= n ? m.b : null;
+  return { done: !!winner, winner, wa, wb, bye: false };
+}
+const tRoundDone = (t, r = t.round) => !!t.rounds[r] && t.rounds[r].matches.every(m => tResult(t, m).done);
+function tStandings(t) {
+  const P0 = {};
+  for (const uid of t.order) P0[uid] = { uid, name: (t.players[uid] && t.players[uid].name) || 'Player', mw: 0, ml: 0, gw: 0, gl: 0, pts: 0, opps: [], byes: 0, out: null };
+  t.rounds.forEach((r, ri) => r.matches.forEach(m => {
+    const res = tResult(t, m); if (!res.done || !P0[m.a]) return;
+    if (res.bye) { P0[m.a].mw++; P0[m.a].pts += 3; P0[m.a].byes++; P0[m.a].gw += res.wa; return; }
+    if (!P0[m.b]) return;
+    P0[m.a].opps.push(m.b); P0[m.b].opps.push(m.a);
+    P0[m.a].gw += res.wa; P0[m.a].gl += res.wb; P0[m.b].gw += res.wb; P0[m.b].gl += res.wa;
+    const w = P0[res.winner], l = P0[res.winner === m.a ? m.b : m.a]; w.mw++; w.pts += 3; l.ml++;
+    if (t.format === 'se') l.out = ri;
+  }));
+  const mwp = p => Math.max(1 / 3, p.mw / Math.max(1, p.mw + p.ml)); const list = Object.values(P0);
+  for (const p of list) p.omw = p.opps.length ? p.opps.reduce((a, o) => a + mwp(P0[o]), 0) / p.opps.length : 0;
+  const alive = p => (p.out == null ? 99 : p.out);
+  list.sort((a, b) => (t.format === 'se' ? alive(b) - alive(a) : 0) || b.pts - a.pts || b.omw - a.omw || (b.gw - b.gl) - (a.gw - a.gl) || a.name.localeCompare(b.name));
+  return list;
+}
+function tSwiss(t, order) {
+  const st = t.rounds && t.rounds.length ? tStandings(t) : order.map(uid => ({ uid, pts: 0, byes: 0 }));
+  const played = new Set(); (t.rounds || []).forEach(r => r.matches.forEach(m => { if (m.b) { played.add(`${m.a}|${m.b}`); played.add(`${m.b}|${m.a}`); } }));
+  const matches = []; const pool = st.map(p => p.uid);
+  if (pool.length % 2) { const byes = new Map(st.map(p => [p.uid, p.byes || 0])); let k = pool.length - 1; while (k > 0 && byes.get(pool[k]) > 0) k--; const [bye] = pool.splice(k, 1); matches.push({ a: bye, b: null }); }
+  const solve = list => { if (!list.length) return []; const [a, ...rest] = list; for (let j = 0; j < rest.length; j++) { if (played.has(`${a}|${rest[j]}`)) continue; const sub = solve(rest.filter((_, k) => k !== j)); if (sub) return [{ a, b: rest[j] }, ...sub]; } return null; };
+  let pairs = pool.length <= 12 ? solve(pool) : null;
+  if (!pairs) { pairs = []; for (let k = 0; k < pool.length; k += 2) pairs.push({ a: pool[k], b: pool[k + 1] }); }
+  matches.unshift(...pairs);
+  return { matches: matches.sort((x, y) => (x.b ? 0 : 1) - (y.b ? 0 : 1)) };
+}
+function tAdvance(t) {
+  if (t.done || !tRoundDone(t)) return false;
+  if (t.format === 'rr') { if (t.round + 1 < t.rounds.length) t.round++; else t.done = true; return true; }
+  if (t.format === 'se') {
+    const winners = t.rounds[t.round].matches.map(m => tResult(t, m).winner);
+    if (winners.length <= 1) { t.done = true; return true; }
+    const matches = []; for (let k = 0; k < winners.length; k += 2) matches.push(winners[k + 1] ? { a: winners[k], b: winners[k + 1] } : { a: winners[k], b: null });
+    t.rounds.push({ matches }); t.round++; return true;
+  }
+  if (t.round + 1 >= t.total) { t.done = true; return true; }
+  t.rounds.push(tSwiss(t, t.order)); t.round++; return true;
+}
+function tChampion(t) {
+  if (!t.done) return null;
+  if (t.format === 'se') { const last = t.rounds[t.rounds.length - 1]; const m = last && last.matches[0]; return m ? tResult(t, m).winner : null; }
+  const st = tStandings(t); return st.length ? st[0].uid : null;
+}
+const tRoundName = (t, r) => { if (t.format !== 'se') return `Round ${r + 1}`; const left = t.total - r; return left === 1 ? 'Final' : left === 2 ? 'Semifinal' : left === 3 ? 'Quarterfinal' : `Round ${r + 1}`; };
+function activeTour() { const g = game(); const raw = S.room && S.room.tour; if (!g || !raw || raw.gid !== g.id) return null; return normTour(JSON.parse(JSON.stringify(raw))); }
+function tourRegistered(g) {
+  const rd = (S.room && S.room.ready && S.room.ready[g.id]) || {}; const decks = (S.room && S.room.decks && S.room.decks[g.id]) || {};
+  return g.seats.filter(s => s.uid && rd[s.uid] === true).map(s => ({ uid: s.uid, name: (decks[s.uid] && decks[s.uid].name) || s.name, ydk: (decks[s.uid] && decks[s.uid].ydk) || '' }));
+}
+async function startTour() {
+  const g = game(); const players = tourRegistered(g);
+  if (players.length < 2) { toast('At least 2 players need to be ready.'); return; }
+  const st = Object.assign({}, DEFAULTS, S.room.settings || {});
+  const fmt = TFORMATS[st.tour] ? st.tour : 'rr';
+  const tour = makeTour({ id: Math.random().toString(36).slice(2, 10), gid: g.id, format: fmt, bestOf: +st.bestOf === 3 ? 3 : 1, players });
+  const F = await fb(); S.busy = true; render();
+  try { await F.runTransaction(roomRef(F, '/tour'), cur => (cur && cur.gid === g.id && !cur.done ? undefined : tour)); S.tab = 'tour'; }
+  catch (e) { toast('Couldn’t start the tournament. Check your connection.'); }
+  finally { S.busy = false; render(); }
+}
+async function tourGame(r, i, winner) {
+  const t = activeTour(); const m = t && t.rounds[r] && t.rounds[r].matches[i]; if (!m || tResult(t, m).done) return;
+  const F = await fb(); await F.push(roomRef(F, `/tour/rounds/${r}/matches/${i}/games`), winner);
+}
+async function tourUndo(r, i) {
+  const t = activeTour(); const m = t && t.rounds[r] && t.rounds[r].matches[i]; if (!m) return;
+  const keys = Object.keys(m.games || {}).sort(); if (!keys.length) return;
+  const F = await fb(); await F.remove(roomRef(F, `/tour/rounds/${r}/matches/${i}/games/${keys[keys.length - 1]}`));
+}
+async function tourNext() { const F = await fb(); await F.runTransaction(roomRef(F, '/tour'), cur => { if (!cur) return cur; const t = normTour(cur); return tAdvance(t) ? t : undefined; }); }
+async function tourReset() { const F = await fb(); await F.set(roomRef(F, '/tour'), null); S.tab = 'deck'; }
+const tName = (t, uid) => uid === S.uid ? 'You' : (t.players[uid] && t.players[uid].name) || 'Player';
+function tMatchRow(t, r, i, m, live) {
+  const res = tResult(t, m); const host = isHost(); const nm = uid => esc(tName(t, uid));
+  if (!m.b) return `<li class="bye"><span class="p a win">${nm(m.a)}</span><span class="score">bye</span><span class="p b"></span><span class="mstat">Counts as a win</span></li>`;
+  const mine = m.a === S.uid || m.b === S.uid; const games = Object.keys(m.games || {}).length;
+  const ctl = [];
+  if (live && !t.done && host && !mine && !res.done) ctl.push(`<button class="ghost small" type="button" data-act="tour-game" data-r="${r}" data-i="${i}" data-w="${esc(m.a)}">+1 ${nm(m.a)}</button><button class="ghost small" type="button" data-act="tour-game" data-r="${r}" data-i="${i}" data-w="${esc(m.b)}">+1 ${nm(m.b)}</button>`);
+  if (live && !t.done && host && !mine && games) ctl.push(`<button class="linkish" type="button" data-act="tour-undo" data-r="${r}" data-i="${i}">Undo</button>`);
+  const stat = res.done ? `${nm(res.winner)} won` : games ? 'Playing' : 'Not started';
+  return `<li class="${res.done ? 'done' : ''} ${mine ? 'mine' : ''}"><span class="p a ${res.winner === m.a ? 'win' : ''}">${nm(m.a)}</span><span class="score">${res.wa} – ${res.wb}</span><span class="p b ${res.winner === m.b ? 'win' : ''}">${nm(m.b)}</span><span class="mstat">${stat}</span>${ctl.length ? `<span class="mctl">${ctl.join('')}</span>` : ''}</li>`;
+}
+function tourTabs(active) { return `<div class="ttabs" role="tablist"><button type="button" role="tab" aria-selected="${active === 'tour'}" data-act="tab-tour">Tournament</button><button type="button" role="tab" aria-selected="${active === 'deck'}" data-act="tab-deck">My deck</button></div>`; }
+function renderTourView(t) {
+  const host = isHost(); const g = game();
+  const actions = [];
+  if (host) actions.push(`<button class="ghost" type="button" data-act="tour-reset">End tournament</button>`, `<button class="ghost" type="button" data-act="new-draft">New draft</button>`);
+  actions.push(`<button class="ghost" type="button" data-act="leave">Leave</button>`);
+  setBar(`<span>Tournament: ${esc(TFORMATS[t.format])}, best of ${t.bestOf}</span>`, actions);
+  const r = t.round, round = t.rounds[r], st = tStandings(t), champ = tChampion(t);
+  const myI = round ? round.matches.findIndex(m => m.a === S.uid || m.b === S.uid) : -1;
+  let myBox = '';
+  if (!t.done && myI >= 0) {
+    const m = round.matches[myI]; const res = tResult(t, m);
+    if (!m.b) myBox = `<div class="mymatch"><h3>Your match</h3><p>You have a bye this round. It counts as a win.</p></div>`;
+    else {
+      const opp = m.a === S.uid ? m.b : m.a; const mine = m.a === S.uid ? res.wa : res.wb, theirs = m.a === S.uid ? res.wb : res.wa; const games = Object.keys(m.games || {}).length;
+      myBox = `<div class="mymatch ${res.done ? (res.winner === S.uid ? 'won' : 'lost') : ''}"><h3>Your match: you vs ${esc(tName(t, opp))}</h3><p class="bigscore">${mine} – ${theirs}</p>
+        <p>${res.done ? (res.winner === S.uid ? 'You won this round.' : 'You lost this round.') : `${t.bestOf === 3 ? 'Best of 3: first to 2 games wins.' : 'One game.'} Duel on DuelingBook, EDOPro or face to face with your .ydk, then report each game here.`}</p>
+        ${res.done ? '' : `<div class="row"><button class="cta" type="button" data-act="tour-game" data-r="${r}" data-i="${myI}" data-w="${esc(S.uid)}">I won a game</button><button class="ghost" type="button" data-act="tour-game" data-r="${r}" data-i="${myI}" data-w="${esc(opp)}">I lost a game</button>${games ? `<button class="linkish" type="button" data-act="tour-undo" data-r="${r}" data-i="${myI}">Undo the last one</button>` : ''}<button class="ghost" type="button" data-act="download">Download my .ydk</button></div>`}</div>`;
+    }
+  } else if (!t.done && !t.players[S.uid]) myBox = '<div class="mymatch"><p>You’re not in this tournament, but you can follow it here.</p></div>';
+  const pending = round ? round.matches.filter(m => !tResult(t, m).done).length : 0;
+  const last = t.format === 'se' ? round && round.matches.length === 1 : r + 1 >= t.total;
+  const next = !t.done && round ? (tRoundDone(t)
+    ? (host ? `<div class="row"><button class="cta" type="button" data-act="tour-next">${last ? 'Finish the tournament' : 'Next round'}</button></div>` : `<p class="waitnote">Round over. The host ${last ? 'finishes the tournament' : 'starts the next round'}.</p>`)
+    : `<p class="waitnote">${pending} match${pending === 1 ? '' : 'es'} still to play this round.</p>`) : '';
+  const past = t.rounds.map((rr, ri) => ri === r && !t.done ? '' : `<details ${t.done && ri === t.rounds.length - 1 ? 'open' : ''}><summary>${esc(tRoundName(t, ri))}</summary><ol class="pairings">${rr.matches.map((m, i) => tMatchRow(t, ri, i, m, false)).join('')}</ol></details>`).reverse().join('');
+  $('#app').innerHTML = `<section class="tourview"><div>
+      ${tourTabs('tour')}
+      ${t.done ? `<div class="champ"><span class="trophy">${TROPHY}</span><p class="lbl">Tournament champion</p><p class="who">${esc(champ ? tName(t, champ) : '')}</p></div>` : ''}
+      ${myBox}
+      ${t.done ? '' : `<section class="tround"><h2>${esc(tRoundName(t, r))} <small>of ${t.total}</small></h2><ol class="pairings">${round.matches.map((m, i) => tMatchRow(t, r, i, m, true)).join('')}</ol>${next}</section>`}
+      ${past ? `<section class="tpast"><h3>Rounds</h3>${past}</section>` : ''}
+    </div>
+    <aside class="tside"><h3>Standings</h3>
+      <table class="standings"><thead><tr><th>#</th><th>Player</th><th title="Points: 3 per match win">Pts</th><th title="Matches won and lost">W–L</th><th title="Games won and lost">Games</th></tr></thead>
+      <tbody>${st.map((p, k) => `<tr class="${p.uid === S.uid ? 'me' : ''} ${t.done && k === 0 ? 'first' : ''}"><td>${k + 1}</td><td>${esc(tName(t, p.uid))}${t.format === 'se' && p.out != null && !(t.done && p.uid === champ) ? ` <small>out in ${esc(tRoundName(t, p.out).toLowerCase())}</small>` : ''}</td><td>${p.pts}</td><td>${p.mw}–${p.ml}</td><td>${p.gw}–${p.gl}</td></tr>`).join('')}</tbody></table>
+      <p class="note">${t.format === 'se' ? 'Ordered by how far each player got.' : 'Ties are broken by opponents’ win rate, then game difference.'}</p>
+      <div class="row"><button class="ghost" type="button" data-act="tour-download">Download results and decks</button></div>
+    </aside></section>`;
+}
+function tourText(t) {
+  const g = game(); const pd = P[g.settings.pool]; const st = tStandings(t); const champ = tChampion(t);
+  const L = [`YGO Drafter tournament, room ${S.code}`, `Card pool: ${POOLS[g.settings.pool].title}`, `Format: ${TFORMATS[t.format]}, best of ${t.bestOf}`];
+  if (champ) L.push(`Champion: ${(t.players[champ] || {}).name}`);
+  L.push('', 'STANDINGS'); st.forEach((p, k) => L.push(`${k + 1}. ${p.name}: ${p.pts} pts, matches ${p.mw}-${p.ml}, games ${p.gw}-${p.gl}`));
+  L.push('', 'ROUNDS');
+  t.rounds.forEach((rr, ri) => { L.push(tRoundName(t, ri)); rr.matches.forEach(m => { const res = tResult(t, m); const n = u => (t.players[u] || {}).name || 'Player'; L.push(m.b ? `  ${n(m.a)} ${res.wa}-${res.wb} ${n(m.b)}${res.done ? `  (${n(res.winner)} won)` : '  (unfinished)'}` : `  ${n(m.a)} has a bye`); }); });
+  L.push('', 'DECKS');
+  st.forEach(p => {
+    const pl = t.players[p.uid] || {}; L.push('', `== ${pl.name} ==`);
+    let sec = 'Main'; const counts = new Map();
+    const flush = () => { if (counts.size) { L.push(`${sec}:`); for (const [id, n] of counts) L.push(`  ${n}x ${((pd && pd.byId.get(id)) || {}).n || id}`); counts.clear(); } };
+    for (const line of String(pl.ydk || '').split('\n')) { const s = line.trim(); if (s === '#main') { flush(); sec = 'Main'; } else if (s === '#extra') { flush(); sec = 'Extra'; } else if (s === '!side') { flush(); sec = 'Side'; } else if (/^\d+$/.test(s)) counts.set(+s, (counts.get(+s) || 0) + 1); }
+    flush();
+  });
+  return L.join('\n');
 }
 
 /* ================= card pool viewer ================= */
@@ -1014,6 +1233,15 @@ document.addEventListener('click', e => {
     if (a === 'auto') { autoBuild(); S.buildSel = null; render(); toast('Rebuilt a 40-card deck from your strongest picks.'); return; }
     if (a === 'fillside') { fillSide(); return; }
     if (a === 'download') { downloadYdk(); return; }
+    if (a === 'tour-start') { startTour(); return; }
+    if (a === 'tour-game') { const b = t.closest('[data-act]'); tourGame(+b.dataset.r, +b.dataset.i, b.dataset.w); return; }
+    if (a === 'tour-undo') { const b = t.closest('[data-act]'); tourUndo(+b.dataset.r, +b.dataset.i); return; }
+    if (a === 'tour-next') { tourNext(); return; }
+    if (a === 'tour-reset') { if (confirm('End the tournament for everyone? Results are cleared.')) tourReset(); return; }
+    if (a === 'tour-download') { const tt = activeTour(); if (tt) { const url = URL.createObjectURL(new Blob([tourText(tt)], { type: 'text/plain' })); const l = document.createElement('a'); l.href = url; l.download = `ygo_drafter_tournament_${S.code}.txt`; l.click(); setTimeout(() => URL.revokeObjectURL(url), 2000); } return; }
+    if (a === 'tab-tour') { S.tab = 'tour'; render(); return; }
+    if (a === 'tab-deck') { S.tab = 'deck'; render(); return; }
+    if (a === 'duel') { try { localStorage.setItem('ygo-drafter:duel-ydk', ydkText()); } catch (_) {} window.open('duel/', '_blank', 'noopener'); return; }
     if (a === 'copy') { copyText(ydkText(), 'Copied the .ydk text.', '#ydkPreview'); return; }
     if (a.startsWith('to-') && S.buildSel != null) { moveTo(S.buildSel, a.slice(3)); S.buildSel = null; S.expanded = false; render(); return; }
   }
@@ -1036,7 +1264,7 @@ document.addEventListener('click', e => {
 document.addEventListener('change', e => {
   if (e.target.id === 'pgJump') { const sec = document.getElementById('pg-' + e.target.value); sec && sec.scrollIntoView({ block: 'start' }); return; }
   const n = e.target.name || '';
-  if (n.startsWith('set-')) { const k = n.slice(4); let v = e.target.value; if (k === 'perPick' || k === 'atOnce') v = +v; setSetting(k, v); }
+  if (n.startsWith('set-')) { const k = n.slice(4); let v = e.target.value; if (k === 'perPick' || k === 'atOnce' || k === 'bestOf') v = +v; setSetting(k, v); }
 });
 document.addEventListener('keydown', e => {
   if (e.key === 'Escape') { if (!$('#poolModal').hidden) { closePool(); return; } if (S.focus != null || S.buildSel != null) { S.focus = null; S.buildSel = null; if (S.view === 'draft') S.sel = []; render(); } }
