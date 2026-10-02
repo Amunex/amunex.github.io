@@ -3,7 +3,7 @@
 import createCore, { OcgDuelMode, OcgProcessResult, cardMatchesOpcode } from './engine/index.js';
 import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYPES, autoAnswer as legalAnswer } from './glue.js';
 
-const V = 7;
+const V = 6;
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = { apiKey: 'AIzaSyAto8uv4bsHkhDGkhiCFa-PuILGZS9Hf08', authDomain: 'goat-draft-796f7.firebaseapp.com', databaseURL: 'https://goat-draft-796f7-default-rtdb.firebaseio.com', projectId: 'goat-draft-796f7', storageBucket: 'goat-draft-796f7.firebasestorage.app', messagingSenderId: '906831006037', appId: '1:906831006037:web:80e372d9ca72e53073c7dc' };
 const $ = (s, el = document) => el.querySelector(s);
@@ -29,8 +29,7 @@ const S = {
   field: null, chain: [], winner: null, turn: 0, phase: 0, turnPlayer: 0, lp: [8000, 8000],
   sel: [], menu: null, focusCode: null, pickerClosed: false, viewer: null, info: null,
   chainMode: ['auto', 'auto'], handOrder: [[], []], log: [], tab: 'log', chatSeen: 0, fx: [], quiet: false, sending: null, shuffleFx: false,
-  ai: true, aiTimer: null, aiActs: 0, aiTried: new Set(), aiTurn: -1, pop: null, lpShown: [8000, 8000],
-  popPos: (typeof localStorage !== 'undefined' && localStorage.getItem('ygo-duel-poppos')) || 'cursor'
+  ai: true, aiTimer: null, aiActs: 0, aiTried: new Set(), aiTurn: -1, pop: null, lpShown: [8000, 8000]
 };
 
 /* ================= loading ================= */
@@ -119,7 +118,7 @@ function pump(feed = [], live = true) {
     apply({ r: auto, e: m.player, a: 1 });
   }
   S.quiet = false;
-  refreshField(); syncHandOrder();
+  refreshField();
   if (!live) S.lpShown = S.lp.slice();
 }
 function apply(x) { S.applied.push(x); S.lib.duelSetResponse(S.h, x.r); S.prompt = null; S.title = ''; }
@@ -361,16 +360,6 @@ function pileHTML(e, loc, label, list, acts) {
   const glow = acts && pileHasAction(e, loc, acts) ? 'act' : '';
   return `<button class="slot pile ${glow}" type="button" data-pile="${e}:${loc}" data-kind="${label}" aria-label="${esc(label)}, ${n} cards">${n ? `<img src="${img}" alt="" draggable="false" onerror="this.remove()">` : ''}<span class="pl">${label}</span><span class="pn">${n}</span></button>`;
 }
-function syncHandOrder() {
-  if (!S.field) return;
-  [0, 1].forEach(e => {
-    const left = new Map(); S.field[e].hand.forEach(c => left.set(c.code, (left.get(c.code) || 0) + 1));
-    const keep = [];
-    for (const code of S.handOrder[e] || []) if (left.get(code) > 0) { keep.push(code); left.set(code, left.get(code) - 1); }
-    for (const c of S.field[e].hand) if (left.get(c.code) > 0) { keep.push(c.code); left.set(c.code, left.get(c.code) - 1); }
-    S.handOrder[e] = keep;
-  });
-}
 function orderedHand(e) {
   const ord = S.handOrder[e] || []; const used = ord.map(() => false);
   return S.field[e].hand.map((c, i) => { let k = ord.findIndex((code, j) => !used[j] && code === c.code); if (k >= 0) used[k] = true; else k = 1e6 + i; return { c, i, k }; }).sort((a, b) => a.k - b.k);
@@ -449,17 +438,9 @@ function renderPop() {
 }
 function placePop() {
   const el = $('#pop'); if (!el || el.hidden || !S.pop) return;
-  const w = el.offsetWidth, h = el.offsetHeight; let x, y;
-  el.classList.toggle('docked', S.popPos === 'corner');
-  el.classList.remove('below');
-  if (S.popPos === 'corner') { const b = $('#board'); const r = b ? b.getBoundingClientRect() : { left: 8, top: 8 }; x = r.left + 12; y = Math.max(8, r.top + 12); }
-  else {
-    let px = S.pop.x, py = S.pop.y;
-    if (px == null) { const a = document.querySelector(`#board .dcard[data-key="${S.pop.key}"]`); if (a) { const r = a.getBoundingClientRect(); px = r.left + r.width / 2; py = r.top; } else { px = innerWidth / 2; py = innerHeight / 2; } }
-    x = px - w / 2; y = py - h - 16;                 // hover just above the cursor, centred on it
-    if (y < 8) { el.classList.add('below'); y = py + 24; }   // no room above: just below instead
-  }
-  x = Math.min(innerWidth - w - 8, Math.max(8, x)); y = Math.min(innerHeight - h - 8, Math.max(8, y));
+  let { x, y } = S.pop;
+  if (S.pop.anchor) { const a = document.querySelector(`#board .dcard[data-key="${S.pop.key}"]`); if (a) { const r = a.getBoundingClientRect(); x = r.right + 10; y = r.top - 6; if (x + el.offsetWidth > innerWidth - 8) x = r.left - el.offsetWidth - 10; } }
+  x = Math.min(innerWidth - el.offsetWidth - 8, Math.max(8, x)); y = Math.min(innerHeight - el.offsetHeight - 8, Math.max(8, y));
   el.style.left = x + 'px'; el.style.top = y + 'px';
 }
 function closePop() { S.pop = null; const el = $('#pop'); if (el) el.hidden = true; }
@@ -483,8 +464,7 @@ function controlsHTML() {
   const undoBtn = solo ? `<button class="ghost" type="button" data-act="undo" ${S.applied.some(x => !x.a && !x.ai) ? '' : 'disabled'}>Undo</button>` : S.mySeat >= 0 ? `<button class="ghost" type="button" data-act="undo">Undo</button>` : '';
   const sur = S.mode === 'online' && S.mySeat >= 0 && !S.winner && !(S.room && S.room.result) ? '<button class="ghost" type="button" data-act="surrender">Surrender</button>' : '';
   const req = S.room && S.room.undo && S.mySeat >= 0 && S.room.undo.seat !== S.mySeat ? `<div class="undoask"><p><b>${esc(S.seatNames[S.room.undo.seat])}</b> asks to take back their last move.</p><div class="row-btns"><button class="cta" type="button" data-act="undo-yes">Allow</button><button class="ghost" type="button" data-act="undo-no">Decline</button></div></div>` : '';
-  const popBox = S.mode === 'online' && S.mySeat < 0 ? '' : `<div class="chainmode"><p class="lbl">Action menu</p><div class="seg tiny" role="radiogroup" aria-label="Where the action menu opens">${[['cursor', 'Above the cursor'], ['corner', 'Top left']].map(([v, l]) => `<label><input type="radio" name="poppos" value="${v}" ${S.popPos === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>`;
-  return `${req}${chainBox}${popBox}<div class="row-btns">${undoBtn}${sur}<button class="ghost" type="button" data-act="${solo ? 'setup' : 'leave'}">${solo ? 'New duel' : 'Leave'}</button></div>`;
+  return `${req}${chainBox}<div class="row-btns">${undoBtn}${sur}<button class="ghost" type="button" data-act="${solo ? 'setup' : 'leave'}">${solo ? 'New duel' : 'Leave'}</button></div>`;
 }
 function detailHTML() {
   const code = S.focusCode; if (!code) return '<p class="hint">Hover a card, or right-click it, to read it.</p>';
@@ -883,12 +863,12 @@ document.addEventListener('click', async e => {
   const vk = t.closest('[data-vkey]'); if (vk) { S.focusCode = +vk.dataset.code || S.focusCode; const acts = actionMap().get(vk.dataset.vkey); if (acts && acts.length) { S.menu = vk.dataset.vkey; openViewer(S.viewer.e, S.viewer.loc); } else { const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } return; }
   const pl = t.closest('[data-pile]'); if (pl) { const [p, l] = pl.dataset.pile.split(':').map(Number); openViewer(p, l); return; }
   if (t.closest('#pop')) return;
-  const dc = t.closest('#board .dcard'); if (dc) { if (dc.dataset.code) { S.focusCode = +dc.dataset.code; const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } const acts = actionMap().get(dc.dataset.key); if (acts && acts.length) { S.pop = { key: dc.dataset.key, x: e.clientX || null, y: e.clientY || null }; renderPop(); } else closePop(); return; }
+  const dc = t.closest('#board .dcard'); if (dc) { if (dc.dataset.code) { S.focusCode = +dc.dataset.code; const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } const acts = actionMap().get(dc.dataset.key); if (acts && acts.length) { S.pop = { key: dc.dataset.key, anchor: true }; renderPop(); } else closePop(); return; }
   if (S.pop) closePop();
   if (t.closest('.modal') && !t.closest('.sheet')) { if (t.closest('#viewer')) { S.viewer = null; closeModal('#viewer'); } if (t.closest('#info')) closeModal('#info'); }
 });
 document.addEventListener('submit', e => { const f = e.target.closest('[data-form="chat"]'); if (!f) return; e.preventDefault(); const i = $('#chatIn'); sendChat(i.value); i.value = ''; });
-document.addEventListener('change', e => { const n = e.target.name || ''; if (n === 'poppos') { S.popPos = e.target.value; try { localStorage.setItem('ygo-duel-poppos', S.popPos); } catch (_) {} placePop(); toast(S.popPos === 'corner' ? 'Action menus open in the top-left corner.' : 'Action menus open just above the cursor.'); return; } if (n.startsWith('cm-')) { S.chainMode[+n.slice(3)] = e.target.value; toast(`Chain prompts: ${e.target.value === 'auto' ? 'Auto' : e.target.value === 'always' ? 'Always' : 'Never'}.`); } });
+document.addEventListener('change', e => { const n = e.target.name || ''; if (n.startsWith('cm-')) { S.chainMode[+n.slice(3)] = e.target.value; toast(`Chain prompts: ${e.target.value === 'auto' ? 'Auto' : e.target.value === 'always' ? 'Always' : 'Never'}.`); } });
 document.addEventListener('mouseover', e => { const dc = e.target.closest('.dcard,.pcard'); if (!dc || !dc.dataset.code) return; const code = +dc.dataset.code; if (S.focusCode !== code) { S.focusCode = code; const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } });
 document.addEventListener('contextmenu', e => { const dc = e.target.closest('.dcard,.pcard,[data-pile]'); if (!dc) return; e.preventDefault(); if (dc.dataset.pile) { const [p, l] = dc.dataset.pile.split(':').map(Number); openViewer(p, l); return; } if (dc.dataset.code) openInfo(dc.dataset.key, +dc.dataset.code); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePop(); closeModal('#info'); if (!$('#viewer').hidden) { S.viewer = null; closeModal('#viewer'); } } });
@@ -908,7 +888,7 @@ function drFinish(x, y) {
   const t = drTarget(x, y); const el = DR.el; const key = el.dataset.key; const e = +key.split(':')[0];
   drCancel(); DR.swallow = true; setTimeout(() => { DR.swallow = false; }, 60);
   if (t.hand) { const cards = [...t.hand.querySelectorAll('.dcard')].filter(c => c !== el); const at = t.before ? cards.indexOf(t.before) : cards.length; cards.splice(at < 0 ? cards.length : at, 0, el); S.handOrder[e] = cards.map(c => { const [p, l, s] = c.dataset.key.split(':').map(Number); return S.field[p].hand[s].code; }); render(); }
-  else if (t.field) { const acts = actionMap().get(key); if (el.dataset.code) S.focusCode = +el.dataset.code; if (acts && acts.length) { S.pop = { key, x, y }; renderPop(); } else toast('That card can’t be played right now.'); }
+  else if (t.field) { const acts = actionMap().get(key); if (el.dataset.code) S.focusCode = +el.dataset.code; if (acts && acts.length) { S.pop = { key, x: x + 12, y: y - 20 }; renderPop(); } else toast('That card can’t be played right now.'); }
 }
 document.addEventListener('pointerdown', e => {
   if (e.button > 0) return; const c = e.target.closest('[data-hand] .dcard'); if (!c || !S.h) return;

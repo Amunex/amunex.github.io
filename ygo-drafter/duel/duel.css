@@ -180,3 +180,8 @@ body.is-dragging{cursor:grabbing;user-select:none}
 .log p.battle{color:var(--gold);font-weight:700}
 .pcard .pstat{color:var(--ink);font-weight:700}
 .pcard .guess{color:var(--turq);font-weight:700;line-height:1.25}
+/* v7: menu just above the cursor, or docked top-left */
+.pop::after{content:"";position:absolute;left:50%;bottom:-9px;width:14px;height:14px;transform:translateX(-50%) rotate(45deg);background:var(--surface);border-right:2px solid var(--gold);border-bottom:2px solid var(--gold)}
+.pop.docked::after{display:none}
+.pop.docked{border-color:var(--turq)}
+.pop.below::after{bottom:auto;top:-9px;transform:translateX(-50%) rotate(225deg)}
