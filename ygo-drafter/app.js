@@ -1,5 +1,5 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 16;
+const V = 17;
 const HOME_PACKS = [["dk","LOB","Legend of Blue Eyes White Dragon","2002"],["dk","MRD","Metal Raiders","2002"],["goat","MRL","Magic Ruler","2002"],["goat","PSV","Pharaoh's Servant","2002"],["goat","LON","Labyrinth of Nightmare","2003"],["goat","LOD","Legacy of Darkness","2003"],["goat","PGD","Pharaonic Guardian","2003"],["goat","MFC","Magician's Force","2003"],["goat","DCR","Dark Crisis","2003"],["goat","IOC","Invasion of Chaos","2004"],["goat","AST","Ancient Sanctuary","2004"],["goat","EP1","Exclusive Pack","2004"],["goat","SOD","Soul of the Duelist","2004"],["goat","RDS","Rise of Destiny","2004"],["goat","FET","Flaming Eternity","2005"],["goat","TLM","The Lost Millennium","2005"],["edison","CRV","Cybernetic Revolution","2005"],["edison","EEN","Elemental Energy","2005"],["edison","DP2","Duelist Pack: Chazz Princeton","2006"],["edison","DP1","Duelist Pack: Jaden Yuki","2006"],["edison","SOI","Shadow of Infinity","2006"],["edison","EOJ","Enemy of Justice","2006"],["edison","POTD","Power of the Duelist","2006"],["edison","CDIP","Cyberdark Impact","2006"],["edison","DP05","Duelist Pack: Aster Phoenix","2007"],["edison","DP03","Duelist Pack: Jaden Yuki 2","2007"],["edison","STON","Strike of Neos","2007"],["edison","DP04","Duelist Pack: Zane Truesdale","2007"],["edison","FOTB","Force of the Breaker","2007"],["edison","PP01","Premium Pack (TCG)","2007"],["edison","TAEV","Tactical Evolution","2007"],["edison","GLAS","Gladiator's Assault","2007"],["edison","DP06","Duelist Pack: Jaden Yuki 3","2008"],["edison","DP07","Duelist Pack: Jesse Anderson","2008"],["edison","PTDN","Phantom Darkness","2008"],["edison","LODT","Light of Destruction","2008"],["edison","PP02","Premium Pack 2 (TCG)","2008"],["edison","TDGS","The Duelist Genesis","2008"],["edison","CSOC","Crossroads of Chaos","2008"],["edison","DLG1","Dark Legends","2008"],["edison","DP08","Duelist Pack: Yusei","2009"],["edison","CRMS","Crimson Crisis","2009"],["edison","RGBT","Raging Battle","2009"],["edison","DPYG","Duelist Pack: Yugi","2009"],["edison","ANPR","Ancient Prophecy","2009"],["edison","HA01","Hidden Arsenal","2009"],["edison","SOVR","Stardust Overdrive","2009"],["edison","DP09","Duelist Pack: Yusei 2","2010"],["edison","ABPF","Absolute Powerforce","2010"],["edison","DPKB","Duelist Pack: Kaiba","2010"]];
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
@@ -345,6 +345,7 @@ function mySeat(g) { return g ? g.seats.findIndex(s => s.uid === (S.online ? S.u
 function isHost() { return !S.online || (S.room && S.room.host === S.uid); }
 function presenceOf(uid) { const p = S.room && S.room.presence; return !p || p[uid] !== false; }
 async function submitPick() {
+  if (S.opening) return;
   const g = game(); const seat = mySeat(g);
   if (!g || seat < 0 || S.busy) return;
   const pack = g.packs[seat]; const ids = S.sel.map(s => pack.find(x => String(x) === s)).filter(x => x != null);
@@ -362,6 +363,16 @@ async function submitPick() {
 /* ================= deck building ================= */
 function myPicks() { const g = game(); const i = mySeat(g); return g && i >= 0 ? g.picks[i].map((id, u) => ({ u, c: C(id) })).filter(p => p.c) : []; }
 function deckKey(g) { return `ygo-drafter:deck:${g.id}`; }
+function savedDecks() { try { return JSON.parse(store.get('ygo-drafter:decks') || '[]'); } catch (_) { return []; } }
+function storeDecks(list) { store.set('ygo-drafter:decks', JSON.stringify(list.slice(0, 60))); }
+function savedDecksHTML() {
+  const list = savedDecks(); if (!list.length) return '';
+  return `<details class="saved"><summary>My saved decks (${list.length})</summary><ul>${list.map(d => `<li data-id="${esc(d.id)}"><span><b>${esc(d.name)}</b> <small>${esc((POOLS[d.pool] || {}).name || '')}, ${new Date(d.saved).toLocaleDateString()}</small></span><span class="row"><button class="ghost small" type="button" data-act="dldeck">Download</button><button class="linkish" type="button" data-act="deldeck">Delete</button></span></li>`).join('')}</ul></details>`;
+}
+function drawTestHand() {
+  const main = myPicks().filter(p => zoneOf(p.u) === 'main'); const hand = shuffle(main.slice()).slice(0, 5);
+  $('#testHand').innerHTML = `<div class="testhand"><p class="lbl">Test hand (5 random cards from your Main Deck)</p><div class="zgrid">${hand.map(p => cardHTML(p)).join('')}</div><div class="row"><button class="ghost small" type="button" data-act="testhand">Draw again</button></div></div>`;
+}
 function enterBuild() { S.view = 'build'; render(); }
 function ensureDeck() {
   const g = game(); if (!g) return;
@@ -501,7 +512,7 @@ function settingsHTML(st, editable, online, humans = 1) {
   return `<div class="settings ${editable ? '' : 'readonly'}">
     <div class="field stack"><div class="lbl">Card pool<small>${esc(cfg.blurb)}</small></div>${seg('pool', Object.entries(POOLS).map(([k, v]) => [k, v.tab]))}</div>
     <div class="field stack"><div class="lbl">Draft style<small>${md ? 'Master Duel N/R uses booster packs.' : deck ? esc(deckInfo) : 'Open booster packs, keep a card and pass the rest.'}</small></div>${md ? '' : seg('mode', [['booster', 'Booster packs'], ['deck', 'Deck draft']])}</div>
-    ${online && humans >= 3 ? `<div class="field stack"><div class="lbl">Tournament after the draft<small>${esc(TOUR_HELP[st.tour] || 'Optional. The host can still start one when decks are done.')}</small></div>${seg('tour', [['off', 'Off'], ['rr', 'Round robin'], ['swiss', 'Swiss'], ['se', 'Single elimination']])}</div>
+    ${online ? `<div class="field stack"><div class="lbl">Tournament after the draft<small>${esc(TOUR_HELP[st.tour] || 'Optional. The host can still start one when decks are done.')}</small></div>${seg('tour', [['off', 'Off'], ['rr', 'Round robin'], ['swiss', 'Swiss'], ['se', 'Single elimination']])}</div>
     ${st.tour && st.tour !== 'off' ? `<div class="field"><div class="lbl">Matches<small>${+st.bestOf === 3 ? 'First to win 2 games' : 'One game per match'}</small></div>${seg('bestOf', [[1, 'Best of 1'], [3, 'Best of 3']])}</div>` : ''}` : ''}
     ${!deck && !md ? `<div class="field stack"><div class="lbl">Pack contents<small>${st.contents === 'pool' ? 'Packs mix every card of the era, including starter deck cards, tins, promos and staples.' : 'Each pack is a random real booster set with only that set\'s cards.'}</small></div>${seg('contents', [['sets', 'Real sets'], ['pool', 'Whole pool']])}</div>` : ''}
     ${deck ? `<div class="field stack"><div class="lbl">Bonus packs<small>${st.bonus === 'off' ? 'Only the decks go into the stacks.' : 'Adds 1 pack of 10 staples and rares for every 2 players, shuffled in with the decks.'}</small></div>${seg('bonus', [['on', 'On'], ['off', 'Off']])}</div>` : ''}
@@ -698,8 +709,7 @@ function playOpen(poolKey, packs, label) {
   if (!table || !grid) return;
   const cards = [...grid.querySelectorAll('.card')];
   const cleanup = () => cards.forEach(el => { el.getAnimations().forEach(a => a.cancel()); el.querySelectorAll('.back').forEach(b => b.remove()); el.style.opacity = ''; el.style.zIndex = ''; });
-  if (reduceMotion) { cleanup(); return; }
-  const anims = []; const timers = []; let over = false;
+  const anims = []; const timers = []; let over = false; S.opening = true;
   const art = !label && P[poolKey] ? shuffle(P[poolKey].packs.slice()).map(x => x[1]) : [];
   const ov = document.createElement('div'); ov.className = 'opening'; ov.setAttribute('aria-hidden', 'true');
   const visuals = label && label.decks ? label.decks.map(deckVisualHTML)
@@ -714,11 +724,13 @@ function playOpen(poolKey, packs, label) {
   const finish = () => {
     if (over) return; over = true; timers.forEach(clearTimeout);
     anims.forEach(a => { try { a.cancel(); } catch (_) {} });
-    ov.remove(); fx.remove(); cleanup();
+    ov.remove(); fx.remove(); cleanup(); S.opening = false;
+    document.querySelectorAll('[data-act="pick"]').forEach(b => { b.disabled = false; });
   };
   setTimeout(finish, 14000);
+  document.querySelectorAll('[data-act="pick"]').forEach(b => { b.disabled = true; });
   const packEls = [...ov.querySelectorAll('.pack')];
-  const jolt = (px, ms) => A(table, [0, px, -px, px * .7, -px * .6, px * .3, 0].map(x => ({ transform: `translate(${x}px, ${-x * .4}px)` })), { duration: ms, easing: 'ease-out', fill: 'none' });
+  const jolt = (px, ms) => reduceMotion ? null : A(table, [0, px, -px, px * .7, -px * .6, px * .3, 0].map(x => ({ transform: `translate(${x}px, ${-x * .4}px)` })), { duration: ms, easing: 'ease-out', fill: 'none' });
   // 1. the packs slam down onto the table
   packEls.forEach((p, i) => A(p, [
     { transform: 'translateY(-320px) scale(.5) rotate(-16deg)', opacity: 0 },
@@ -876,8 +888,13 @@ function renderBuild() {
     ${zoneBlock('pool', 'Unused picks', `${zones.pool.length} cards`, zones.pool, true)}
     <section class="export"><h3>Export</h3>
       <p>Same layout as a YGOPRODeck .ydk: #main, #extra and !side, one card ID per line, sorted by ID. ${md ? 'Import it into YGOPRODeck or a Master Duel deck-transfer tool to build it in Master Duel.' : 'Load it in DuelingBook, EDOPro or YGOPRODeck.'}</p>
-      <div class="row"><button class="cta" type="button" data-act="download" ${mainN ? '' : 'disabled'}>Download .ydk</button><button class="ghost" type="button" data-act="copy" ${mainN ? '' : 'disabled'}>Copy text</button>${ACT.key === 'goat' || ACT.key === 'dk' ? `<button class="ghost" type="button" data-act="duel" ${mainN >= 20 ? '' : 'disabled'}>Test it in a duel</button>` : ''}</div>
+      <div class="row"><button class="cta" type="button" data-act="download" ${mainN ? '' : 'disabled'}>Download .ydk</button><button class="ghost" type="button" data-act="copy" ${mainN ? '' : 'disabled'}>Copy text</button></div>
+      <div class="row"><button class="ghost" type="button" data-act="testhand" ${mainN >= 5 ? '' : 'disabled'}>Draw a test hand</button><button class="ghost" type="button" data-act="savedeck" ${mainN ? '' : 'disabled'}>Save this deck</button></div>
+      <div id="testHand"></div><div id="saveBox"></div>
+      ${savedDecksHTML()}
       <details><summary>Preview the file</summary><textarea id="ydkPreview" readonly spellcheck="false">${esc(ydkText())}</textarea></details></section>
+    ${ACT.key === 'goat' || ACT.key === 'dk' ? `<section class="export play"><h3>Play it</h3><p>Duel with this deck on the duel table: test it solo, or send a friend an invite. No tournament needed.</p>
+      <div class="row"><button class="cta" type="button" data-act="duel-friend" ${mainN >= 20 ? '' : 'disabled'}>Duel a friend</button><button class="ghost" type="button" data-act="duel" ${mainN >= 20 ? '' : 'disabled'}>Test it solo</button></div></section>` : ''}
     <div class="sheet-pad"></div></div>
     <aside class="detail ${S.expanded ? 'expanded' : ''}" id="detail" ${sel || wide() ? '' : 'hidden'}>
       ${sel ? detailHTML(sel.c, act) : '<p class="detail-empty">Tap a card to see it and move it between your deck, side deck and unused picks.</p>'}</aside></section>`;
@@ -888,7 +905,7 @@ function readyInfo(g) {
   return { rd, people, waiting, all: waiting.length === 0, meReady: rd[S.uid] === true };
 }
 function tourBoxHTML(g, people, waiting) {
-  if (people.length < 3) return '';
+  if (people.length < 2) return '';
   if (activeTour()) return `<div class="tourstart"><p><b>A tournament is running.</b> Open the Tournament tab to see your match.</p></div>`;
   const st = Object.assign({}, DEFAULTS, (S.room && S.room.settings) || {}); const host = isHost();
   const fmt = TFORMATS[st.tour] ? st.tour : 'rr'; const regs = tourRegistered(g);
@@ -909,6 +926,7 @@ function readyHTML(g) {
     <ul class="seats">${chips}</ul>
     <div class="row">${meReady ? `<span class="okline">${CHECK}You’re ready.</span><button class="ghost" type="button" data-act="unready">Keep editing</button>` : `<button class="cta" type="button" data-act="ready">I’m done building</button><span class="waitnote" style="margin:0">Download your .ydk first, then tap this.</span>`}</div>
     ${tourBoxHTML(g, people, waiting)}
+    ${g.settings.pool === 'goat' || g.settings.pool === 'dk' ? `<div class="casual"><p><b>Just want to play?</b> Duel anyone from this room without a tournament: send them an invite from the duel table.</p><div class="row"><button class="ghost" type="button" data-act="duel-friend">Duel a friend</button></div></div>` : ''}
   </div>`;
 }
 
@@ -1061,7 +1079,7 @@ function renderTourView(t) {
       const opp = m.a === S.uid ? m.b : m.a; const mine = m.a === S.uid ? res.wa : res.wb, theirs = m.a === S.uid ? res.wb : res.wa; const games = Object.keys(m.games || {}).length;
       myBox = `<div class="mymatch ${res.done ? (res.winner === S.uid ? 'won' : 'lost') : ''}"><h3>Your match: you vs ${esc(tName(t, opp))}</h3><p class="bigscore">${mine} – ${theirs}</p>
         <p>${res.done ? (res.winner === S.uid ? 'You won this round.' : 'You lost this round.') : `${t.bestOf === 3 ? 'Best of 3: first to 2 games wins.' : 'One game.'} Duel on DuelingBook, EDOPro or face to face with your .ydk, then report each game here.`}</p>
-        ${res.done ? '' : `<div class="row"><button class="cta" type="button" data-act="tour-game" data-r="${r}" data-i="${myI}" data-w="${esc(S.uid)}">I won a game</button><button class="ghost" type="button" data-act="tour-game" data-r="${r}" data-i="${myI}" data-w="${esc(opp)}">I lost a game</button>${games ? `<button class="linkish" type="button" data-act="tour-undo" data-r="${r}" data-i="${myI}">Undo the last one</button>` : ''}<button class="ghost" type="button" data-act="download">Download my .ydk</button></div>`}</div>`;
+        ${res.done ? '' : `<div class="row"><button class="cta" type="button" data-act="tour-game" data-r="${r}" data-i="${myI}" data-w="${esc(S.uid)}">I won a game</button><button class="ghost" type="button" data-act="tour-game" data-r="${r}" data-i="${myI}" data-w="${esc(opp)}">I lost a game</button>${games ? `<button class="linkish" type="button" data-act="tour-undo" data-r="${r}" data-i="${myI}">Undo the last one</button>` : ''}<button class="ghost" type="button" data-act="download">Download my .ydk</button></div>${game().settings.pool === 'goat' || game().settings.pool === 'dk' ? `<div class="row"><a class="cta" href="duel/?match=${esc(S.code)}.${r}.${myI}" target="_blank" rel="noopener">Play this match on the duel table</a><span class="waitnote" style="margin:0">The winner of each game is reported here automatically.</span></div>` : ''}`}</div>`;
     }
   } else if (!t.done && !t.players[S.uid]) myBox = '<div class="mymatch"><p>You’re not in this tournament, but you can follow it here.</p></div>';
   const pending = round ? round.matches.filter(m => !tResult(t, m).done).length : 0;
@@ -1292,7 +1310,7 @@ document.addEventListener('click', e => {
       setTimeout(() => { b.dataset.armed = 'false'; b.textContent = 'New draft'; }, 4000); return;
     }
     if (a === 'restart') { const b = t.closest('[data-act]'); if (b.dataset.armed === 'true') { S.practice = null; S.view = 'practice'; S.deck = null; S.deckId = null; render(); } else { b.dataset.armed = 'true'; b.textContent = 'Tap again to start over'; setTimeout(() => { b.dataset.armed = 'false'; b.textContent = 'Start over'; }, 3000); } return; }
-    if (a === 'pick') { submitPick(); return; }
+    if (a === 'pick') { if (!S.opening) submitPick(); return; }
     if (a === 'bot-for') { botTakeover(+t.closest('[data-act]').dataset.seat); return; }
     if (a === 'reclaim') { reclaimSeat(); return; }
     if (a === 'more') { S.expanded = !S.expanded; $('#detail').classList.toggle('expanded', S.expanded); return; }
@@ -1309,7 +1327,12 @@ document.addEventListener('click', e => {
     if (a === 'tour-download') { const tt = activeTour(); if (tt) { const url = URL.createObjectURL(new Blob([tourText(tt)], { type: 'text/plain' })); const l = document.createElement('a'); l.href = url; l.download = `ygo_drafter_tournament_${S.code}.txt`; l.click(); setTimeout(() => URL.revokeObjectURL(url), 2000); } return; }
     if (a === 'tab-tour') { S.tab = 'tour'; render(); return; }
     if (a === 'tab-deck') { S.tab = 'deck'; render(); return; }
-    if (a === 'duel') { try { localStorage.setItem('ygo-drafter:duel-ydk', ydkText()); } catch (_) {} window.open('duel/', '_blank', 'noopener'); return; }
+    if (a === 'duel' || a === 'duel-friend') { try { localStorage.setItem('ygo-drafter:duel-ydk', ydkText()); localStorage.setItem('ygo-drafter:duel-ydk-name', `Drafted ${POOLS[ACT.key].name} deck`); } catch (_) {} window.open(a === 'duel' ? 'duel/' : 'duel/?invite=1', '_blank', 'noopener'); return; }
+    if (a === 'testhand') { drawTestHand(); return; }
+    if (a === 'savedeck') { $('#saveBox').innerHTML = `<div class="savebox"><label for="deckName">Name this deck</label><div class="row"><input class="text" id="deckName" maxlength="40" value="${esc(`${POOLS[ACT.key].name} draft ${new Date().toLocaleDateString()}`)}"><button class="cta" type="button" data-act="savedeck-ok">Save</button></div><p class="note">Saved in this browser. It shows up on the duel table under “My saved decks”.</p></div>`; $('#deckName').select(); return; }
+    if (a === 'savedeck-ok') { const name = ($('#deckName').value || '').trim().slice(0, 40) || 'My deck'; const list = savedDecks(); list.unshift({ id: Date.now().toString(36), name, pool: ACT.key, ydk: ydkText(), saved: Date.now() }); storeDecks(list); toast(`Saved “${name}”.`); render(); return; }
+    if (a === 'deldeck') { const id = t.closest('[data-id]').dataset.id; storeDecks(savedDecks().filter(d => d.id !== id)); render(); return; }
+    if (a === 'dldeck') { const d = savedDecks().find(x => x.id === t.closest('[data-id]').dataset.id); if (d) { const url = URL.createObjectURL(new Blob([d.ydk], { type: 'application/octet-stream' })); const l = document.createElement('a'); l.href = url; l.download = `${d.name.replace(/[^\w\- ]+/g, '').trim() || 'deck'}.ydk`; l.click(); setTimeout(() => URL.revokeObjectURL(url), 2000); } return; }
     if (a === 'copy') { copyText(ydkText(), 'Copied the .ydk text.', '#ydkPreview'); return; }
     if (a.startsWith('to-') && S.buildSel != null) { moveTo(S.buildSel, a.slice(3)); S.buildSel = null; S.expanded = false; render(); return; }
   }

@@ -20,6 +20,9 @@ export function seedParts(n) {
   for (let k = 0; k < 4; k++) { x = (x ^ (x >> 31n)) * 0xBF58476D1CE4E5B9n & 0xFFFFFFFFFFFFFFFFn; parts.push(x | 1n); }
   return parts;
 }
+// Small seeded PRNG so a duel (and every replay of it, e.g. for undo) shuffles the same way
+export function rng(seed) { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; }
+export function shuffled(list, seed) { const r = rng(seed); const a = list.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(r() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
 export function createDuel(lib, { seed, decks, cards, scriptReader, flags, onError }) {
   // constant.lua and utility.lua must be loaded before any card (utility.lua pulls in the other rule scripts)
   const handle = lib.createDuel({
@@ -33,7 +36,7 @@ export function createDuel(lib, { seed, decks, cards, scriptReader, flags, onErr
   if (!handle) throw new Error('The duel engine could not start.');
   for (const name of ['constant.lua', 'utility.lua']) lib.loadScript(handle, name, scriptReader(name));
   decks.forEach((d, team) => {
-    for (const code of d.main) lib.duelNewCard(handle, { team, duelist: 0, code, controller: team, location: LOC.DECK, sequence: 0, position: POS.FACEDOWN_DEFENSE });
+    for (const code of shuffled(d.main, (seed ^ (0x9E37 * (team + 1))) >>> 0)) lib.duelNewCard(handle, { team, duelist: 0, code, controller: team, location: LOC.DECK, sequence: 0, position: POS.FACEDOWN_DEFENSE });
     for (const code of d.extra) lib.duelNewCard(handle, { team, duelist: 0, code, controller: team, location: LOC.EXTRA, sequence: 0, position: POS.FACEDOWN_DEFENSE });
   });
   lib.startDuel(handle);

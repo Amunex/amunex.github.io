@@ -429,3 +429,18 @@ body.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none}
 .card.drop-before{box-shadow:-7px 0 0 -2px var(--gold)}
 .draghint{margin:6px 0 0;color:var(--ink-soft);font-size:14px}
 @media (hover:hover){.build .zgrid .card{cursor:grab}}
+
+/* v17: saved decks, test hand, play section, casual duel note */
+.savebox{margin-top:10px;display:grid;gap:6px;max-width:520px}
+.savebox label{font-weight:700}
+.savebox .row .text{flex:1;min-width:200px}
+.saved{margin-top:12px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:var(--surface)}
+.saved summary{cursor:pointer;font-weight:700}
+.saved ul{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px}
+.saved li{display:flex;flex-wrap:wrap;gap:6px 12px;align-items:center;justify-content:space-between;padding:6px 0;border-top:1px solid var(--line)}
+.saved li small{color:var(--ink-soft)}
+.testhand{margin-top:12px;padding:10px;border:1px solid var(--line);border-radius:12px;background:var(--surface)}
+.testhand .lbl{margin:0 0 8px;font-weight:700}
+.export.play{border-top:2px solid var(--gold);padding-top:14px;margin-top:8px}
+.casual{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:grid;gap:8px}
+.casual p{margin:0}
