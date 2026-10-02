@@ -1,5 +1,5 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 15;
+const V = 16;
 const HOME_PACKS = [["dk","LOB","Legend of Blue Eyes White Dragon","2002"],["dk","MRD","Metal Raiders","2002"],["goat","MRL","Magic Ruler","2002"],["goat","PSV","Pharaoh's Servant","2002"],["goat","LON","Labyrinth of Nightmare","2003"],["goat","LOD","Legacy of Darkness","2003"],["goat","PGD","Pharaonic Guardian","2003"],["goat","MFC","Magician's Force","2003"],["goat","DCR","Dark Crisis","2003"],["goat","IOC","Invasion of Chaos","2004"],["goat","AST","Ancient Sanctuary","2004"],["goat","EP1","Exclusive Pack","2004"],["goat","SOD","Soul of the Duelist","2004"],["goat","RDS","Rise of Destiny","2004"],["goat","FET","Flaming Eternity","2005"],["goat","TLM","The Lost Millennium","2005"],["edison","CRV","Cybernetic Revolution","2005"],["edison","EEN","Elemental Energy","2005"],["edison","DP2","Duelist Pack: Chazz Princeton","2006"],["edison","DP1","Duelist Pack: Jaden Yuki","2006"],["edison","SOI","Shadow of Infinity","2006"],["edison","EOJ","Enemy of Justice","2006"],["edison","POTD","Power of the Duelist","2006"],["edison","CDIP","Cyberdark Impact","2006"],["edison","DP05","Duelist Pack: Aster Phoenix","2007"],["edison","DP03","Duelist Pack: Jaden Yuki 2","2007"],["edison","STON","Strike of Neos","2007"],["edison","DP04","Duelist Pack: Zane Truesdale","2007"],["edison","FOTB","Force of the Breaker","2007"],["edison","PP01","Premium Pack (TCG)","2007"],["edison","TAEV","Tactical Evolution","2007"],["edison","GLAS","Gladiator's Assault","2007"],["edison","DP06","Duelist Pack: Jaden Yuki 3","2008"],["edison","DP07","Duelist Pack: Jesse Anderson","2008"],["edison","PTDN","Phantom Darkness","2008"],["edison","LODT","Light of Destruction","2008"],["edison","PP02","Premium Pack 2 (TCG)","2008"],["edison","TDGS","The Duelist Genesis","2008"],["edison","CSOC","Crossroads of Chaos","2008"],["edison","DLG1","Dark Legends","2008"],["edison","DP08","Duelist Pack: Yusei","2009"],["edison","CRMS","Crimson Crisis","2009"],["edison","RGBT","Raging Battle","2009"],["edison","DPYG","Duelist Pack: Yugi","2009"],["edison","ANPR","Ancient Prophecy","2009"],["edison","HA01","Hidden Arsenal","2009"],["edison","SOVR","Stardust Overdrive","2009"],["edison","DP09","Duelist Pack: Yusei 2","2010"],["edison","ABPF","Absolute Powerforce","2010"],["edison","DPKB","Duelist Pack: Kaiba","2010"]];
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
@@ -368,18 +368,18 @@ function ensureDeck() {
   if (S.deckId === g.id && S.deck) return;
   S.deckId = g.id; S.buildSel = null;
   const saved = store.get(deckKey(g));
-  if (saved) { try { const d = JSON.parse(saved); S.deck = { main: new Set(d.main), extra: new Set(d.extra), side: new Set(d.side) }; return; } catch (_) {} }
+  if (saved) { try { const d = JSON.parse(saved); S.deck = { main: new Set(d.main), extra: new Set(d.extra), side: new Set(d.side), order: d.order || {} }; return; } catch (_) {} }
   autoBuild();
 }
 function saveDeck() {
   const g = game(); if (!g || !S.deck) return;
-  store.set(deckKey(g), JSON.stringify({ main: [...S.deck.main], extra: [...S.deck.extra], side: [...S.deck.side] }));
+  store.set(deckKey(g), JSON.stringify({ main: [...S.deck.main], extra: [...S.deck.extra], side: [...S.deck.side], order: S.deck.order || {} }));
   const m = new Map(myPicks().map(p => [p.u, p.c.i]));
   store.set('ygo-drafter:lastdeck', JSON.stringify({ pool: g.settings.pool, main: [...S.deck.main].map(u => m.get(u)).filter(Boolean), extra: [...S.deck.extra].map(u => m.get(u)).filter(Boolean) }));
 }
 function zoneOf(u) { for (const z of ['main', 'extra', 'side']) if (S.deck[z].has(u)) return z; return 'pool'; }
 function autoBuild() {
-  S.deck = { main: new Set(), extra: new Set(), side: new Set() };
+  S.deck = { main: new Set(), extra: new Set(), side: new Set(), order: {} };
   const score = c => (c.w ?? c.u) + c.r * 4;
   const picks = myPicks().sort((a, b) => score(b.c) - score(a.c));
   const count = new Map(); const ok = p => (count.get(p.c.i) || 0) < MAX_COPIES;
@@ -391,6 +391,19 @@ function autoBuild() {
   saveDeck();
 }
 function moveTo(u, z) { for (const k of ['main', 'extra', 'side']) S.deck[k].delete(u); if (z !== 'pool') S.deck[z].add(u); saveDeck(); }
+// Drag and drop: move a card to a zone, optionally placing it before another card. Order is kept per zone.
+function dropCard(u, z, beforeU, visibleOrder) {
+  const p = myPicks().find(x => x.u === u); if (!p) return false;
+  if (z === 'extra' && p.c.k !== 'F') { toast('Only Fusion and Synchro monsters go in the Extra Deck.'); return false; }
+  if (z === 'main' && p.c.k === 'F') { toast('Fusion and Synchro monsters go in the Extra Deck.'); return false; }
+  const ord = S.deck.order || (S.deck.order = {});
+  for (const k of ['main', 'extra', 'side', 'pool']) if (ord[k]) ord[k] = ord[k].filter(x => x !== u);
+  const list = (visibleOrder[z] || []).filter(x => x !== u);
+  const at = beforeU != null && list.includes(beforeU) ? list.indexOf(beforeU) : list.length;
+  list.splice(at, 0, u); ord[z] = list;
+  for (const k of ['main', 'extra', 'side']) S.deck[k].delete(u); if (z !== 'pool') S.deck[z].add(u);
+  saveDeck(); return true;
+}
 function fillSide() {
   const unused = myPicks().filter(p => zoneOf(p.u) === 'pool').sort((a, b) => (b.c.w ?? b.c.u) - (a.c.w ?? a.c.u));
   let added = 0; for (const p of unused) { if (S.deck.side.size >= 15) break; S.deck.side.add(p.u); added++; }
@@ -828,14 +841,20 @@ function renderBuild() {
   const picks = myPicks(); const m = new Map(picks.map(p => [p.u, p]));
   const zones = { main: [], extra: [], side: [], pool: [] }; picks.forEach(p => zones[zoneOf(p.u)].push(p));
   const ord = p => ({ M: 0, S: 1, T: 2, F: 3 }[p.c.k] * 100000 - (p.c.k === 'M' ? (p.c.lv || 0) * 1000 : 0));
-  for (const z in zones) zones[z].sort((a, b) => ord(a) - ord(b) || a.c.n.localeCompare(b.c.n));
+  for (const z in zones) {
+    zones[z].sort((a, b) => ord(a) - ord(b) || a.c.n.localeCompare(b.c.n));
+    const custom = (S.deck.order || {})[z];
+    if (custom && custom.length) { const pos = new Map(custom.map((u, i) => [u, i])); const base = new Map(zones[z].map((p, i) => [p.u, i]));
+      zones[z].sort((a, b) => (pos.has(a.u) ? pos.get(a.u) : 1e6 + base.get(a.u)) - (pos.has(b.u) ? pos.get(b.u) : 1e6 + base.get(b.u))); }
+  }
+  S.visibleOrder = Object.fromEntries(Object.entries(zones).map(([z, l]) => [z, l.map(p => p.u)]));
   const mainN = zones.main.length, exN = zones.extra.length, sdN = zones.side.length;
   const warns = deckWarnings(); const sel = S.buildSel != null ? m.get(S.buildSel) : null;
   const actions = [];
   if (S.online && isHost()) actions.push(`<button class="ghost" type="button" data-act="new-draft">New draft</button>`);
   actions.push(S.online ? `<button class="ghost" type="button" data-act="leave">Leave</button>` : `<button class="ghost" type="button" data-act="restart">Start over</button>`);
   setBar(`<span>Build your deck</span>`, actions);
-  const zoneBlock = (key, title, note, list, dim) => `<section class="zone"><h3>${title}<span>${note}</span></h3>${list.length ? `<div class="zgrid ${dim ? 'dim' : ''}">${list.map(p => cardHTML(p, { pressed: p.u === S.buildSel })).join('')}</div>` : `<p class="empty">${key === 'pool' ? 'Every pick is in your deck.' : 'Empty.'}</p>`}</section>`;
+  const zoneBlock = (key, title, note, list, dim) => `<section class="zone" data-zone="${key}"><h3>${title}<span>${note}</span></h3>${list.length ? `<div class="zgrid ${dim ? 'dim' : ''}">${list.map(p => cardHTML(p, { pressed: p.u === S.buildSel })).join('')}</div>` : `<p class="empty">${key === 'pool' ? 'Every pick is in your deck.' : 'Empty. Drag cards here.'}</p>`}</section>`;
   let act = '';
   if (sel) {
     const z = zoneOf(sel.u), home = sel.c.k === 'F' ? 'extra' : 'main';
@@ -848,7 +867,8 @@ function renderBuild() {
     ${tour ? tourTabs('deck') : ''}
     ${readyHTML(g)}
     <div class="buildbar"><span class="count ${mainN >= 40 && mainN <= 60 ? 'ok' : 'bad'}">Main ${mainN} / 40</span><span class="count ${exN <= 15 ? '' : 'bad'}">Extra ${exN}</span><span class="count ${sdN <= 15 ? '' : 'bad'}">Side ${sdN}</span><span class="spacer"></span>
-      <button class="ghost" type="button" data-act="auto">Rebuild automatically</button><button class="ghost" type="button" data-act="fillside">Fill side from unused</button></div>
+      <button class="ghost" type="button" data-act="auto">Rebuild automatically</button><button class="ghost" type="button" data-act="fillside">Fill side from unused</button>${Object.values(S.deck.order || {}).some(l => l && l.length) ? '<button class="ghost" type="button" data-act="sortzones">Sort by type</button>' : ''}</div>
+    <p class="draghint">Drag cards between sections, or within one to reorder. On a phone, hold a card for a moment, then drag.</p>
     ${warns.length ? `<p class="warn">More than 3 copies: ${warns.map(esc).join('; ')}.</p>` : ''}
     ${zoneBlock('main', 'Main deck', `${mainN} cards, needs 40 to 60`, zones.main)}
     ${zoneBlock('extra', 'Extra deck', `${exN} of 15`, zones.extra)}
@@ -1082,6 +1102,53 @@ function tourText(t) {
   return L.join('\n');
 }
 
+/* ================= drag and drop in the deck builder ================= */
+const DRAG = { el: null, ghost: null, sx: 0, sy: 0, ox: 0, oy: 0, started: false, timer: null, id: null, touch: false, swallow: false, raf: 0, y: 0, x: 0 };
+function dragCancel() { clearTimeout(DRAG.timer); cancelAnimationFrame(DRAG.raf); if (DRAG.ghost) DRAG.ghost.remove(); if (DRAG.el) DRAG.el.classList.remove('dragging'); document.querySelectorAll('.drop-on,.drop-before').forEach(x => x.classList.remove('drop-on', 'drop-before')); document.body.classList.remove('is-dragging'); Object.assign(DRAG, { el: null, ghost: null, started: false, id: null }); }
+function dragTarget(x, y) {
+  const under = document.elementFromPoint(x, y); if (!under) return {};
+  const zone = under.closest('.build [data-zone]'); if (!zone) return {};
+  const before = under.closest('.zgrid .card'); return { zone, before: before && before !== DRAG.el ? before : null };
+}
+function dragStart(x, y) {
+  const r = DRAG.el.getBoundingClientRect(); DRAG.ox = x - r.left; DRAG.oy = y - r.top;
+  const g = DRAG.el.cloneNode(true); g.classList.add('drag-ghost'); g.style.width = r.width + 'px'; g.removeAttribute('aria-pressed');
+  document.body.appendChild(g); DRAG.ghost = g; DRAG.started = true; DRAG.el.classList.add('dragging'); document.body.classList.add('is-dragging');
+  if (navigator.vibrate && DRAG.touch) try { navigator.vibrate(12); } catch (_) {}
+  dragMove(x, y);
+  const tick = () => { if (!DRAG.started) return; const edge = 90, sp = DRAG.y < edge ? -(edge - DRAG.y) / 4 : DRAG.y > innerHeight - edge ? (DRAG.y - innerHeight + edge) / 4 : 0; if (sp) { scrollBy(0, sp); dragMove(DRAG.x, DRAG.y); } DRAG.raf = requestAnimationFrame(tick); };
+  DRAG.raf = requestAnimationFrame(tick);
+}
+function dragMove(x, y) {
+  DRAG.x = x; DRAG.y = y;
+  DRAG.ghost.style.transform = `translate(${x - DRAG.ox}px, ${y - DRAG.oy}px) rotate(3deg) scale(1.05)`;
+  document.querySelectorAll('.drop-on,.drop-before').forEach(el => el.classList.remove('drop-on', 'drop-before'));
+  const { zone, before } = dragTarget(x, y); if (zone) zone.classList.add('drop-on'); if (before) before.classList.add('drop-before');
+}
+function dragFinish(x, y) {
+  const { zone, before } = dragTarget(x, y); const u = +DRAG.el.dataset.u;
+  dragCancel(); DRAG.swallow = true; setTimeout(() => { DRAG.swallow = false; }, 60);
+  if (!zone) return;
+  if (dropCard(u, zone.dataset.zone, before ? +before.dataset.u : null, S.visibleOrder || {})) { S.buildSel = null; render(); }
+}
+document.addEventListener('pointerdown', e => {
+  if (S.view !== 'build' || e.button > 0) return;
+  const card = e.target.closest('.build .zgrid .card'); if (!card) return;
+  dragCancel(); Object.assign(DRAG, { el: card, sx: e.clientX, sy: e.clientY, id: e.pointerId, touch: e.pointerType !== 'mouse', started: false });
+  if (DRAG.touch) DRAG.timer = setTimeout(() => { if (DRAG.el) dragStart(DRAG.sx, DRAG.sy); }, 300);
+});
+document.addEventListener('pointermove', e => {
+  if (!DRAG.el || e.pointerId !== DRAG.id) return;
+  if (!DRAG.started) { const d = Math.hypot(e.clientX - DRAG.sx, e.clientY - DRAG.sy); if (DRAG.touch) { if (d > 10) dragCancel(); return; } if (d < 6) return; dragStart(e.clientX, e.clientY); }
+  dragMove(e.clientX, e.clientY);
+});
+document.addEventListener('pointerup', e => { if (!DRAG.el || e.pointerId !== DRAG.id) return; if (DRAG.started) dragFinish(e.clientX, e.clientY); else dragCancel(); });
+document.addEventListener('pointercancel', e => { if (DRAG.el && !DRAG.started) dragCancel(); });
+document.addEventListener('touchmove', e => { if (DRAG.started) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', e => { if (DRAG.el && DRAG.touch) e.preventDefault(); });
+document.addEventListener('dragstart', e => { if (e.target.closest && e.target.closest('.card')) e.preventDefault(); });
+document.addEventListener('click', e => { if (DRAG.swallow) { e.stopPropagation(); e.preventDefault(); DRAG.swallow = false; } }, true);
+
 /* ================= card pool viewer ================= */
 function contextPool() { const g = game(); if (g && (S.view === 'draft' || S.view === 'build')) return g.settings.pool; if (S.online && S.room) return roomPool(); return S.settings.pool || 'goat'; }
 function poolForViewer() { const g = game(); if (g && (S.view === 'draft' || S.view === 'build')) return g.settings.pool; return S.poolView || contextPool(); }
@@ -1231,6 +1298,7 @@ document.addEventListener('click', e => {
     if (a === 'more') { S.expanded = !S.expanded; $('#detail').classList.toggle('expanded', S.expanded); return; }
     if (a === 'close') { S.focus = null; S.buildSel = null; S.expanded = false; if (S.view === 'draft') S.sel = []; render(); return; }
     if (a === 'auto') { autoBuild(); S.buildSel = null; render(); toast('Rebuilt a 40-card deck from your strongest picks.'); return; }
+    if (a === 'sortzones') { S.deck.order = {}; saveDeck(); render(); return; }
     if (a === 'fillside') { fillSide(); return; }
     if (a === 'download') { downloadYdk(); return; }
     if (a === 'tour-start') { startTour(); return; }

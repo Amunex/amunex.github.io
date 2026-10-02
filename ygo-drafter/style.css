@@ -418,3 +418,14 @@ details summary{cursor:pointer;font-weight:600}
 .champ .trophy svg{width:54px;height:54px;color:var(--gold)}
 .champ .lbl{margin:0;color:var(--ink-soft);font-weight:600}
 .champ .who{margin:0;font:400 30px/1.1 var(--display)}
+
+/* v16: drag and drop */
+.build .zgrid .card{touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.build .zgrid .card img{-webkit-user-drag:none;pointer-events:none}
+.card.dragging{opacity:.25}
+.drag-ghost{position:fixed;left:0;top:0;z-index:2000;pointer-events:none;margin:0;box-shadow:0 22px 40px rgba(0,0,0,.45);border-radius:8px;transition:none}
+body.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none}
+.zone.drop-on{outline:3px dashed var(--gold);outline-offset:6px;border-radius:12px;background:rgba(244,204,98,.08)}
+.card.drop-before{box-shadow:-7px 0 0 -2px var(--gold)}
+.draghint{margin:6px 0 0;color:var(--ink-soft);font-size:14px}
+@media (hover:hover){.build .zgrid .card{cursor:grab}}

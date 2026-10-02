@@ -2,7 +2,7 @@
 import createCore, { OcgDuelMode, OcgProcessResult, cardMatchesOpcode } from './engine/index.js';
 import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYPES } from './glue.js';
 
-const V = 1;
+const V = 2;
 const $ = (s, el = document) => el.querySelector(s);
 const esc = s => String(s ?? '').replace(/[&<>"']/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 const QFLAGS = 1 | 2 | 4 | 16 | 32 | 256 | 512 | 65536 | 131072;   // code, position, alias, level, rank, atk, def, overlays, counters (TYPE is not parsed by the wrapper)
@@ -17,7 +17,7 @@ const S = {
   lib: null, db: null, cards: null, strings: null, index: null, cache: new Map(), samples: [],
   decks: null, names: ['Player 1', 'Player 2'], seed: 0, h: null,
   responses: [], log: [], prompt: null, lastPrompt: null, title: '', field: null, chain: [], winner: null,
-  turn: 0, phase: 0, turnPlayer: 0, lp: [8000, 8000], sel: [], menu: null, focus: null, retry: false
+  turn: 0, phase: 0, turnPlayer: 0, lp: [8000, 8000], sel: [], menu: null, focus: null, retry: false, handOrder: [[], []]
 };
 
 /* ---------- loading ---------- */
@@ -75,6 +75,7 @@ function at(loc) { // look up a card on the current board by location
 /* ---------- duel lifecycle ---------- */
 function newDuel(seed) {
   if (S.h) { try { S.lib.destroyDuel(S.h); } catch (_) {} }
+  if (!S.keepHand) S.handOrder = [[], []]; S.keepHand = false;
   Object.assign(S, { seed, responses: [], log: [], prompt: null, lastPrompt: null, title: '', field: null, chain: [], winner: null, turn: 0, phase: 0, turnPlayer: 0, lp: [8000, 8000], sel: [], menu: null, retry: false });
   S.h = createDuel(S.lib, { seed, decks: S.decks, cards: S.cards, scriptReader: readScript, flags: OcgDuelMode.MODE_GOAT, onError: (t, x) => console.warn('engine:', x) });
 }
@@ -108,7 +109,7 @@ function undo() {
   while (keep.length && keep[keep.length - 1].auto) keep.pop();
   keep.pop();
   while (keep.length && keep[keep.length - 1].auto) keep.pop();
-  newDuel(S.seed); closePicker();
+  S.keepHand = true; newDuel(S.seed); closePicker();
   pump(keep);
   toast('Undone.');
 }
@@ -186,13 +187,20 @@ function cardEl(c, p, loc, seq, acts) {
   return `<button class="dcard ${down ? 'fd' : ''} ${def ? 'def' : ''} ${has ? 'act' : ''} ${S.focus === key ? 'focus' : ''}" type="button" data-key="${key}" data-code="${c.code}" aria-label="${esc(down && loc !== LOC.HAND ? 'Face-down card' : cname(c.code))}">
     <img src="${img}" alt="" loading="lazy" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'tname',textContent:${JSON.stringify(cname(c.code))}}))">${stats}</button>`;
 }
+function orderedHand(p) {
+  const ord = S.handOrder[p] || []; const used = ord.map(() => false);
+  return S.field[p].hand.map((c, i) => {
+    let k = ord.findIndex((code, j) => !used[j] && code === c.code); if (k >= 0) used[k] = true; else k = 1e6 + i;
+    return { c, i, k };
+  }).sort((a, b) => a.k - b.k);
+}
 function pile(label, n, act) { return `<button class="pile" type="button" ${act ? `data-pile="${act}"` : 'disabled'}><b>${n}</b><span>${label}</span></button>`; }
 function sideHTML(p, top) {
   const f = S.field[p], acts = actionMap();
   const mz = [0, 1, 2, 3, 4].map(i => cardEl(f.m[i], p, LOC.MZONE, i, acts)).join('');
   const sz = [0, 1, 2, 3, 4].map(i => cardEl(f.s[i], p, LOC.SZONE, i, acts)).join('');
   const fz = cardEl(f.s[5], p, LOC.SZONE, 5, acts);
-  const hand = f.hand.map((c, i) => cardEl(c, p, LOC.HAND, i, acts)).join('');
+  const hand = orderedHand(p).map(({ c, i }) => cardEl(c, p, LOC.HAND, i, acts)).join('');
   const info = `<div class="pinfo ${S.turnPlayer === p ? 'turn' : ''}"><span class="pname">${esc(P(p))}</span><span class="lp">${S.lp[p]} LP</span>
     <span class="piles">${pile('Deck', f.deck)}${pile('Extra', f.extra.length, `${p}:64`)}${pile('GY', f.grave.length, `${p}:16`)}${pile('Banished', f.removed.length, `${p}:32`)}</span></div>`;
   const rows = [`<div class="row hand">${hand || '<span class="emptyhand">No cards in hand</span>'}</div>`, `<div class="row st">${fz}${sz}</div>`, `<div class="row mon"><div class="zone spacer"></div>${mz}</div>`];
@@ -371,4 +379,52 @@ document.addEventListener('click', e => {
   }
 });
 document.addEventListener('mouseover', e => { const dc = e.target.closest('.dcard,.pcard'); if (!dc || !dc.dataset.code) return; const code = +dc.dataset.code; if (S.focusCode !== code) { S.focusCode = code; const d = $('.cdetail'); if (d) d.innerHTML = detailHTML(); } });
+/* ---------- drag and drop: reorder your hand, or drop a hand card on your field to see its options ---------- */
+const DR = { el: null, ghost: null, sx: 0, sy: 0, ox: 0, oy: 0, started: false, timer: null, id: null, touch: false, swallow: false };
+function drCancel() { clearTimeout(DR.timer); if (DR.ghost) DR.ghost.remove(); if (DR.el) DR.el.classList.remove('dragging'); document.querySelectorAll('.drop-on,.drop-before').forEach(x => x.classList.remove('drop-on', 'drop-before')); document.body.classList.remove('is-dragging'); Object.assign(DR, { el: null, ghost: null, started: false, id: null }); }
+function drTarget(x, y) {
+  const under = document.elementFromPoint(x, y); const side = DR.el && DR.el.closest('.side'); if (!under || !side) return {};
+  const hand = under.closest('.row.hand'); if (hand && side.contains(hand)) { const b = under.closest('.dcard'); return { hand, before: b && b !== DR.el ? b : null }; }
+  const field = under.closest('.row.mon,.row.st'); if (field && side.contains(field)) return { field };
+  return {};
+}
+function drStart(x, y) {
+  const r = DR.el.getBoundingClientRect(); DR.ox = x - r.left; DR.oy = y - r.top;
+  const g = DR.el.cloneNode(true); g.classList.add('drag-ghost'); g.style.width = r.width + 'px'; document.body.appendChild(g);
+  DR.ghost = g; DR.started = true; DR.el.classList.add('dragging'); document.body.classList.add('is-dragging'); drMove(x, y);
+}
+function drMove(x, y) {
+  DR.ghost.style.transform = `translate(${x - DR.ox}px, ${y - DR.oy}px) rotate(4deg) scale(1.08)`;
+  document.querySelectorAll('.drop-on,.drop-before').forEach(el => el.classList.remove('drop-on', 'drop-before'));
+  const t = drTarget(x, y); if (t.hand) t.hand.classList.add('drop-on'); if (t.before) t.before.classList.add('drop-before'); if (t.field) t.field.classList.add('drop-on');
+}
+function drFinish(x, y) {
+  const t = drTarget(x, y); const el = DR.el; const key = el.dataset.key; const p = +key.split(':')[0];
+  drCancel(); DR.swallow = true; setTimeout(() => { DR.swallow = false; }, 60);
+  if (t.hand) {
+    const cards = [...t.hand.querySelectorAll('.dcard')].filter(c => c !== el);
+    const at = t.before ? cards.indexOf(t.before) : cards.length; cards.splice(at < 0 ? cards.length : at, 0, el);
+    S.handOrder[p] = cards.map(c => +c.dataset.code); render();
+  } else if (t.field) {
+    const acts = actionMap().get(key);
+    S.focus = key; S.focusCode = +el.dataset.code;
+    if (acts && acts.length) { S.menu = key; render(); } else { render(); toast('That card can’t be played right now.'); }
+  }
+}
+document.addEventListener('pointerdown', e => {
+  if (e.button > 0) return; const c = e.target.closest('.row.hand .dcard'); if (!c || !S.h) return;
+  drCancel(); Object.assign(DR, { el: c, sx: e.clientX, sy: e.clientY, id: e.pointerId, touch: e.pointerType !== 'mouse', started: false });
+  if (DR.touch) DR.timer = setTimeout(() => { if (DR.el) drStart(DR.sx, DR.sy); }, 300);
+});
+document.addEventListener('pointermove', e => {
+  if (!DR.el || e.pointerId !== DR.id) return;
+  if (!DR.started) { const d = Math.hypot(e.clientX - DR.sx, e.clientY - DR.sy); if (DR.touch) { if (d > 10) drCancel(); return; } if (d < 6) return; drStart(e.clientX, e.clientY); }
+  drMove(e.clientX, e.clientY);
+});
+document.addEventListener('pointerup', e => { if (!DR.el || e.pointerId !== DR.id) return; if (DR.started) drFinish(e.clientX, e.clientY); else drCancel(); });
+document.addEventListener('pointercancel', () => { if (DR.el && !DR.started) drCancel(); });
+document.addEventListener('touchmove', e => { if (DR.started) e.preventDefault(); }, { passive: false });
+document.addEventListener('contextmenu', e => { if (DR.el && DR.touch) e.preventDefault(); });
+document.addEventListener('dragstart', e => { if (e.target.closest && e.target.closest('.dcard')) e.preventDefault(); });
+document.addEventListener('click', e => { if (DR.swallow) { e.stopPropagation(); e.preventDefault(); DR.swallow = false; } }, true);
 boot();
