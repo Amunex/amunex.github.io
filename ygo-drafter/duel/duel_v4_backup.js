@@ -1,9 +1,9 @@
 /* YGO Drafter duel table: EDOPro's rules engine (ocgcore, WebAssembly) under our own table, GOAT rules.
    Solo (both sides on one screen) or online with a friend through Firebase, with spectators and chat. */
 import createCore, { OcgDuelMode, OcgProcessResult, cardMatchesOpcode } from './engine/index.js';
-import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYPES, autoAnswer as legalAnswer } from './glue.js';
+import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYPES } from './glue.js';
 
-const V = 5;
+const V = 3;
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = { apiKey: 'AIzaSyAto8uv4bsHkhDGkhiCFa-PuILGZS9Hf08', authDomain: 'goat-draft-796f7.firebaseapp.com', databaseURL: 'https://goat-draft-796f7-default-rtdb.firebaseio.com', projectId: 'goat-draft-796f7', storageBucket: 'goat-draft-796f7.firebasestorage.app', messagingSenderId: '906831006037', appId: '1:906831006037:web:80e372d9ca72e53073c7dc' };
 const $ = (s, el = document) => el.querySelector(s);
@@ -28,8 +28,7 @@ const S = {
   h: null, applied: [], prompt: null, lastPrompt: null, title: '', retry: false,
   field: null, chain: [], winner: null, turn: 0, phase: 0, turnPlayer: 0, lp: [8000, 8000],
   sel: [], menu: null, focusCode: null, pickerClosed: false, viewer: null, info: null,
-  chainMode: ['auto', 'auto'], handOrder: [[], []], log: [], tab: 'log', chatSeen: 0, fx: [], quiet: false, sending: null, shuffleFx: false,
-  ai: true, aiTimer: null, aiActs: 0, aiTried: new Set(), aiTurn: -1, pop: null, lpShown: [8000, 8000]
+  chainMode: ['auto', 'auto'], handOrder: [[], []], log: [], tab: 'log', chatSeen: 0, fx: [], quiet: false, sending: null, shuffleFx: false
 };
 
 /* ================= loading ================= */
@@ -84,10 +83,8 @@ const engOf = seat => (seat === S.first ? 0 : 1);
 const P = e => S.seatNames[seatOf(e)] || `Player ${seatOf(e) + 1}`;
 const meE = () => (S.mySeat >= 0 ? engOf(S.mySeat) : -1);
 const bottomE = () => (S.mode === 'online' && S.mySeat >= 0 ? engOf(S.mySeat) : engOf(0));
-const humanE = () => engOf(0);
-const isAI = e => S.mode === 'solo' && S.ai && e !== humanE();
-const decides = e => S.mode === 'solo' ? (S.ai ? e === humanE() : true) : meE() === e;
-const visibleTo = e => S.mode === 'solo' ? (S.ai ? e === humanE() : true) : meE() === e;
+const decides = e => S.mode === 'solo' || meE() === e;
+const visibleTo = e => S.mode === 'solo' || meE() === e;
 function at(loc) {
   const f = S.field && S.field[loc.controller]; if (!f) return null;
   const list = { 2: f.hand, 4: f.m, 8: f.s, 16: f.grave, 32: f.removed, 64: f.extra }[loc.location];
@@ -97,8 +94,7 @@ function at(loc) {
 /* ================= engine ================= */
 function newEngine() {
   if (S.h) { try { S.lib.destroyDuel(S.h); } catch (_) {} }
-  clearTimeout(S.aiTimer); closePop();
-  Object.assign(S, { applied: [], prompt: null, lastPrompt: null, title: '', field: null, chain: [], winner: null, turn: 0, phase: 0, turnPlayer: 0, lp: [8000, 8000], lpShown: [8000, 8000], sel: [], menu: null, log: [], fx: [], aiTurn: -1 });
+  Object.assign(S, { applied: [], prompt: null, lastPrompt: null, title: '', field: null, chain: [], winner: null, turn: 0, phase: 0, turnPlayer: 0, lp: [8000, 8000], sel: [], menu: null, log: [], fx: [] });
   const decks = [0, 1].map(e => S.seatDecks[seatOf(e)]);
   S.h = createDuel(S.lib, { seed: S.seed, decks, cards: S.cards, scriptReader: readScript, flags: OcgDuelMode.MODE_GOAT, onError: (t, x) => console.warn('engine:', x) });
 }
@@ -119,18 +115,8 @@ function pump(feed = [], live = true) {
   }
   S.quiet = false;
   refreshField();
-  if (!live) S.lpShown = S.lp.slice();
 }
 function apply(x) { S.applied.push(x); S.lib.duelSetResponse(S.h, x.r); S.prompt = null; S.title = ''; }
-function scheduleAI() {
-  clearTimeout(S.aiTimer); const m = S.prompt; if (!m || !isAI(m.player) || S.winner) return;
-  const quick = m.type === 16 || m.type === 18 || m.type === 24 || m.type === 21 || m.type === 25 || m.type === 22;
-  S.aiTimer = setTimeout(() => {
-    const cur = S.prompt; if (cur !== m) return;
-    const r = aiAnswer(m) || autoAnswer(m) || legalFallback(m); if (!r) return;
-    apply({ r, e: m.player, a: 0, ai: 1 }); pump([], true); render();
-  }, quick ? 260 : 650);
-}
 function chainModeFor(e) { return S.mode === 'solo' ? S.chainMode[e] : S.chainMode[0]; }
 function autoAnswer(m) {
   if (m.type === 16) {   // EDOPro's rule: skip unless the engine flags this moment (spe_count) or you chose "Always"
@@ -181,7 +167,7 @@ function refreshField() {
   if (!S.h) return;
   try {
     const F = S.lib.duelQueryField(S.h);
-    S.lp = F.players.map(p => Math.max(0, p.lp | 0)); S.chain = F.chain || [];   // the engine reports LP unsigned; below 0 shows as 0
+    S.lp = F.players.map(p => p.lp); S.chain = F.chain || [];
     const q = (p, loc) => S.lib.duelQueryLocation(S.h, { flags: QFLAGS, controller: p, location: loc });
     S.field = [0, 1].map(p => ({ hand: q(p, LOC.HAND), m: q(p, LOC.MZONE), s: q(p, LOC.SZONE), grave: q(p, LOC.GRAVE), removed: q(p, LOC.REMOVED), extra: q(p, LOC.EXTRA), deck: F.players[p].deck_size }));
   } catch (e) { console.error(e); }
@@ -190,7 +176,7 @@ function refreshField() {
 /* ================= answering ================= */
 function answer(r) {
   const m = S.prompt; if (!m || !decides(m.player)) return;
-  S.sel = []; S.menu = null; S.pickerClosed = false; closeModal('#picker'); closePop();
+  S.sel = []; S.menu = null; S.pickerClosed = false; closeModal('#picker');
   if (S.mode === 'online') { send(r, m.player, false); render(); return; }
   apply({ r, e: m.player, a: 0 });
   pump([], true); render();
@@ -201,12 +187,11 @@ async function send(r, e, auto) {
   try { const F = await fb(); await F.push(rref(F, '/responses'), { r: enc(r), e, a: auto ? 1 : 0, by: F.uid }); }
   catch (err) { S.sending = null; toast('Couldn’t send your move. Check your connection.'); }
 }
-function lastDecisionIdx(pred) { for (let i = S.applied.length - 1; i >= 0; i--) if (!S.applied[i].a && !S.applied[i].bad && !S.applied[i].ai && pred(S.applied[i].e)) return i; return -1; }
+function lastDecisionIdx(pred) { for (let i = S.applied.length - 1; i >= 0; i--) if (!S.applied[i].a && !S.applied[i].bad && pred(S.applied[i].e)) return i; return -1; }
 function undo() {
   if (S.mode === 'solo') {
-    clearTimeout(S.aiTimer);
-    const i = lastDecisionIdx(e => !S.ai || e === humanE()); if (i < 0) { toast('Nothing to undo yet.'); return; }
-    const keep = S.applied.slice(0, i); newEngine(); pump(keep, false); S.lpShown = S.lp.slice(); render(); toast('Undone.'); return;
+    const i = lastDecisionIdx(() => true); if (i < 0) { toast('Nothing to undo yet.'); return; }
+    const keep = S.applied.slice(0, i); newEngine(); pump(keep, false); render(); toast('Undone.'); return;
   }
   if (S.mySeat < 0) return;
   const me = meE(); const i = lastDecisionIdx(e => e === me);
@@ -222,86 +207,13 @@ async function answerUndo(ok) {
   const e = engOf(req.seat); const i = lastDecisionIdx(x => x === e); if (i >= 0) await truncate(i); else await F.set(rref(F, '/undo'), null);
 }
 
-/* ================= computer opponent ================= */
-const ATK = code => { const c = card(code); return c && (c.type & 1) ? Math.max(0, c.attack) : 0; };
-function fieldAtk(loc) { const q = at(loc); return q && q.attack != null ? q.attack : ATK(loc.code); }
-const bestIdx = (list, f) => list.reduce((b, x, i) => (f(x) > f(list[b]) ? i : b), 0);
-function legalFallback(m) { return legalAnswer(m, S.cards, { allowBattle: true, announceCandidates: mm => [...S.cards.values()].filter(c => !(c.type & T.TOKEN) && cardMatchesOpcode(c, mm.opcodes)).map(c => c.code) }); }
-function canAttack(me) { return (S.field[me].m || []).some(x => x && !(x.position & 10) && (x.position & 1) && x.attack > 0); }
-function aiAnswer(m) {
-  const me = m.player, opp = 1 - me;
-  if (S.aiTurn !== S.turn) { S.aiTurn = S.turn; S.aiActs = 0; S.aiTried = new Set(); S.aiSets = 0; }
-  const k = c => `${c.controller}:${c.location}:${c.sequence}:${c.code}`;
-  const oppMons = () => (S.field[opp].m || []).filter(Boolean);
-  switch (m.type) {
-    case 11: {
-      S.aiActs++;
-      if (S.aiActs > 16) return m.to_bp && canAttack(me) && !S.aiTried.has('bp') ? (S.aiTried.add('bp'), { type: 1, action: 6, index: 0 }) : m.to_ep ? { type: 1, action: 7, index: 0 } : null;
-      const ai = m.activates.findIndex(c => !S.aiTried.has('a' + k(c)));
-      if (ai >= 0) { S.aiTried.add('a' + k(m.activates[ai])); return { type: 1, action: 5, index: ai }; }
-      if (m.special_summons.length) { const i = bestIdx(m.special_summons, c => ATK(c.code)); if (!S.aiTried.has('s' + k(m.special_summons[i]))) { S.aiTried.add('s' + k(m.special_summons[i])); return { type: 1, action: 1, index: i }; } }
-      if (m.summons.length) {
-        const i = bestIdx(m.summons, c => ATK(c.code)); const c = m.summons[i];
-        const threat = oppMons().some(x => !(x.position & 10) && (x.position & 1) && x.attack > ATK(c.code));
-        const si = m.monster_sets.findIndex(x => x.code === c.code && x.location === c.location && x.sequence === c.sequence);
-        if ((ATK(c.code) < 1300 || threat) && si >= 0) return { type: 1, action: 3, index: si };
-        return { type: 1, action: 0, index: i };
-      }
-      const ti = m.spell_sets.findIndex(c => { const cd = card(c.code); return cd && (cd.type & T.TRAP || cd.type & 0x10000) && !S.aiTried.has('t' + k(c)); });
-      if (ti >= 0 && (S.aiSets || 0) < 3) { S.aiTried.add('t' + k(m.spell_sets[ti])); S.aiSets = (S.aiSets || 0) + 1; return { type: 1, action: 4, index: ti }; }
-      if (m.to_bp && canAttack(me) && !S.aiTried.has('bp')) { S.aiTried.add('bp'); return { type: 1, action: 6, index: 0 }; }
-      return m.to_ep ? { type: 1, action: 7, index: 0 } : null;
-    }
-    case 10: {
-      S.aiActs++;
-      const opps = oppMons(); let best = -1, score = -1;
-      if (S.aiActs < 30) m.attacks.forEach((a, i) => {
-        const atk = fieldAtk(a); let s = -1;
-        if (!opps.length || a.can_direct) s = 10000 + atk;
-        else if (opps.some(o => (o.position & 10) ? atk >= 1500 : (o.position & 4) ? atk > o.defense : atk > o.attack)) s = atk;
-        if (s > score) { score = s; best = i; }
-      });
-      if (best >= 0) { S.aiAttackAtk = fieldAtk(m.attacks[best]); return { type: 0, action: 1, index: best }; }
-      return m.to_m2 ? { type: 0, action: 2, index: 0 } : { type: 0, action: 3, index: 0 };
-    }
-    case 16: {
-      if (!m.selects.length) return { type: 8, index: null };
-      if (m.forced) return { type: 8, index: 0 };
-      const last = S.chain[S.chain.length - 1]; const vsOpp = last && last.controller !== me;
-      const timing = (m.hint_timing || 0) | (m.hint_timing_other || 0);
-      const hot = vsOpp || (timing & (0x1000 | 64 | 128 | 256 | 0x2000));
-      if (m.spe_count > 0 && (hot ? Math.random() < .85 : Math.random() < .2)) return { type: 8, index: (Math.random() * m.selects.length) | 0 };
-      return { type: 8, index: null };
-    }
-    case 12: return { type: 2, yes: true };
-    case 13: return { type: 3, yes: true };
-    case 14: return { type: 4, index: 0 };
-    case 19: { const c = card(m.code); const want = c && c.attack >= c.defense ? 1 : 4; return { type: 11, position: [want, 1, 4, 8, 2].find(p => m.positions & p) }; }
-    case 15: {
-      const n = Math.max(1, m.min);
-      const allOppMons = m.selects.length && m.selects.every(c => c.controller !== me && c.location === LOC.MZONE);
-      if (allOppMons && S.aiAttackAtk != null) {
-        const atk = S.aiAttackAtk; S.aiAttackAtk = null;
-        const val = c => { const q = at(c); if (!q) return -1; if (q.position & 10) return atk >= 1500 ? 500 : -1; const v = q.position & 4 ? q.defense : q.attack; return atk > v ? 1000 + v : -1; };
-        const order = m.selects.map((c, i) => [i, val(c)]).sort((a, b) => b[1] - a[1]);
-        return { type: 5, indicies: order.slice(0, n).map(x => x[0]) };
-      }
-      const sc = c => { const v = c.location === LOC.MZONE ? fieldAtk(c) : ATK(c.code); return c.controller === me ? -v : v + 5000; };
-      return { type: 5, indicies: m.selects.map((c, i) => [i, sc(c)]).sort((a, b) => b[1] - a[1]).slice(0, n).map(x => x[0]) };
-    }
-    case 20: { const order = m.selects.map((c, i) => [i, fieldAtk(c)]).sort((a, b) => a[1] - b[1]).map(x => x[0]); let need = m.min; const pick = []; for (const i of order) { if (need <= 0) break; pick.push(i); need -= (m.selects[i].release_param || 1); } return { type: 12, indicies: pick }; }
-    case 26: { if (m.can_finish && m.unselect_cards.length >= Math.max(1, m.min)) return { type: 7, index: null }; return { type: 7, index: m.select_cards.length ? 0 : null }; }
-    default: return null;
-  }
-}
-
 /* ================= actions available now ================= */
 function actionMap() {
   const m = S.prompt, map = new Map(); if (!m || !decides(m.player)) return map;
-  const add = (c, label, r, ss) => { const k = `${c.controller}:${c.location}:${c.sequence}`; if (!map.has(k)) map.set(k, []); map.get(k).push({ label, r, ss: !!ss }); };
+  const add = (c, label, r) => { const k = `${c.controller}:${c.location}:${c.sequence}`; if (!map.has(k)) map.set(k, []); map.get(k).push({ label, r }); };
   if (m.type === 11) {
     m.summons.forEach((c, i) => add(c, 'Normal Summon', { type: 1, action: 0, index: i }));
-    m.special_summons.forEach((c, i) => add(c, 'Special Summon', { type: 1, action: 1, index: i }, true));
+    m.special_summons.forEach((c, i) => add(c, 'Special Summon', { type: 1, action: 1, index: i }));
     m.pos_changes.forEach((c, i) => add(c, 'Change battle position', { type: 1, action: 2, index: i }));
     m.monster_sets.forEach((c, i) => add(c, 'Set', { type: 1, action: 3, index: i }));
     m.spell_sets.forEach((c, i) => add(c, 'Set', { type: 1, action: 4, index: i }));
@@ -312,7 +224,6 @@ function actionMap() {
   } else if (m.type === 16) m.selects.forEach((c, i) => add(c, descText(c.description) || 'Activate', { type: 8, index: i }));
   return map;
 }
-const glow = (acts, key) => !acts.has(key) ? '' : acts.get(key).some(a => a.ss) ? 'act act-ss' : 'act';
 const pileHasAction = (e, loc, acts) => [...acts.keys()].some(k => { const [p, l] = k.split(':').map(Number); return p === e && l === loc; });
 
 /* ================= rendering ================= */
@@ -325,7 +236,7 @@ function slotHTML(e, loc, seq, kind, label, acts, chainNo) {
   let stat = '';
   if (loc === LOC.MZONE && !down) { const up = (v, b) => v > b ? 'up' : v < b ? 'down' : ''; stat = `<span class="stat"><b class="${up(c.attack, c.baseAttack)}">${c.attack ?? '?'}</b><i>/</i><b class="${up(c.defense, c.baseDefense)}">${c.defense ?? '?'}</b></span>`; }
   const ch = chainNo.get(key);
-  return `<div class="slot ${kind} filled" data-key="${key}"><button class="dcard ${down ? 'fd' : ''} ${peek ? 'peek' : ''} ${def ? 'def' : ''} ${glow(acts, key)}" type="button" data-key="${key}" data-code="${down && !peek ? '' : c.code}" aria-label="${esc(down && !peek ? 'Face-down card' : cname(c.code))}">
+  return `<div class="slot ${kind} filled" data-key="${key}"><button class="dcard ${down ? 'fd' : ''} ${peek ? 'peek' : ''} ${def ? 'def' : ''} ${acts.has(key) ? 'act' : ''}" type="button" data-key="${key}" data-code="${down && !peek ? '' : c.code}" aria-label="${esc(down && !peek ? 'Face-down card' : cname(c.code))}">
     <img src="${img}" alt="" draggable="false" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'tname',textContent:${JSON.stringify(cname(c.code))}}))">${peek ? '<span class="settag">Set</span>' : ''}${stat}${(c.counters && Object.keys(c.counters).length) ? `<span class="ctr">${Object.values(c.counters).reduce((a, b) => a + b, 0)}</span>` : ''}${ch ? `<span class="chainno">${ch}</span>` : ''}</button></div>`;
 }
 function pileHTML(e, loc, label, list, acts) {
@@ -341,7 +252,7 @@ function orderedHand(e) {
 }
 function handHTML(e, acts) {
   const vis = visibleTo(e);
-  const cards = orderedHand(e).map(({ c, i }) => { const key = `${e}:2:${i}`; return `<button class="dcard hc ${glow(acts, key)}" type="button" data-key="${key}" data-code="${vis ? c.code : ''}" aria-label="${esc(vis ? cname(c.code) : 'Card in hand')}"><img src="${vis ? imgFor(c.code) : BACK}" alt="" draggable="false" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'tname',textContent:${JSON.stringify(vis ? cname(c.code) : '')}}))"></button>`; }).join('');
+  const cards = orderedHand(e).map(({ c, i }) => { const key = `${e}:2:${i}`; return `<button class="dcard hc ${acts.has(key) ? 'act' : ''}" type="button" data-key="${key}" data-code="${vis ? c.code : ''}" aria-label="${esc(vis ? cname(c.code) : 'Card in hand')}"><img src="${vis ? imgFor(c.code) : BACK}" alt="" draggable="false" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'tname',textContent:${JSON.stringify(vis ? cname(c.code) : '')}}))"></button>`; }).join('');
   return `<div class="hand ${vis ? 'mine' : 'hidden'}" data-hand="${e}">${cards || '<span class="emptyhand">No cards in hand</span>'}</div>`;
 }
 function chainBadges() { const m = new Map(); S.chain.forEach((l, i) => { if (l.location === LOC.MZONE || l.location === LOC.SZONE) m.set(`${l.controller}:${l.location}:${l.sequence}`, i + 1); }); return m; }
@@ -355,8 +266,8 @@ function sideHTML(e, top) {
   return `<div class="side ${top ? 'top' : 'bottom'} ${S.turnPlayer === e ? 'turn' : ''}" data-e="${e}">${rows.map(r => `<div class="frow">${r.join('')}</div>`).join('')}</div>`;
 }
 function lpHTML(e) {
-  const shown = S.lpShown[e]; const pct = Math.max(0, Math.min(100, shown / 80));
-  return `<div class="lpbox ${e === bottomE() ? 'me' : 'opp'} ${S.turnPlayer === e ? 'turn' : ''}" data-lp="${e}"><span class="nm">${esc(P(e))}${S.turnPlayer === e ? ' <i>• turn</i>' : ''}</span><span class="lpl">LP</span><span class="lpv">${shown}</span><span class="lpbar"><span style="width:${pct}%"></span></span></div>`;
+  const pct = Math.max(0, Math.min(100, S.lp[e] / 80));
+  return `<div class="lpbox ${e === bottomE() ? 'me' : 'opp'} ${S.turnPlayer === e ? 'turn' : ''}" data-lp="${e}"><span class="nm">${esc(P(e))}${S.turnPlayer === e ? ' <i>• turn</i>' : ''}</span><span class="lpv">${S.lp[e]}</span><span class="lpbar"><span style="width:${pct}%"></span></span></div>`;
 }
 function phaseBarHTML() {
   const m = S.prompt; const mineNow = m && decides(m.player);
@@ -376,12 +287,12 @@ function promptHTML() {
   const m = S.prompt;
   if (!m) return `<div class="decide"><p class="hint">Working…</p></div>`;
   if (S.sending && decides(m.player)) return `<div class="decide waiting"><p class="who">Your move</p><p class="hint">Sending…</p></div>`;
-  if (!decides(m.player)) return `<div class="decide waiting"><p class="who">${isAI(m.player) ? 'The computer is thinking…' : `${esc(P(m.player))} is deciding…`}</p><p class="hint">${esc(waitingText(m))}</p></div>`;
+  if (!decides(m.player)) return `<div class="decide waiting"><p class="who">${esc(P(m.player))} is deciding…</p><p class="hint">${esc(waitingText(m))}</p></div>`;
   const who = S.mode === 'solo' ? `<p class="who">${esc(P(m.player))} decides</p>` : `<p class="who">Your move</p>`;
   const title = S.title ? `<h2>${esc(S.title)}</h2>` : '';
   const btn = (label, r, cls = 'ghost') => `<button class="${cls}" type="button" data-r='${enc(r)}'>${esc(label)}</button>`;
-  if (m.type === 11) return `<div class="decide">${who}<h2>${phaseName(S.phase) || 'Main Phase'}</h2><p class="hint">Gold glow: the card can do something. Gold and blue: it can be Special Summoned. Tap it, or drag it from your hand onto the field.</p><div class="row-btns">${m.to_bp ? btn('Battle Phase', { type: 1, action: 6, index: 0 }, 'cta') : ''}${m.to_ep ? btn('End turn', { type: 1, action: 7, index: 0 }) : ''}</div></div>`;
-  if (m.type === 10) return `<div class="decide">${who}<h2>Battle Phase</h2><p class="hint">Tap a glowing monster to attack, or a card to activate it.</p><div class="row-btns">${m.to_m2 ? btn('Main Phase 2', { type: 0, action: 2, index: 0 }, 'cta') : ''}${m.to_ep ? btn('End turn', { type: 0, action: 3, index: 0 }) : ''}</div></div>`;
+  if (m.type === 11) return `<div class="decide">${who}<h2>${phaseName(S.phase) || 'Main Phase'}</h2><p class="hint">Glowing cards can do something. Tap one, or drag a card from your hand onto the field.</p><div class="row-btns">${m.to_bp ? btn('Battle Phase', { type: 1, action: 6, index: 0 }, 'cta') : ''}${m.to_ep ? btn('End turn', { type: 1, action: 7, index: 0 }) : ''}</div>${menuHTML()}</div>`;
+  if (m.type === 10) return `<div class="decide">${who}<h2>Battle Phase</h2><p class="hint">Tap a glowing monster to attack, or a card to activate it.</p><div class="row-btns">${m.to_m2 ? btn('Main Phase 2', { type: 0, action: 2, index: 0 }, 'cta') : ''}${m.to_ep ? btn('End turn', { type: 0, action: 3, index: 0 }) : ''}</div>${menuHTML()}</div>`;
   if (m.type === 16) return `<div class="decide">${who}<h2>${S.chain.length ? `Chain ${S.chain.length}: respond?` : 'Activate a card?'}</h2><p class="hint">${S.chain.length ? `In response to ${esc(cname(S.chain[S.chain.length - 1].code))}.` : 'You can activate a card now.'}</p>
     <div class="list">${m.selects.map((c, i) => btn(`${cname(c.code)}: ${descText(c.description) || 'Activate'}`, { type: 8, index: i })).join('')}</div><div class="row-btns">${m.forced ? '' : btn('Pass', { type: 8, index: null }, 'cta')}</div></div>`;
   if (m.type === 12) return `<div class="decide">${who}<h2>Use ${esc(cname(m.code))}?</h2><p class="hint">${esc(descText(m.description))}</p><div class="row-btns">${btn('Yes', { type: 2, yes: true }, 'cta')}${btn('No', { type: 2, yes: false })}</div></div>`;
@@ -403,40 +314,15 @@ function menuHTML() {
   const [p, l, s] = S.menu.split(':').map(Number); const c = at({ controller: p, location: l, sequence: s });
   return `<div class="menu"><p class="menu-title">${esc(c ? cname(c.code) : 'Card')}</p>${acts.map(a => `<button class="cta" type="button" data-r='${enc(a.r)}'>${esc(a.label)}</button>`).join('')}<button class="linkish" type="button" data-act="closemenu">Cancel</button></div>`;
 }
-function renderPop() {
-  let el = $('#pop'); if (!el) { el = document.createElement('div'); el.id = 'pop'; el.className = 'pop'; el.setAttribute('role', 'menu'); document.body.appendChild(el); }
-  const acts = S.pop ? (actionMap().get(S.pop.key) || []) : [];
-  if (!S.pop || !acts.length) { el.hidden = true; S.pop = null; return; }
-  const [p, l, s] = S.pop.key.split(':').map(Number); const c = at({ controller: p, location: l, sequence: s });
-  el.innerHTML = `<p class="pop-title">${esc(c ? cname(c.code) : 'Card')}</p>${acts.map(a => `<button class="${a.ss ? 'ss' : ''}" type="button" role="menuitem" data-r='${enc(a.r)}'>${esc(a.label)}</button>`).join('')}<button class="linkish" type="button" data-act="closepop">Cancel</button>`;
-  el.hidden = false; placePop();
-}
-function placePop() {
-  const el = $('#pop'); if (!el || el.hidden || !S.pop) return;
-  let { x, y } = S.pop;
-  if (S.pop.anchor) { const a = document.querySelector(`#board .dcard[data-key="${S.pop.key}"]`); if (a) { const r = a.getBoundingClientRect(); x = r.right + 10; y = r.top - 6; if (x + el.offsetWidth > innerWidth - 8) x = r.left - el.offsetWidth - 10; } }
-  x = Math.min(innerWidth - el.offsetWidth - 8, Math.max(8, x)); y = Math.min(innerHeight - el.offsetHeight - 8, Math.max(8, y));
-  el.style.left = x + 'px'; el.style.top = y + 'px';
-}
-function closePop() { S.pop = null; const el = $('#pop'); if (el) el.hidden = true; }
-function animateLP() {
-  [0, 1].forEach(e => {
-    const from = S.lpShown[e], to = S.lp[e]; if (from === to) return;
-    S.lpShown[e] = to; const el = document.querySelector(`[data-lp="${e}"]`); if (!el) return;
-    const v = el.querySelector('.lpv'), bar = el.querySelector('.lpbar span'); const t0 = performance.now(), dur = reduce ? 1 : 1000;
-    const tick = now => { const k = Math.min(1, (now - t0) / dur); const val = Math.round(from + (to - from) * (1 - Math.pow(1 - k, 3))); if (v.isConnected) { v.textContent = val; bar.style.width = Math.max(0, Math.min(100, val / 80)) + '%'; } if (k < 1) requestAnimationFrame(tick); };
-    requestAnimationFrame(tick);
-  });
-}
 function chainListHTML() {
   if (!S.chain.length) return '';
   return `<div class="chainlist"><p class="lbl">Chain</p><ol>${S.chain.map((l, i) => `<li class="${l.controller === bottomE() ? 'me' : 'opp'}"><b>${i + 1}</b>${esc(cname(l.code))}<small>${esc(P(l.controller))}</small></li>`).reverse().join('')}</ol></div>`;
 }
 function controlsHTML() {
-  const solo = S.mode === 'solo'; const both = solo && !S.ai;
+  const solo = S.mode === 'solo';
   const modes = e => `<div class="seg tiny" role="radiogroup" aria-label="Chain prompts">${[['auto', 'Auto'], ['always', 'Always'], ['never', 'Never']].map(([v, l]) => `<label><input type="radio" name="cm-${e}" value="${v}" ${S.chainMode[e] === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div>`;
-  const chainBox = S.mode === 'online' && S.mySeat < 0 ? '' : `<div class="chainmode"><p class="lbl">Chain prompts${both ? ` (${esc(P(bottomE()))})` : ''}</p>${modes(solo ? bottomE() : 0)}${both ? `<p class="lbl">Chain prompts (${esc(P(1 - bottomE()))})</p>${modes(1 - bottomE())}` : ''}<p class="tiny-note">Auto asks only when it matters, like EDOPro. Always also stops in the Draw and Standby Phase.</p></div>`;
-  const undoBtn = solo ? `<button class="ghost" type="button" data-act="undo" ${S.applied.some(x => !x.a && !x.ai) ? '' : 'disabled'}>Undo</button>` : S.mySeat >= 0 ? `<button class="ghost" type="button" data-act="undo">Undo</button>` : '';
+  const chainBox = S.mode === 'online' && S.mySeat < 0 ? '' : `<div class="chainmode"><p class="lbl">Chain prompts${solo ? ` (${esc(P(bottomE()))})` : ''}</p>${modes(solo ? bottomE() : 0)}${solo ? `<p class="lbl">Chain prompts (${esc(P(1 - bottomE()))})</p>${modes(1 - bottomE())}` : ''}<p class="tiny-note">Auto asks only when it matters, like EDOPro. Always also stops in the Draw and Standby Phase.</p></div>`;
+  const undoBtn = solo ? `<button class="ghost" type="button" data-act="undo" ${S.applied.some(x => !x.a) ? '' : 'disabled'}>Undo</button>` : S.mySeat >= 0 ? `<button class="ghost" type="button" data-act="undo">Undo</button>` : '';
   const sur = S.mode === 'online' && S.mySeat >= 0 && !S.winner && !(S.room && S.room.result) ? '<button class="ghost" type="button" data-act="surrender">Surrender</button>' : '';
   const req = S.room && S.room.undo && S.mySeat >= 0 && S.room.undo.seat !== S.mySeat ? `<div class="undoask"><p><b>${esc(S.seatNames[S.room.undo.seat])}</b> asks to take back their last move.</p><div class="row-btns"><button class="cta" type="button" data-act="undo-yes">Allow</button><button class="ghost" type="button" data-act="undo-no">Decline</button></div></div>` : '';
   return `${req}${chainBox}<div class="row-btns">${undoBtn}${sur}<button class="ghost" type="button" data-act="${solo ? 'setup' : 'leave'}">${solo ? 'New duel' : 'Leave'}</button></div>`;
@@ -461,12 +347,11 @@ function render() {
   if (!S.field) return;
   const before = snapRects();
   const b = bottomE(), tp = 1 - b;
-  $('#status').innerHTML = `<span>${S.mode === 'online' ? `Duel ${esc(S.code)}${S.mySeat < 0 ? ', watching' : ''}` : S.ai ? 'Solo vs computer' : 'Solo, both sides'}, turn ${S.turn}</span>`;
+  $('#status').innerHTML = `<span>${S.mode === 'online' ? `Duel ${esc(S.code)}${S.mySeat < 0 ? ', watching' : ''}` : 'Solo duel'}, turn ${S.turn}</span>`;
   $('#barActions').innerHTML = '';
-  const acts = actionMap();
   $('#app').innerHTML = `<section class="duel">
-    <aside class="left">${promptHTML()}${chainListHTML()}${controlsHTML()}</aside>
-    <div class="board" id="board"><div class="pline top">${lpHTML(tp)}${handHTML(tp, acts)}</div>${sideHTML(tp, true)}<div class="midline" id="midline">${phaseBarHTML()}</div>${sideHTML(b, false)}<div class="pline bottom">${lpHTML(b)}${handHTML(b, acts)}</div></div>
+    <aside class="left">${lpHTML(tp)}${lpHTML(b)}${phaseBarHTML()}${promptHTML()}${chainListHTML()}${controlsHTML()}</aside>
+    <div class="board" id="board">${handHTML(tp, actionMap())}${sideHTML(tp, true)}<div class="midline" id="midline"></div>${sideHTML(b, false)}${handHTML(b, actionMap())}</div>
     <aside class="right">${sidePanelHTML()}</aside></section>`;
   const lg = $('#log'); if (lg) lg.scrollTop = lg.scrollHeight;
   const cb = $('#chatBox'); if (cb) { cb.scrollTop = cb.scrollHeight; S.chatSeen = ((S.room && S.room.chatList) || []).length; }
@@ -474,8 +359,7 @@ function render() {
   if (m && decides(m.player) && [15, 20, 23, 26].includes(m.type) && !S.pickerClosed) openPicker(); else closeModal('#picker');
   if (m && decides(m.player) && m.type === 142) bindAnnounce(m);
   if (S.viewer) openViewer(S.viewer.e, S.viewer.loc);
-  playFx(before); animateLP(); renderPop();
-  scheduleAI();
+  playFx(before);
 }
 
 /* ================= animations ================= */
@@ -505,9 +389,8 @@ function playFx(before) {
     if (dest) dest.style.opacity = '0';
     const dx = to.left - from.left + (to.width - from.width) / 2, dy = to.top - from.top + (to.height - from.height) / 2, sc = Math.max(.5, Math.min(1.6, to.width / Math.max(1, from.width)));
     const toField = f.to.location & (LOC.MZONE | LOC.SZONE);
-    const rot = f.to.location === LOC.MZONE && (f.to.position & 12) ? 90 : 0; const fin = rot ? sc * .82 : sc;
-    const a = g.animate([{ transform: 'translate(0,0) scale(1) rotate(0deg)', opacity: 1 }, { transform: `translate(${dx * .5}px,${dy * .5 - 40}px) scale(${toField ? 1.35 : 1.1}) rotate(${rot * .4}deg)`, opacity: 1, offset: .55 }, { transform: `translate(${dx}px,${dy}px) scale(${fin}) rotate(${rot}deg)`, opacity: f.to.location & (LOC.DECK | LOC.EXTRA) ? .2 : 1 }], { duration: rot ? 640 : 520, delay, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'both' });
-    a.onfinish = () => { g.remove(); if (dest) { dest.style.opacity = ''; if (toField) dest.animate([{ filter: 'brightness(1.9)' }, { filter: 'brightness(1)' }], { duration: 380, easing: 'ease-out' }); } };
+    const a = g.animate([{ transform: 'translate(0,0) scale(1)', opacity: 1 }, { transform: `translate(${dx * .5}px,${dy * .5 - 40}px) scale(${toField ? 1.35 : 1.1})`, opacity: 1, offset: .55 }, { transform: `translate(${dx}px,${dy}px) scale(${sc})`, opacity: f.to.location & (LOC.DECK | LOC.EXTRA) ? .2 : 1 }], { duration: 520, delay, easing: 'cubic-bezier(.3,.7,.3,1)', fill: 'both' });
+    a.onfinish = () => { g.remove(); if (dest) { dest.style.opacity = ''; if (toField) dest.animate([{ transform: 'scale(1.25)', filter: 'brightness(1.8)' }, { transform: 'scale(1)', filter: 'brightness(1)' }], { duration: 360, easing: 'ease-out' }); } };
     setTimeout(() => { if (g.isConnected) { g.remove(); if (dest) dest.style.opacity = ''; } }, delay + 1500);
     delay += 90;
   }
@@ -655,8 +538,7 @@ function renderSetup(tab = 'solo') {
   $('#app').innerHTML = `<section class="home setup"><div class="hero-pack"><img class="setup-back" src="${BACK}" alt=""></div><div>
     <h2>Duel table</h2><p class="lede">EDOPro’s rules engine with GOAT rulings. Play both sides yourself to test a deck, or invite a friend online. Friends can watch and chat.</p>
     <div class="ttabs" role="tablist"><button type="button" role="tab" aria-selected="${tab === 'solo'}" data-act="tab-solo">Test solo</button><button type="button" role="tab" aria-selected="${tab === 'online'}" data-act="tab-online">Duel a friend</button></div>
-    ${tab === 'solo' ? `<div class="block"><h3>Opponent</h3><div class="seg" role="radiogroup"><label><input type="radio" name="oppmode" value="computer" ${S.ai ? 'checked' : ''}><span>Computer</span></label><label><input type="radio" name="oppmode" value="both" ${S.ai ? '' : 'checked'}><span>Me (play both sides)</span></label></div><p class="note" style="margin-top:6px">Against the computer you only see your own hand and control only your own cards.</p></div>
-      ${deckField('deck0', 'Your deck', def)}${deckField('deck1', 'Opponent’s deck', 1)}
+    ${tab === 'solo' ? `${deckField('deck0', 'Your deck (bottom)', def)}${deckField('deck1', 'Opponent’s deck (top)', 1)}
       <div class="row" style="margin-top:16px"><button class="cta" type="button" data-act="start-solo">Start the duel</button></div>`
     : `${deckField('deck0', 'Your deck', def)}<div class="row" style="margin-top:16px"><button class="cta" type="button" data-act="create-invite">Create an invite link</button></div>
       <p class="note">You’ll get a link to send. Your friend opens it, picks their deck, and the duel starts.</p>`}
@@ -668,8 +550,7 @@ function pickedDeck(id) { const d = deckFrom($(`#${id}`).value, ($(`#${id}-ydk`)
 async function startSolo() {
   const d0 = pickedDeck('deck0'), d1 = d0 && pickedDeck('deck1'); if (!d0 || !d1) return;
   $('#app').innerHTML = '<p class="loading">Shuffling up…</p>';
-  S.ai = (document.querySelector('input[name="oppmode"]:checked') || {}).value !== 'both';
-  S.mode = 'solo'; S.mySeat = 0; S.seatNames = S.ai ? [myName(), 'Computer'] : ['Player 1', 'Player 2']; S.seatDecks = [d0, d1].map(d => ({ main: d.main, extra: d.extra }));
+  S.mode = 'solo'; S.mySeat = 0; S.seatNames = ['Player 1', 'Player 2']; S.seatDecks = [d0, d1].map(d => ({ main: d.main, extra: d.extra }));
   await preload(S.seatDecks); startGame((Math.random() * 2 ** 31) | 0);
   const dropped = d0.unknown + d1.unknown; if (dropped) toast(`${dropped} card${dropped === 1 ? '' : 's'} from outside GOAT ${dropped === 1 ? 'was' : 'were'} left out.`);
 }
@@ -811,7 +692,6 @@ document.addEventListener('click', async e => {
     if (a === 'setup') { history.replaceState(null, '', location.pathname); return renderSetup(); }
     if (a === 'leave') { if (S.mySeat >= 0 && !S.winner && !(S.room && S.room.result) && !confirm('Leave this duel? You can come back with the same link.')) return; history.replaceState(null, '', location.pathname); return renderSetup(); }
     if (a === 'closemenu') { S.menu = null; render(); return; }
-    if (a === 'closepop') { closePop(); return; }
     if (a === 'reopen') { S.pickerClosed = false; openPicker(); return; }
     if (a === 'tab-log' || a === 'tab-chat') { S.tab = a.slice(4); render(); return; }
     if (a === 'copy-invite') { const v = $('#inviteLink').value; navigator.clipboard?.writeText(v).then(() => toast('Link copied.'), () => toast(v)); return; }
@@ -823,16 +703,14 @@ document.addEventListener('click', async e => {
   const pk = t.closest('[data-pick]'); if (pk) { pickConfirm(pk.dataset.pick); return; }
   const vk = t.closest('[data-vkey]'); if (vk) { S.focusCode = +vk.dataset.code || S.focusCode; const acts = actionMap().get(vk.dataset.vkey); if (acts && acts.length) { S.menu = vk.dataset.vkey; openViewer(S.viewer.e, S.viewer.loc); } else { const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } return; }
   const pl = t.closest('[data-pile]'); if (pl) { const [p, l] = pl.dataset.pile.split(':').map(Number); openViewer(p, l); return; }
-  if (t.closest('#pop')) return;
-  const dc = t.closest('#board .dcard'); if (dc) { if (dc.dataset.code) { S.focusCode = +dc.dataset.code; const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } const acts = actionMap().get(dc.dataset.key); if (acts && acts.length) { S.pop = { key: dc.dataset.key, anchor: true }; renderPop(); } else closePop(); return; }
-  if (S.pop) closePop();
+  const dc = t.closest('#board .dcard'); if (dc) { if (dc.dataset.code) S.focusCode = +dc.dataset.code; const acts = actionMap().get(dc.dataset.key); S.menu = acts && acts.length ? dc.dataset.key : null; render(); return; }
   if (t.closest('.modal') && !t.closest('.sheet')) { if (t.closest('#viewer')) { S.viewer = null; closeModal('#viewer'); } if (t.closest('#info')) closeModal('#info'); }
 });
 document.addEventListener('submit', e => { const f = e.target.closest('[data-form="chat"]'); if (!f) return; e.preventDefault(); const i = $('#chatIn'); sendChat(i.value); i.value = ''; });
 document.addEventListener('change', e => { const n = e.target.name || ''; if (n.startsWith('cm-')) { S.chainMode[+n.slice(3)] = e.target.value; toast(`Chain prompts: ${e.target.value === 'auto' ? 'Auto' : e.target.value === 'always' ? 'Always' : 'Never'}.`); } });
 document.addEventListener('mouseover', e => { const dc = e.target.closest('.dcard,.pcard'); if (!dc || !dc.dataset.code) return; const code = +dc.dataset.code; if (S.focusCode !== code) { S.focusCode = code; const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } });
 document.addEventListener('contextmenu', e => { const dc = e.target.closest('.dcard,.pcard,[data-pile]'); if (!dc) return; e.preventDefault(); if (dc.dataset.pile) { const [p, l] = dc.dataset.pile.split(':').map(Number); openViewer(p, l); return; } if (dc.dataset.code) openInfo(dc.dataset.key, +dc.dataset.code); });
-document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePop(); closeModal('#info'); if (!$('#viewer').hidden) { S.viewer = null; closeModal('#viewer'); } } });
+document.addEventListener('keydown', e => { if (e.key === 'Escape') { closeModal('#info'); if (!$('#viewer').hidden) { S.viewer = null; closeModal('#viewer'); } } });
 
 /* drag and drop: reorder your hand, or drop a hand card on your field to see its options */
 const DR = { el: null, ghost: null, sx: 0, sy: 0, ox: 0, oy: 0, started: false, timer: null, id: null, touch: false, swallow: false, hold: null };
@@ -849,7 +727,7 @@ function drFinish(x, y) {
   const t = drTarget(x, y); const el = DR.el; const key = el.dataset.key; const e = +key.split(':')[0];
   drCancel(); DR.swallow = true; setTimeout(() => { DR.swallow = false; }, 60);
   if (t.hand) { const cards = [...t.hand.querySelectorAll('.dcard')].filter(c => c !== el); const at = t.before ? cards.indexOf(t.before) : cards.length; cards.splice(at < 0 ? cards.length : at, 0, el); S.handOrder[e] = cards.map(c => { const [p, l, s] = c.dataset.key.split(':').map(Number); return S.field[p].hand[s].code; }); render(); }
-  else if (t.field) { const acts = actionMap().get(key); if (el.dataset.code) S.focusCode = +el.dataset.code; if (acts && acts.length) { S.pop = { key, x: x + 12, y: y - 20 }; renderPop(); } else toast('That card can’t be played right now.'); }
+  else if (t.field) { const acts = actionMap().get(key); if (el.dataset.code) S.focusCode = +el.dataset.code; if (acts && acts.length) { S.menu = key; render(); } else toast('That card can’t be played right now.'); }
 }
 document.addEventListener('pointerdown', e => {
   if (e.button > 0) return; const c = e.target.closest('[data-hand] .dcard'); if (!c || !S.h) return;
