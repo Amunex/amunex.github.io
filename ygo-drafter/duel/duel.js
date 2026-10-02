@@ -3,7 +3,9 @@
 import createCore, { OcgDuelMode, OcgProcessResult, cardMatchesOpcode } from './engine/index.js';
 import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYPES, autoAnswer as legalAnswer } from './glue.js';
 
-const V = 7;
+const V = 8;
+const FORMATS = { goat: { label: 'GOAT', db: 'goat-db.json', samples: 'sample-decks.json', rules: 'GOAT rules (April 2005)' }, edison: { label: 'Edison', db: 'edison-db.json', samples: 'sample-decks-edison.json', rules: 'Edison rules (April 2010, Master Rule 1)' } };
+const FCACHE = {};
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = { apiKey: 'AIzaSyAto8uv4bsHkhDGkhiCFa-PuILGZS9Hf08', authDomain: 'goat-draft-796f7.firebaseapp.com', databaseURL: 'https://goat-draft-796f7-default-rtdb.firebaseio.com', projectId: 'goat-draft-796f7', storageBucket: 'goat-draft-796f7.firebasestorage.app', messagingSenderId: '906831006037', appId: '1:906831006037:web:80e372d9ca72e53073c7dc' };
 const $ = (s, el = document) => el.querySelector(s);
@@ -36,16 +38,21 @@ const S = {
 /* ================= loading ================= */
 async function boot() {
   try {
-    const [lib, db, strings, index, samples] = await Promise.all([
-      createCore({ sync: true }), fetch(`goat-db.json?v=${V}`).then(r => r.json()), fetch(`strings.json?v=${V}`).then(r => r.json()),
-      fetch(`scripts/index.json?v=${V}`).then(r => r.json()), fetch(`sample-decks.json?v=${V}`).then(r => r.json())]);
-    Object.assign(S, { lib, db, strings, index: new Set(index), samples, cards: makeCardMap(db) });
+    const [lib, strings, index] = await Promise.all([createCore({ sync: true }), fetch(`strings.json?v=${V}`).then(r => r.json()), fetch(`scripts/index.json?v=${V}`).then(r => r.json())]);
+    Object.assign(S, { lib, strings, index: new Set(index) });
     const q = new URLSearchParams(location.search);
+    await loadFormat(FORMATS[q.get('f')] ? q.get('f') : FORMATS[store.get('ygo-drafter:duel-format')] ? store.get('ygo-drafter:duel-format') : 'goat');
     if (q.get('room')) return enterRoom(q.get('room').toUpperCase());
     if (q.get('match')) return openMatch(q.get('match'));
     renderSetup(q.get('invite') ? 'online' : 'solo');
   } catch (e) { console.error(e); $('#app').innerHTML = '<p class="loading">The duel engine didn’t load. Refresh the page to try again.</p>'; }
 }
+async function loadFormat(f) {
+  if (!FORMATS[f]) f = 'goat';
+  if (!FCACHE[f]) { const [db, samples] = await Promise.all([fetch(`${FORMATS[f].db}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].samples}?v=${V}`).then(r => r.json())]); FCACHE[f] = { db, samples, cards: makeCardMap(db) }; }
+  Object.assign(S, { format: f, db: FCACHE[f].db, samples: FCACHE[f].samples, cards: FCACHE[f].cards });
+}
+function toFormat(ids) { if (S.format === 'goat') return toGoat(S.db, ids); const v = S.db.variants || {}; return ids.map(i => (v[i] ? +v[i] : i)); }
 function readScript(name) {
   if (S.cache.has(name)) return S.cache.get(name);
   let text = '';
@@ -101,7 +108,7 @@ function newEngine() {
   clearTimeout(S.aiTimer); closePop();
   Object.assign(S, { applied: [], prompt: null, lastPrompt: null, title: '', field: null, chain: [], winner: null, turn: 0, phase: 0, turnPlayer: 0, lp: [8000, 8000], lpShown: [8000, 8000], sel: [], menu: null, log: [], fx: [], aiTurn: -1 });
   const decks = [0, 1].map(e => S.seatDecks[seatOf(e)]);
-  S.h = createDuel(S.lib, { seed: S.seed, decks, cards: S.cards, scriptReader: readScript, flags: OcgDuelMode.MODE_GOAT, onError: (t, x) => console.warn('engine:', x) });
+  S.h = createDuel(S.lib, { seed: S.seed, decks, cards: S.cards, scriptReader: readScript, flags: S.format === 'edison' ? OcgDuelMode.MODE_MR1 : OcgDuelMode.MODE_GOAT, onError: (t, x) => console.warn('engine:', x) });
 }
 // Runs the engine. feed: responses to apply in order. Stops when someone has to decide.
 function pump(feed = [], live = true) {
@@ -506,7 +513,7 @@ function render() {
   if (!S.field) return;
   const before = snapRects();
   const b = bottomE(), tp = 1 - b;
-  $('#status').innerHTML = `<span>${S.mode === 'online' ? `Duel ${esc(S.code)}${S.mySeat < 0 ? ', watching' : ''}` : S.ai ? 'Solo vs computer' : 'Solo, both sides'}, turn ${S.turn}</span>`;
+  $('#status').innerHTML = `<span>${FORMATS[S.format].label}: ${S.mode === 'online' ? `duel ${esc(S.code)}${S.mySeat < 0 ? ', watching' : ''}` : S.ai ? 'solo vs computer' : 'solo, both sides'}, turn ${S.turn}</span>`;
   $('#barActions').innerHTML = '';
   const acts = actionMap();
   $('#app').innerHTML = `<section class="duel">
@@ -618,7 +625,7 @@ function pickItems(m) {
 function openPicker() {
   const m = S.prompt; const items = pickItems(m);
   $('#pickTitle').textContent = S.attacking ? `Attack with ${cname(S.attacking.code)} (${S.attacking.atk} ATK): choose a target` : S.title || (m.type === 20 ? 'Choose monsters to Tribute' : 'Choose cards');
-  const range = m.type === 26 ? 'Tap a card to add or remove it.' : m.type === 23 ? `Their values must add up to ${m.amount & 0xffff}.` : `Choose ${m.min === m.max ? m.min : `${m.min} to ${m.max}`}.`;
+  const range = m.type === 26 ? 'Tap a card to add or remove it.' : m.type === 23 ? (m.select_max ? `Their Levels must add up to at least ${m.amount & 0xffff}, with no extra card.` : `Their values must add up to exactly ${m.amount & 0xffff}.`) : `Choose ${m.min === m.max ? m.min : `${m.min} to ${m.max}`}.`;
   $('#pickCount').textContent = range;
   $('#pickBody').innerHTML = `<div class="pgrid">${items.map((c, i) => {
     const on = S.sel.includes(i) || c.must || c.chosen; const hidden = (c.position & 10) && c.location !== LOC.HAND && !visibleTo(c.controller);
@@ -638,7 +645,12 @@ function canConfirm(m, items) {
   const n = S.sel.length;
   if (m.type === 15) return n >= m.min && n <= m.max;
   if (m.type === 20) { const sum = S.sel.reduce((a, i) => a + (items[i].release_param || 1), 0); return sum >= m.min && n <= m.max && n > 0; }
-  if (m.type === 23) { const sum = S.sel.map(i => items[i].amount & 0xffff).concat(m.selects_must.map(c => c.amount & 0xffff)).reduce((a, b) => a + b, 0); return sum === (m.amount & 0xffff) || (m.select_max === 0 && sum >= (m.amount & 0xffff)); }
+  if (m.type === 23) {
+    const amt = m.amount & 0xffff; const v = i => items[i].amount & 0xffff; const must = m.selects_must.reduce((a, c) => a + (c.amount & 0xffff), 0);
+    const chosen = S.sel.filter(i => !items[i].must); const sum = must + chosen.reduce((a, i) => a + v(i), 0);
+    if (m.select_max) return sum >= amt && chosen.every(i => sum - v(i) < amt);   // rituals: at least the Level, with no extra card
+    return sum === amt;
+  }
   return false;
 }
 function closeModal(sel) { const el = $(sel); if (el) el.hidden = true; }
@@ -656,7 +668,7 @@ function pickConfirm(kind) {
   if (kind === 'finish') { answer({ type: 7, index: null }); return; }
   if (m.type === 15) answer({ type: 5, indicies: S.sel.slice() });
   else if (m.type === 20) answer({ type: 12, indicies: S.sel.slice() });
-  else if (m.type === 23) answer({ type: 14, indicies: m.selects_must.map((_, i) => i).concat(S.sel) });
+  else if (m.type === 23) answer({ type: 14, indicies: m.selects_must.map((_, i) => i).concat(S.sel.filter(i => !pickItems(m)[i].must)) });
 }
 function openViewer(e, loc) {
   S.viewer = { e, loc }; const f = S.field[e]; const list = { 16: f.grave, 32: f.removed, 64: f.extra }[loc];
@@ -686,7 +698,7 @@ function bindAnnounce(m) {
 function parseYdk(text) {
   const main = [], extra = []; let sec = 'main';
   for (const line of String(text || '').split(/\r?\n/)) { const l = line.trim(); if (l.startsWith('#main')) { sec = 'main'; continue; } if (l.startsWith('#extra')) { sec = 'extra'; continue; } if (l.startsWith('!side')) { sec = 'side'; continue; } if (/^\d+$/.test(l) && sec !== 'side') (sec === 'main' ? main : extra).push(+l); }
-  const all = toGoat(S.db, main.concat(extra)); const known = all.filter(c => S.cards.has(c));
+  const all = toFormat(main.concat(extra)); const known = all.filter(c => S.cards.has(c));
   return { main: known.filter(c => !isExtra(card(c))), extra: known.filter(c => isExtra(card(c))), unknown: all.length - known.length };
 }
 function savedDecks() { try { return JSON.parse(store.get('ygo-drafter:decks') || '[]'); } catch (_) { return []; } }
@@ -709,28 +721,29 @@ function renderSetup(tab = 'solo') {
   stopRoom();
   if (S.h) { try { S.lib.destroyDuel(S.h); } catch (_) {} S.h = null; }
   S.mode = null; S.field = null;
-  $('#status').innerHTML = '<span>Duel table, GOAT rules</span>'; $('#barActions').innerHTML = '';
+  $('#status').innerHTML = `<span>Duel table, ${esc(FORMATS[S.format].rules)}</span>`; $('#barActions').innerHTML = '';
   const def = store.get('ygo-drafter:duel-ydk') ? 'drafted' : 0;
   $('#app').innerHTML = `<section class="home setup"><div class="hero-pack"><img class="setup-back" src="${BACK}" alt=""></div><div>
-    <h2>Duel table</h2><p class="lede">EDOPro’s rules engine with GOAT rulings. Play both sides yourself to test a deck, or invite a friend online. Friends can watch and chat.</p>
+    <h2>Duel table</h2><p class="lede">EDOPro’s rules engine. Test a deck against the computer, or invite a friend online. Friends can watch and chat.</p>
+    <div class="block"><h3>Format</h3><div class="seg" role="radiogroup" aria-label="Format">${Object.entries(FORMATS).map(([k, f]) => `<label><input type="radio" name="fmt" value="${k}" ${S.format === k ? 'checked' : ''}><span>${f.label}</span></label>`).join('')}</div><p class="note" style="margin-top:6px">${esc(FORMATS[S.format].rules)}. ${S.format === 'goat' ? 'Uses EDOPro’s GOAT card list, with GOAT and pre-errata card versions. Duelist Kingdom decks play here too.' : 'Every card released by April 2010, with pre-errata texts for cards changed after that.'}</p></div>
     <div class="ttabs" role="tablist"><button type="button" role="tab" aria-selected="${tab === 'solo'}" data-act="tab-solo">Test solo</button><button type="button" role="tab" aria-selected="${tab === 'online'}" data-act="tab-online">Duel a friend</button></div>
     ${tab === 'solo' ? `<div class="block"><h3>Opponent</h3><div class="seg" role="radiogroup"><label><input type="radio" name="oppmode" value="computer" ${S.ai ? 'checked' : ''}><span>Computer</span></label><label><input type="radio" name="oppmode" value="both" ${S.ai ? '' : 'checked'}><span>Me (play both sides)</span></label></div><p class="note" style="margin-top:6px">Against the computer you only see your own hand and control only your own cards.</p></div>
       ${deckField('deck0', 'Your deck', def)}${deckField('deck1', 'Opponent’s deck', 1)}
       <div class="row" style="margin-top:16px"><button class="cta" type="button" data-act="start-solo">Start the duel</button></div>`
     : `${deckField('deck0', 'Your deck', def)}<div class="row" style="margin-top:16px"><button class="cta" type="button" data-act="create-invite">Create an invite link</button></div>
       <p class="note">You’ll get a link to send. Your friend opens it, picks their deck, and the duel starts.</p>`}
-    <p class="note">Only Duelist Kingdom and GOAT cards work here for now; others are left out of the deck. Decks are shuffled at the start of every duel.</p></div></section>`;
+    <p class="note">Cards from outside the chosen format are left out of the deck. Decks are shuffled at the start of every duel.</p></div></section>`;
   bindDeckSelects();
 }
 function bindDeckSelects() { document.querySelectorAll('select[id^="deck"]').forEach(s => { const ta = $(`#${s.id}-ydk`); const f = () => { if (ta) ta.hidden = s.value !== 'paste'; }; s.addEventListener('change', f); f(); }); }
-function pickedDeck(id) { const d = deckFrom($(`#${id}`).value, ($(`#${id}-ydk`) || {}).value); if (d.main.length < 20) { toast('A deck needs at least 20 Main Deck cards that work in GOAT.'); return null; } return d; }
+function pickedDeck(id) { const d = deckFrom($(`#${id}`).value, ($(`#${id}-ydk`) || {}).value); if (d.main.length < 20) { toast(`A deck needs at least 20 Main Deck cards that work in ${FORMATS[S.format].label}.`); return null; } return d; }
 async function startSolo() {
   const d0 = pickedDeck('deck0'), d1 = d0 && pickedDeck('deck1'); if (!d0 || !d1) return;
   $('#app').innerHTML = '<p class="loading">Shuffling up…</p>';
   S.ai = (document.querySelector('input[name="oppmode"]:checked') || {}).value !== 'both';
   S.mode = 'solo'; S.mySeat = 0; S.seatNames = S.ai ? [myName(), 'Computer'] : ['Player 1', 'Player 2']; S.seatDecks = [d0, d1].map(d => ({ main: d.main, extra: d.extra }));
   await preload(S.seatDecks); startGame((Math.random() * 2 ** 31) | 0);
-  const dropped = d0.unknown + d1.unknown; if (dropped) toast(`${dropped} card${dropped === 1 ? '' : 's'} from outside GOAT ${dropped === 1 ? 'was' : 'were'} left out.`);
+  const dropped = d0.unknown + d1.unknown; if (dropped) toast(`${dropped} card${dropped === 1 ? '' : 's'} from outside ${FORMATS[S.format].label} ${dropped === 1 ? 'was' : 'were'} left out.`);
 }
 function goesFirst(seat) { return S.mode === 'online' && seat === S.mySeat ? 'You go first' : `${String(S.seatNames[seat]).replace(' (you)', '')} goes first`; }
 function startGame(seed, first) {
@@ -748,7 +761,7 @@ async function createInvite() {
   const F = await fb(); let code = null;
   for (let t = 0; t < 8 && !code; t++) { const c = Array.from({ length: 5 }, () => CODE_CHARS[(Math.random() * CODE_CHARS.length) | 0]).join(''); if (!(await F.get(F.ref(F.db, `rooms/${c}`))).exists()) code = c; }
   if (!code) { toast('Couldn’t create a duel. Try again.'); return; }
-  await F.set(F.ref(F.db, `rooms/${code}`), { kind: 'duel', created: Date.now(), host: F.uid, status: 'lobby', gameNo: 1, seats: { 0: { uid: F.uid, name: myName(), deck: { main: d.main, extra: d.extra, name: d.name || '' } } } });
+  await F.set(F.ref(F.db, `rooms/${code}`), { kind: 'duel', format: S.format, created: Date.now(), host: F.uid, status: 'lobby', gameNo: 1, seats: { 0: { uid: F.uid, name: myName(), deck: { main: d.main, extra: d.extra, name: d.name || '' } } } });
   history.replaceState(null, '', `?room=${code}`);
   enterRoom(code);
 }
@@ -762,6 +775,7 @@ function stopRoom() { if (S.unsub) { S.unsub(); S.unsub = null; } }
 async function onRoom(r) {
   const F = await fb();
   if (!r || r.kind !== 'duel') { S.room = null; $('#app').innerHTML = `<section class="home"><div><h2>Duel not found</h2><p class="lede">This duel link doesn’t exist anymore.</p><div class="row"><a class="cta" href="./">Back to the duel table</a></div></div></section>`; return; }
+  if ((r.format || 'goat') !== S.format) await loadFormat(r.format || 'goat');
   const prev = S.room; S.room = r;
   r.chatList = Object.keys(r.chat || {}).sort().map(k => r.chat[k]);
   const seats = r.seats || {}; S.mySeat = seats[0] && seats[0].uid === F.uid ? 0 : seats[1] && seats[1].uid === F.uid ? 1 : -1;
@@ -799,7 +813,7 @@ function renderLobby(r) {
     return;
   }
   const def = store.get('ygo-drafter:duel-ydk') ? 'drafted' : 0;
-  $('#app').innerHTML = `<section class="home"><div><h2>${esc((seats[0] || {}).name || 'Someone')} invited you to a duel</h2><p class="lede">GOAT rules. Pick your deck to start.</p>
+  $('#app').innerHTML = `<section class="home"><div><h2>${esc((seats[0] || {}).name || 'Someone')} invited you to a duel</h2><p class="lede">${esc(FORMATS[S.format].rules)}. Pick your deck to start.</p>
     ${deckField('deck0', 'Your deck', def)}<div class="row" style="margin-top:16px"><button class="cta" type="button" data-act="join-duel">Join the duel</button></div></div></section>`;
   bindDeckSelects();
 }
@@ -830,10 +844,11 @@ async function openMatch(spec) {
   const arr = x => Array.isArray(x) ? x : x ? Object.keys(x).sort((a, b) => a - b).map(k => x[k]) : [];
   const m = t && arr(arr(t.rounds)[+r] && arr(t.rounds)[+r].matches)[+i];
   if (!m || !m.b) { $('#app').innerHTML = '<p class="loading">That tournament match wasn’t found.</p>'; return; }
+  const pool = room.game && room.game.settings && room.game.settings.pool; await loadFormat(pool === 'edison' ? 'edison' : 'goat');
   const pl = uid => t.players[uid] || {}; const deck = uid => parseYdk(pl(uid).ydk || '');
   let n = hashCode(`${t.id}:${r}:${i}`); let code = 'T'; for (let k = 0; k < 4; k++) { code += CODE_CHARS[n % CODE_CHARS.length]; n = Math.floor(n / CODE_CHARS.length); }
   const seed = (Math.random() * 2 ** 31) | 0;
-  await F.runTransaction(F.ref(F.db, `rooms/${code}`), cur => cur ? undefined : { kind: 'duel', created: Date.now(), host: m.a, status: 'playing', gameNo: 1, seed, first: seed % 2,
+  await F.runTransaction(F.ref(F.db, `rooms/${code}`), cur => cur ? undefined : { kind: 'duel', format: S.format, created: Date.now(), host: m.a, status: 'playing', gameNo: 1, seed, first: seed % 2,
     seats: { 0: { uid: m.a, name: pl(m.a).name || 'Player', deck: { ...deck(m.a), name: 'Tournament deck' } }, 1: { uid: m.b, name: pl(m.b).name || 'Player', deck: { ...deck(m.b), name: 'Tournament deck' } } },
     match: { draft, r: +r, i: +i, tid: t.id } });
   history.replaceState(null, '', `?room=${code}`);
@@ -888,7 +903,7 @@ document.addEventListener('click', async e => {
   if (t.closest('.modal') && !t.closest('.sheet')) { if (t.closest('#viewer')) { S.viewer = null; closeModal('#viewer'); } if (t.closest('#info')) closeModal('#info'); }
 });
 document.addEventListener('submit', e => { const f = e.target.closest('[data-form="chat"]'); if (!f) return; e.preventDefault(); const i = $('#chatIn'); sendChat(i.value); i.value = ''; });
-document.addEventListener('change', e => { const n = e.target.name || ''; if (n === 'poppos') { S.popPos = e.target.value; try { localStorage.setItem('ygo-duel-poppos', S.popPos); } catch (_) {} placePop(); toast(S.popPos === 'corner' ? 'Action menus open in the top-left corner.' : 'Action menus open just above the cursor.'); return; } if (n.startsWith('cm-')) { S.chainMode[+n.slice(3)] = e.target.value; toast(`Chain prompts: ${e.target.value === 'auto' ? 'Auto' : e.target.value === 'always' ? 'Always' : 'Never'}.`); } });
+document.addEventListener('change', async e => { const n = e.target.name || ''; if (n === 'fmt') { await loadFormat(e.target.value); store.set('ygo-drafter:duel-format', S.format); const tab = $('[data-act="tab-online"][aria-selected="true"]') ? 'online' : 'solo'; renderSetup(tab); return; } if (n === 'poppos') { S.popPos = e.target.value; try { localStorage.setItem('ygo-duel-poppos', S.popPos); } catch (_) {} placePop(); toast(S.popPos === 'corner' ? 'Action menus open in the top-left corner.' : 'Action menus open just above the cursor.'); return; } if (n.startsWith('cm-')) { S.chainMode[+n.slice(3)] = e.target.value; toast(`Chain prompts: ${e.target.value === 'auto' ? 'Auto' : e.target.value === 'always' ? 'Always' : 'Never'}.`); } });
 document.addEventListener('mouseover', e => { const dc = e.target.closest('.dcard,.pcard'); if (!dc || !dc.dataset.code) return; const code = +dc.dataset.code; if (S.focusCode !== code) { S.focusCode = code; const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } });
 document.addEventListener('contextmenu', e => { const dc = e.target.closest('.dcard,.pcard,[data-pile]'); if (!dc) return; e.preventDefault(); if (dc.dataset.pile) { const [p, l] = dc.dataset.pile.split(':').map(Number); openViewer(p, l); return; } if (dc.dataset.code) openInfo(dc.dataset.key, +dc.dataset.code); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { closePop(); closeModal('#info'); if (!$('#viewer').hidden) { S.viewer = null; closeModal('#viewer'); } } });

@@ -52,6 +52,26 @@ export function freeZones(player, mask) {
   }
   return out;
 }
+// SELECT_SUM: select_max 0 = the values must add up exactly to amount; 1 = at least amount (rituals), with no card left over
+export function sumPick(msg) {
+  const target = (msg.amount & 0xffff) - msg.selects_must.reduce((a, s) => a + (s.amount & 0xffff), 0);
+  const vals = msg.selects.map(it => [it.amount & 0xffff, (it.amount >>> 16) & 0xffff].filter((v, k) => k === 0 || v));
+  const maxN = msg.max > 0 ? msg.max - msg.selects_must.length : 99, minN = Math.max(0, (msg.min || 0) - msg.selects_must.length);
+  const order = msg.selects.map((_, i) => i).sort((a, b) => Math.max(...vals[b]) - Math.max(...vals[a]));
+  let best = null;
+  const dfs = (k, sum, pick) => {
+    if (best) return;
+    const ok = msg.select_max ? sum >= target && pick.every(i => sum - Math.min(...vals[i]) < target) : sum === target;
+    if (ok && pick.length >= minN && pick.length > 0) { best = pick.slice(); return; }
+    if (k >= order.length || pick.length >= maxN || (!msg.select_max && sum > target)) return;
+    const i = order[k];
+    for (const v of vals[i]) { pick.push(i); dfs(k + 1, sum + v, pick); pick.pop(); if (best) return; }
+    dfs(k + 1, sum, pick);
+  };
+  if (target <= 0) return [];
+  dfs(0, 0, []);
+  return best || [];
+}
 function pickN(arr, n) { const a = arr.slice(); for (let i = a.length - 1; i > 0; i--) { const j = (Math.random() * (i + 1)) | 0; [a[i], a[j]] = [a[j], a[i]]; } return a.slice(0, n); }
 function subsetSum(items, target, max) {      // indices whose amounts can reach exactly target (amount may pack 2 values)
   const vals = items.map(it => [it.amount & 0xffff, (it.amount >>> 16) & 0xffff].filter((v, k) => k === 0 || v));
@@ -91,7 +111,7 @@ export function autoAnswer(msg, cards, opts = {}) {
     case 14: return { type: 4, index: rnd(msg.options.length) };
     case 15: { const n = Math.max(msg.min, Math.min(msg.max, msg.min)); return { type: 5, indicies: pickN(msg.selects.map((_, i) => i), n) }; }
     case 20: { const n = Math.max(1, msg.min); return { type: 12, indicies: pickN(msg.selects.map((_, i) => i), n) }; }
-    case 23: { const all = msg.selects_must.concat(msg.selects); const pick = subsetSum(msg.selects, msg.amount - msg.selects_must.reduce((a, s) => a + (s.amount & 0xffff), 0), msg.max || 99); return { type: 14, indicies: msg.selects_must.map((_, i) => i).concat((pick || [0]).map(i => i + msg.selects_must.length)) }; }
+    case 23: { const pick = sumPick(msg); return { type: 14, indicies: msg.selects_must.map((_, i) => i).concat(pick.map(i => i + msg.selects_must.length)) }; }
     case 26: { if (msg.can_finish && Math.random() < .5) return { type: 7, index: null }; return { type: 7, index: msg.select_cards.length ? rnd(msg.select_cards.length) : null }; }
     case 16: { if (!msg.forced && (Math.random() < .5 || !msg.selects.length)) return { type: 8, index: null }; return { type: 8, index: rnd(msg.selects.length) }; }
     case 18: case 24: { const z = freeZones(msg.player, msg.field_mask); return { type: msg.type === 18 ? 10 : 9, places: pickN(z, msg.count) }; }
