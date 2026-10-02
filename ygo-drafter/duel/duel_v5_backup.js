@@ -3,7 +3,7 @@
 import createCore, { OcgDuelMode, OcgProcessResult, cardMatchesOpcode } from './engine/index.js';
 import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYPES, autoAnswer as legalAnswer } from './glue.js';
 
-const V = 6;
+const V = 5;
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = { apiKey: 'AIzaSyAto8uv4bsHkhDGkhiCFa-PuILGZS9Hf08', authDomain: 'goat-draft-796f7.firebaseapp.com', databaseURL: 'https://goat-draft-796f7-default-rtdb.firebaseio.com', projectId: 'goat-draft-796f7', storageBucket: 'goat-draft-796f7.firebasestorage.app', messagingSenderId: '906831006037', appId: '1:906831006037:web:80e372d9ca72e53073c7dc' };
 const $ = (s, el = document) => el.querySelector(s);
@@ -162,13 +162,10 @@ function onMsg(m) {
     case 73: if (fx) fx.push({ k: 'resolve', n: m.chain_size }); break;
     case 75: log('The activation was negated.', 'chain'); break;
     case 90: log(`${P(m.player)} draws ${m.drawn.length === 1 ? 'a card' : m.drawn.length + ' cards'}.`, '', m.player); break;
-    case 91: if (S.curBattle) S.curBattle.dmg[m.player] += m.amount; else log(`${P(m.player)} takes ${m.amount} damage.`, 'dmg', m.player); if (fx) fx.push({ k: 'lp', e: m.player, amount: -m.amount, battle: !!S.curBattle }); break;
+    case 91: log(`${P(m.player)} takes ${m.amount} damage.`, 'dmg', m.player); if (fx) fx.push({ k: 'lp', e: m.player, amount: -m.amount }); break;
     case 92: log(`${P(m.player)} gains ${m.amount} LP.`, 'heal', m.player); if (fx) fx.push({ k: 'lp', e: m.player, amount: m.amount }); break;
     case 100: log(`${P(m.player)} pays ${m.amount} LP.`, '', m.player); if (fx) fx.push({ k: 'lp', e: m.player, amount: -m.amount }); break;
-    case 110: { S.attacking = null; const a = at(m.card), d = m.target && at(m.target); log(`${a ? cname(a.code) : 'A monster'} attacks ${d ? (d.position & 10 ? 'a face-down monster' : cname(d.code)) : 'directly'}.`, '', m.card.controller); if (fx) fx.push({ k: 'attack', from: m.card, to: m.target }); break; }
-    case 111: { const direct = !m.target || !m.target.location; const a = at(m.card), d = direct ? null : at(m.target); S.curBattle = { a: { ...m.card, code: a ? a.code : 0 }, d: direct ? null : { ...m.target, code: d ? d.code : 0 }, dmg: [0, 0] }; break; }
-    case 114: if (S.curBattle) { const b = S.curBattle; S.curBattle = null; log(battleText(b), 'battle', b.a.controller); if (fx) fx.push({ k: 'battle', b }); } break;
-    case 53: if (fx && (m.prev_position & 10) && !(m.position & 10)) fx.push({ k: 'flip', loc: { controller: m.controller, location: m.location, sequence: m.sequence } }); break;
+    case 110: { const a = at(m.card), d = m.target && at(m.target); log(`${a ? cname(a.code) : 'A monster'} attacks ${d ? (d.position & 10 ? 'a face-down monster' : cname(d.code)) : 'directly'}.`, '', m.card.controller); if (fx) fx.push({ k: 'attack', from: m.card, to: m.target }); break; }
     case 31: if (m.cards.length) log(`Revealed: ${m.cards.map(c => cname(c.code)).join(', ')}.`); break;
     case 32: if (fx) fx.push({ k: 'shuffle', e: m.player }); if (!S.quiet) log(`${P(m.player)}’s Deck was shuffled.`, 'muted', m.player); break;
     case 50: {
@@ -178,27 +175,6 @@ function onMsg(m) {
       break;
     }
   }
-}
-function battleText(b) {
-  const an = cname(b.a.code);
-  if (!b.d) return `${an} attacks directly: ${P(1 - b.a.controller)} takes ${b.dmg[1 - b.a.controller]} damage.`;
-  const dn = cname(b.d.code), def = (b.d.position & 12) !== 0, dv = def ? b.d.defense : b.d.attack;
-  const res = [];
-  if (b.a.destroyed && b.d.destroyed) res.push('both are destroyed');
-  else if (b.d.destroyed) res.push(`${dn} is destroyed`);
-  else if (b.a.destroyed) res.push(`${an} is destroyed`);
-  else if (def) res.push(b.a.attack < dv ? `${an} bounces off` : 'nothing is destroyed');
-  else res.push('nothing is destroyed');
-  [0, 1].forEach(p => { if (b.dmg[p]) res.push(`${P(p)} takes ${b.dmg[p]} battle damage`); });
-  if (!b.dmg[0] && !b.dmg[1]) res.push('no damage');
-  return `Battle: ${an} (${b.a.attack} ATK) vs ${dn} (${dv} ${def ? 'DEF' : 'ATK'}): ${res.join(', ')}.`;
-}
-// What would happen if your monster attacks this one (shown when you pick a target)
-function predict(atk, c) {
-  const q = at(c); if (!q) return '';
-  if (q.position & 10) return 'Face-down: it flips up first, then the result depends on its DEF.';
-  if (q.position & 4) return atk > q.defense ? `Destroys it (DEF ${q.defense}). No damage.` : atk < q.defense ? `Bounces off (DEF ${q.defense}): you take ${q.defense - atk}.` : `Nothing happens (DEF ${q.defense}).`;
-  return atk > q.attack ? `Destroys it: they take ${atk - q.attack}.` : atk < q.attack ? `Your monster is destroyed: you take ${q.attack - atk}.` : 'Both are destroyed. No damage.';
 }
 function log(text, kind = '', e = -1) { if (text) S.log.push({ text, kind, e }); }
 function refreshField() {
@@ -214,7 +190,6 @@ function refreshField() {
 /* ================= answering ================= */
 function answer(r) {
   const m = S.prompt; if (!m || !decides(m.player)) return;
-  if (m.type === 10 && r.type === 0 && r.action === 1 && m.attacks[r.index]) { const a = m.attacks[r.index]; S.attacking = { atk: fieldAtk(a), code: a.code }; }
   S.sel = []; S.menu = null; S.pickerClosed = false; closeModal('#picker'); closePop();
   if (S.mode === 'online') { send(r, m.player, false); render(); return; }
   apply({ r, e: m.player, a: 0 });
@@ -333,7 +308,7 @@ function actionMap() {
     m.activates.forEach((c, i) => add(c, descText(c.description) || 'Activate', { type: 1, action: 5, index: i }));
   } else if (m.type === 10) {
     m.chains.forEach((c, i) => add(c, descText(c.description) || 'Activate', { type: 0, action: 0, index: i }));
-    m.attacks.forEach((c, i) => add(c, `Attack (${fieldAtk(c)} ATK)${c.can_direct ? ', can attack directly' : ''}`, { type: 0, action: 1, index: i }));
+    m.attacks.forEach((c, i) => add(c, c.can_direct ? 'Attack (can attack directly)' : 'Attack', { type: 0, action: 1, index: i }));
   } else if (m.type === 16) m.selects.forEach((c, i) => add(c, descText(c.description) || 'Activate', { type: 8, index: i }));
   return map;
 }
@@ -556,20 +531,8 @@ function playFx(before) {
     }
     if (f.k === 'shuffle') { const el = document.querySelector(`[data-pile="${f.e}:1"]`); if (el) el.animate([{ transform: 'rotate(0)' }, { transform: 'rotate(-8deg) translateX(-4px)' }, { transform: 'rotate(7deg) translateX(4px)' }, { transform: 'rotate(-5deg)' }, { transform: 'rotate(0)' }], { duration: 650 }); }
     if (f.k === 'banner') banner(f.text, f.sub, f.small, f.e);
-    if (f.k === 'battle') battleCard(f.b);
-    if (f.k === 'flip') { const el = document.querySelector(`#board .dcard[data-key="${f.loc.controller}:${f.loc.location}:${f.loc.sequence}"]`); if (el) el.animate([{ transform: `${el.classList.contains('def') ? 'rotate(90deg) scale(.82) ' : ''}rotateY(180deg)`, filter: 'brightness(.3)' }, { transform: `${el.classList.contains('def') ? 'rotate(90deg) scale(.82) ' : ''}rotateY(0deg)`, filter: 'brightness(1.6)', offset: .7 }, { transform: `${el.classList.contains('def') ? 'rotate(90deg) scale(.82) ' : ''}rotateY(0deg)`, filter: 'brightness(1)' }], { duration: 700, easing: 'ease-out' }); }
   }
   if (S.shuffleFx) { S.shuffleFx = false; shuffleIntro(); }
-}
-let battleT = 0;
-function battleCard(b) {
-  const board = $('#board'); if (!board) return;
-  const side = (x, role) => { if (!x) return `<div class="bc-side direct"><span class="bc-dir">Direct attack</span></div>`; const def = role === 'd' && (x.position & 12); const v = def ? x.defense : x.attack; return `<div class="bc-side ${x.destroyed ? 'gone' : ''} ${x.controller === bottomE() ? 'me' : 'opp'}"><img src="${imgFor(x.code)}" alt="" onerror="this.remove()"><b>${v}</b><span>${def ? 'DEF' : 'ATK'}</span>${x.destroyed ? '<i>Destroyed</i>' : ''}</div>`; };
-  const dmg = [0, 1].filter(p => b.dmg[p]).map(p => `<p class="bc-dmg">${esc(P(p))} takes ${b.dmg[p]} damage</p>`).join('') || '<p class="bc-none">No damage</p>';
-  const el = document.createElement('div'); el.className = 'battlecard';
-  el.innerHTML = `<div class="bc-row">${side(b.a, 'a')}<span class="bc-vs">⚔</span>${side(b.d, 'd')}</div>${dmg}`;
-  const now = performance.now(); const wait = Math.max(0, battleT - now); battleT = now + wait + 2300;
-  setTimeout(() => { if (!board.isConnected) return; board.appendChild(el); el.animate([{ opacity: 0, transform: 'translate(-50%,-50%) scale(.85)' }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1.04)', offset: .12 }, { opacity: 1, transform: 'translate(-50%,-50%) scale(1)', offset: .85 }, { opacity: 0, transform: 'translate(-50%,-50%) scale(.96)' }], { duration: reduce ? 1600 : 2200, fill: 'forwards' }).onfinish = () => el.remove(); }, wait);
 }
 let bannerT = 0;
 function banner(text, sub, small, e) {
@@ -597,16 +560,14 @@ function pickItems(m) {
 }
 function openPicker() {
   const m = S.prompt; const items = pickItems(m);
-  $('#pickTitle').textContent = S.attacking ? `Attack with ${cname(S.attacking.code)} (${S.attacking.atk} ATK): choose a target` : S.title || (m.type === 20 ? 'Choose monsters to Tribute' : 'Choose cards');
+  $('#pickTitle').textContent = S.title || (m.type === 20 ? 'Choose monsters to Tribute' : 'Choose cards');
   const range = m.type === 26 ? 'Tap a card to add or remove it.' : m.type === 23 ? `Their values must add up to ${m.amount & 0xffff}.` : `Choose ${m.min === m.max ? m.min : `${m.min} to ${m.max}`}.`;
   $('#pickCount').textContent = range;
   $('#pickBody').innerHTML = `<div class="pgrid">${items.map((c, i) => {
     const on = S.sel.includes(i) || c.must || c.chosen; const hidden = (c.position & 10) && c.location !== LOC.HAND && !visibleTo(c.controller);
     const handHidden = c.location === LOC.HAND && !visibleTo(c.controller);
     const show = !(hidden || handHidden);
-    const q = c.location === LOC.MZONE ? at(c) : null; const stats = q && !(q.position & 10) ? `<small class="pstat">${q.position & 4 ? `DEF ${q.defense}` : `ATK ${q.attack}`} · ${q.position & 4 ? 'Defense' : 'Attack'}</small>` : '';
-    const guess = S.attacking && c.location === LOC.MZONE && c.controller !== m.player ? `<small class="guess">${esc(predict(S.attacking.atk, c))}</small>` : '';
-    return `<button class="pcard ${on ? 'on' : ''} ${c.must ? 'must' : ''} ${c.controller === bottomE() ? 'me' : 'opp'}" type="button" data-pi="${i}" data-code="${show ? c.code : ''}"><img src="${show ? imgFor(c.code) : BACK}" alt="" onerror="this.remove()"><span>${esc(show ? cname(c.code) : 'Face-down card')}</span><small>${c.controller === bottomE() ? 'Your' : `${esc(P(c.controller))}’s`} ${LOCNAME[c.location] || ''}</small>${stats}${guess}</button>`;
+    return `<button class="pcard ${on ? 'on' : ''} ${c.must ? 'must' : ''} ${c.controller === bottomE() ? 'me' : 'opp'}" type="button" data-pi="${i}" data-code="${show ? c.code : ''}"><img src="${show ? imgFor(c.code) : BACK}" alt="" onerror="this.remove()"><span>${esc(show ? cname(c.code) : 'Face-down card')}</span><small>${c.controller === bottomE() ? 'Your' : `${esc(P(c.controller))}’s`} ${LOCNAME[c.location] || ''}</small></button>`;
   }).join('')}</div>`;
   const ok = canConfirm(m, items);
   $('#pickActions').innerHTML = m.type === 26

@@ -162,3 +162,21 @@ body.is-dragging{cursor:grabbing;user-select:none}
 .pop .linkish{justify-self:start}
 .dcard.act-ss{outline:none;box-shadow:0 0 16px rgba(244,204,98,.55),0 0 22px rgba(91,168,255,.55)}
 .dcard.act-ss::after{content:"";position:absolute;inset:-5px;border-radius:9px;padding:3px;background:linear-gradient(90deg,#FFD866 50%,#5BA8FF 50%);-webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask-composite:exclude;pointer-events:none;z-index:3}
+/* v6: battles */
+.battlecard{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:45;display:grid;gap:6px;justify-items:center;padding:14px 18px;border-radius:16px;background:rgba(16,12,36,.93);border:2px solid var(--gold);box-shadow:0 24px 60px rgba(0,0,0,.55);pointer-events:none;color:#F5EFFF}
+.bc-row{display:flex;align-items:center;gap:14px}
+.bc-side{display:grid;justify-items:center;gap:2px;position:relative}
+.bc-side img{width:88px;border-radius:6px;box-shadow:0 8px 18px rgba(0,0,0,.5)}
+.bc-side b{font:800 26px/1 var(--ui);font-variant-numeric:tabular-nums}
+.bc-side span{font:700 12px/1 var(--ui);color:#C9BEEA;letter-spacing:.08em}
+.bc-side.me img{outline:3px solid var(--p1)} .bc-side.opp img{outline:3px solid var(--p2)}
+.bc-side.gone img{filter:grayscale(1) brightness(.55)}
+.bc-side i{position:absolute;top:36%;left:50%;transform:translate(-50%,-50%) rotate(-12deg);font:800 13px/1 var(--ui);font-style:normal;padding:4px 8px;border-radius:5px;background:#D9393A;color:#fff;letter-spacing:.04em}
+.bc-side.direct{width:88px;height:128px;place-content:center;border:2px dashed #C9BEEA;border-radius:8px}
+.bc-dir{font:800 13px/1.2 var(--ui);text-align:center}
+.bc-vs{font-size:30px;color:var(--gold)}
+.bc-dmg{margin:0;font:800 16px/1.2 var(--ui);color:#FF7B7B}
+.bc-none{margin:0;font:700 14px/1.2 var(--ui);color:#C9BEEA}
+.log p.battle{color:var(--gold);font-weight:700}
+.pcard .pstat{color:var(--ink);font-weight:700}
+.pcard .guess{color:var(--turq);font-weight:700;line-height:1.25}
