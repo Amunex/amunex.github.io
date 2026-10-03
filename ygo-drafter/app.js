@@ -27,13 +27,14 @@ const POOLS = {
 };
 const P = {};            // loaded pools: key -> { cards, byId, byR, cfg, tier }
 let ACT = null;          // pool used for lookups and rendering
-const imgSrc = id => `img/${id}.webp`;
+const ASSET = (typeof window !== 'undefined' && window.YGO_ASSETS) || '';   // '' on the live site; the preview points at the live site's files
+const imgSrc = id => `${ASSET}img/${id}.webp`;
 const loading = {};
 function loadScript(src) { return new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = () => rej(new Error('Couldn’t load ' + src)); document.head.appendChild(s); }); }
 function loadPool(key) {
   if (!POOLS[key]) key = 'goat';
   if (!loading[key]) loading[key] = (async () => {
-    await Promise.all([loadScript(`data/${key}/pool.js?v=${V}`), loadScript(`data/${key}/errata.js?v=${V}`).catch(() => {})]);
+    await Promise.all([loadScript(`${ASSET}data/${key}/pool.js?v=${V}`), loadScript(`${ASSET}data/${key}/errata.js?v=${V}`).catch(() => {})]);
     const raw = (window.YGO_POOLS || {})[key] || {};
     const cards = Array.isArray(raw) ? raw : (raw.cards || []);
     const byR = [[], [], [], [], []]; cards.forEach(c => byR[c.r].push(c));
@@ -455,11 +456,11 @@ const DOTS = `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="5" cy="12"
 const EYE = `<svg viewBox="0 0 120 64" aria-hidden="true"><g fill="none" stroke="currentColor" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 26c18-16 58-20 90-4 8 4 14 6 18 6"/><path d="M14 30c14 10 42 12 64 2"/><circle cx="52" cy="24" r="9" fill="currentColor"/><path d="M50 34v14c0 6-6 10-12 8"/><path d="M62 33c8 8 14 18 26 22"/></g></svg>`;
 const ZZ = (() => { const n = 14, top = [], bot = []; for (let i = 0; i <= n; i++) top.push(`${(i * 100 / n).toFixed(2)}% ${i % 2 ? 0 : 2.4}%`); for (let i = n; i >= 0; i--) bot.push(`${(i * 100 / n).toFixed(2)}% ${i % 2 ? 100 : 97.6}%`); return `polygon(${top.concat(bot).join(',')})`; })();
 function deckVisualHTML(v) {
-  if (v.img) return `<div class="pack photo deckbox"><div class="body" style="background-image:url('${v.img}')"></div><div class="tearglow"></div><span class="deckname">${esc(v.name)}</span></div>`;
+  if (v.img) return `<div class="pack photo deckbox"><div class="body" style="background-image:url('${ASSET}${v.img}')"></div><div class="tearglow"></div><span class="deckname">${esc(v.name)}</span></div>`;
   return `<div class="pack deckstack"><div class="body"></div><div class="tearglow"></div><span class="deckname">${esc(v.name)}</span></div>`;
 }
 function packHTML(key = 'goat', o = {}) {
-  if (o.img) return `<div class="pack photo"><div class="body" style="background-image:url('${o.img}')"></div><div class="strip" style="background-image:url('${o.img}')"></div><div class="tearglow"></div>${o.name ? `<span class="deckname">${esc(o.name)}</span>` : ''}</div>`;
+  if (o.img) return `<div class="pack photo"><div class="body" style="background-image:url('${ASSET}${o.img}')"></div><div class="strip" style="background-image:url('${ASSET}${o.img}')"></div><div class="tearglow"></div>${o.name ? `<span class="deckname">${esc(o.name)}</span>` : ''}</div>`;
   const cfg = POOLS[key] || POOLS.goat; const big = o.big || cfg.big;
   return `<div class="pack pk-${key}"><div class="body" style="clip-path:${ZZ}"></div><div class="strip" style="clip-path:${ZZ}"></div><div class="tearglow"></div>
     <div class="label">${EYE}<span class="goat ${big.length > 6 ? 'xlong' : big.length > 5 ? 'long' : ''}">${esc(big)}</span><span class="yr">${esc(o.era || cfg.era)}</span><span class="count">${esc(o.count || '9 cards')}</span></div></div>`;
@@ -554,7 +555,7 @@ function heroCycleHTML(pool) {
   if (heroKey !== key) { heroKey = key; heroIdx = 0; }
   const p = list[heroIdx % list.length];
   return `<div class="pack-cycle photo-cycle" id="packCycle" data-pool="${pool || ''}" aria-hidden="true">
-    <img class="cyc on" src="packs/${p[1]}.webp" alt="" width="300" height="540"><img class="cyc" alt="" width="300" height="540">
+    <img class="cyc on" src="${ASSET}packs/${p[1]}.webp" alt="" width="300" height="540"><img class="cyc" alt="" width="300" height="540">
     <p class="cyc-cap"><span class="cyc-name">${esc(p[2])}</span><span class="cyc-year">${p[3]}</span></p></div>`;
 }
 function startHeroCycle() {
@@ -573,7 +574,7 @@ function startHeroCycle() {
       const cap = box.querySelector('.cyc-cap'); cap.classList.add('swap');
       setTimeout(() => { cap.querySelector('.cyc-name').textContent = p[2]; cap.querySelector('.cyc-year').textContent = p[3]; cap.classList.remove('swap'); }, 450);
     };
-    img.src = `packs/${p[1]}.webp`;
+    img.src = `${ASSET}packs/${p[1]}.webp`;
   }, 2800);
 }
 function renderHome() {
@@ -1237,7 +1238,7 @@ function renderDecksView(pd) {
       const main = cards.filter(([c]) => c.k !== 'F').reduce((n, [, q]) => n + q, 0), extra = cards.filter(([c]) => c.k === 'F').reduce((n, [, q]) => n + q, 0);
       const top = cards.slice().sort((a, b) => b[0].r - a[0].r || (b[0].w ?? b[0].u) - (a[0].w ?? a[0].u)).slice(0, 3);
       const [name, meta] = deckParts(d);
-      const thumbs = d.img ? `<img class="dbox" src="${d.img}" alt="" loading="lazy" width="48" height="72">` : top.map(([c]) => `<img src="${imgSrc(c.i)}" alt="" loading="lazy" width="42" height="61">`).join('');
+      const thumbs = d.img ? `<img class="dbox" src="${ASSET}${d.img}" alt="" loading="lazy" width="48" height="72">` : top.map(([c]) => `<img src="${imgSrc(c.i)}" alt="" loading="lazy" width="42" height="61">`).join('');
       return `<details class="deck" data-src="${src}" data-i="${i}"><summary><span class="dthumbs">${thumbs}</span>
         <span class="dtext"><span class="dname">${esc(name)}</span><span class="dmeta">${meta ? esc(meta) + '. ' : ''}${main} main${extra ? `, ${extra} extra` : ''}</span></span></summary><div class="dcards"></div></details>`;
     }).join('')}</div>`;

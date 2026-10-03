@@ -6,6 +6,8 @@ import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYP
 const V = 12;
 const FORMATS = { goat: { label: 'GOAT', year: '2005', db: 'goat-db.json', errata: 'errata-goat.json', samples: 'sample-decks.json', rules: 'GOAT rules (April 2005)' }, edison: { label: 'Edison', year: '2010', db: 'edison-db.json', errata: 'errata-edison.json', samples: 'sample-decks-edison.json', rules: 'Edison rules (April 2010, Master Rule 1)' } };
 const FCACHE = {};
+const DA = (typeof window !== 'undefined' && window.YGO_DUEL_ASSETS) || '';      // duel data folder ('' = this folder)
+const IMGB = (typeof window !== 'undefined' && window.YGO_IMG) || '../img/';    // card pictures
 const FAST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('fast');   // testing only: the computer answers instantly
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = { apiKey: 'AIzaSyAto8uv4bsHkhDGkhiCFa-PuILGZS9Hf08', authDomain: 'goat-draft-796f7.firebaseapp.com', databaseURL: 'https://goat-draft-796f7-default-rtdb.firebaseio.com', projectId: 'goat-draft-796f7', storageBucket: 'goat-draft-796f7.firebasestorage.app', messagingSenderId: '906831006037', appId: '1:906831006037:web:80e372d9ca72e53073c7dc' };
@@ -39,7 +41,7 @@ const S = {
 /* ================= loading ================= */
 async function boot() {
   try {
-    const [lib, strings, index] = await Promise.all([createCore({ sync: true }), fetch(`strings.json?v=${V}`).then(r => r.json()), fetch(`scripts/index.json?v=${V}`).then(r => r.json())]);
+    const [lib, strings, index] = await Promise.all([createCore({ sync: true }), fetch(`${DA}strings.json?v=${V}`).then(r => r.json()), fetch(`${DA}scripts/index.json?v=${V}`).then(r => r.json())]);
     Object.assign(S, { lib, strings, index: new Set(index) });
     const q = new URLSearchParams(location.search);
     await loadFormat(FORMATS[q.get('f')] ? q.get('f') : FORMATS[store.get('ygo-drafter:duel-format')] ? store.get('ygo-drafter:duel-format') : 'goat');
@@ -50,20 +52,20 @@ async function boot() {
 }
 async function loadFormat(f) {
   if (!FORMATS[f]) f = 'goat';
-  if (!FCACHE[f]) { const [db, samples, errata] = await Promise.all([fetch(`${FORMATS[f].db}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].samples}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].errata}?v=${V}`).then(r => r.json()).catch(() => ({}))]); FCACHE[f] = { db, samples, errata, cards: makeCardMap(db) }; }
+  if (!FCACHE[f]) { const [db, samples, errata] = await Promise.all([fetch(`${DA}${FORMATS[f].db}?v=${V}`).then(r => r.json()), fetch(`${DA}${FORMATS[f].samples}?v=${V}`).then(r => r.json()), fetch(`${DA}${FORMATS[f].errata}?v=${V}`).then(r => r.json()).catch(() => ({}))]); FCACHE[f] = { db, samples, errata, cards: makeCardMap(db) }; }
   Object.assign(S, { format: f, db: FCACHE[f].db, samples: FCACHE[f].samples, cards: FCACHE[f].cards, errata: FCACHE[f].errata });
 }
 function toFormat(ids) { if (S.format === 'goat') return toGoat(S.db, ids); const v = S.db.variants || {}; return ids.map(i => (v[i] ? +v[i] : i)); }
 function readScript(name) {
   if (S.cache.has(name)) return S.cache.get(name);
   let text = '';
-  if (S.index.has(name)) { const x = new XMLHttpRequest(); x.open('GET', `scripts/${name}?v=${V}`, false); try { x.send(null); if (x.status === 200) text = x.responseText; } catch (_) {} }
+  if (S.index.has(name)) { const x = new XMLHttpRequest(); x.open('GET', `${DA}scripts/${name}?v=${V}`, false); try { x.send(null); if (x.status === 200) text = x.responseText; } catch (_) {} }
   S.cache.set(name, text); return text;
 }
 async function preload(decks) {
   const want = new Set([...S.index].filter(n => !/^c\d+\.lua$/.test(n)));
   for (const d of decks) for (const code of d.main.concat(d.extra)) { want.add(`c${code}.lua`); const c = S.cards.get(code); if (c && c.alias) want.add(`c${c.alias}.lua`); }
-  await Promise.all([...want].filter(n => S.index.has(n) && !S.cache.has(n)).map(n => fetch(`scripts/${n}?v=${V}`).then(r => r.ok ? r.text() : '').then(t => S.cache.set(n, t)).catch(() => {})));
+  await Promise.all([...want].filter(n => S.index.has(n) && !S.cache.has(n)).map(n => fetch(`${DA}scripts/${n}?v=${V}`).then(r => r.ok ? r.text() : '').then(t => S.cache.set(n, t)).catch(() => {})));
 }
 let FB = null;
 async function fb() {
@@ -80,8 +82,8 @@ const rref = (F, p = '') => F.ref(F.db, `rooms/${S.code}${p}`);
 /* ================= cards and seats ================= */
 const card = code => S.cards.get(code) || null;
 const cname = code => (card(code) || {}).name || 'a card';
-function imgFor(code) { const c = card(code); const base = c && c.alias && (code >= 100000000 || Math.abs(code - c.alias) < 20) ? c.alias : code; return `../img/${base}.webp`; }
-const BACK = '../img/back.webp';
+function imgFor(code) { const c = card(code); const base = c && c.alias && (code >= 100000000 || Math.abs(code - c.alias) < 20) ? c.alias : code; return `${IMGB}${base}.webp`; }
+const BACK = `${IMGB}back.webp`;
 function descText(desc) {
   if (desc === undefined || desc === null) return '';
   const d = BigInt(desc);

@@ -193,3 +193,14 @@ body.is-dragging{cursor:grabbing;user-select:none}
 .e-now summary{cursor:pointer;font:700 12.5px/1.3 var(--ui);color:var(--ink-soft)}
 .e-now .d-text{margin-top:6px;opacity:.85}
 .e-eng{margin:0;font-size:12.5px;color:var(--turq);font-weight:600}
+/* bigger duel zone: narrower side panels, no width cap, card zones sized from the window */
+main{max-width:none}
+.duel{grid-template-columns:240px minmax(0,1fr) 270px;gap:12px}
+@media (max-width:1250px){.duel{grid-template-columns:240px minmax(0,1fr)}}
+.board{--z:min(120px,6.7vw,calc((100vh - 244px) / 6.05 / 1.457));padding:10px;gap:6px}
+.side{gap:6px;padding:6px}
+.frow{gap:6px}
+.hand{min-height:calc(var(--z) * 1.05);padding:2px 6px}
+.hand .dcard{width:calc(var(--z) * .86)}
+.hand.hidden .dcard{width:calc(var(--z) * .62)}
+@media (max-width:860px){.duel{grid-template-columns:minmax(0,1fr)}.board{--z:min(64px,calc((100vw - 100px) / 8));padding:6px;gap:5px}}
