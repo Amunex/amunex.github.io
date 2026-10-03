@@ -1,5 +1,5 @@
 /* YGO Drafter: live Yu-Gi-Oh! drafts (Duelist Kingdom, GOAT, Edison). */
-const V = 18;
+const V = 20;
 const HOME_PACKS = [["dk","LOB","Legend of Blue Eyes White Dragon","2002"],["dk","MRD","Metal Raiders","2002"],["goat","MRL","Magic Ruler","2002"],["goat","PSV","Pharaoh's Servant","2002"],["goat","LON","Labyrinth of Nightmare","2003"],["goat","LOD","Legacy of Darkness","2003"],["goat","PGD","Pharaonic Guardian","2003"],["goat","MFC","Magician's Force","2003"],["goat","DCR","Dark Crisis","2003"],["goat","IOC","Invasion of Chaos","2004"],["goat","AST","Ancient Sanctuary","2004"],["goat","EP1","Exclusive Pack","2004"],["goat","SOD","Soul of the Duelist","2004"],["goat","RDS","Rise of Destiny","2004"],["goat","FET","Flaming Eternity","2005"],["goat","TLM","The Lost Millennium","2005"],["edison","CRV","Cybernetic Revolution","2005"],["edison","EEN","Elemental Energy","2005"],["edison","DP2","Duelist Pack: Chazz Princeton","2006"],["edison","DP1","Duelist Pack: Jaden Yuki","2006"],["edison","SOI","Shadow of Infinity","2006"],["edison","EOJ","Enemy of Justice","2006"],["edison","POTD","Power of the Duelist","2006"],["edison","CDIP","Cyberdark Impact","2006"],["edison","DP05","Duelist Pack: Aster Phoenix","2007"],["edison","DP03","Duelist Pack: Jaden Yuki 2","2007"],["edison","STON","Strike of Neos","2007"],["edison","DP04","Duelist Pack: Zane Truesdale","2007"],["edison","FOTB","Force of the Breaker","2007"],["edison","PP01","Premium Pack (TCG)","2007"],["edison","TAEV","Tactical Evolution","2007"],["edison","GLAS","Gladiator's Assault","2007"],["edison","DP06","Duelist Pack: Jaden Yuki 3","2008"],["edison","DP07","Duelist Pack: Jesse Anderson","2008"],["edison","PTDN","Phantom Darkness","2008"],["edison","LODT","Light of Destruction","2008"],["edison","PP02","Premium Pack 2 (TCG)","2008"],["edison","TDGS","The Duelist Genesis","2008"],["edison","CSOC","Crossroads of Chaos","2008"],["edison","DLG1","Dark Legends","2008"],["edison","DP08","Duelist Pack: Yusei","2009"],["edison","CRMS","Crimson Crisis","2009"],["edison","RGBT","Raging Battle","2009"],["edison","DPYG","Duelist Pack: Yugi","2009"],["edison","ANPR","Ancient Prophecy","2009"],["edison","HA01","Hidden Arsenal","2009"],["edison","SOVR","Stardust Overdrive","2009"],["edison","DP09","Duelist Pack: Yusei 2","2010"],["edison","ABPF","Absolute Powerforce","2010"],["edison","DPKB","Duelist Pack: Kaiba","2010"]];
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
@@ -33,7 +33,7 @@ function loadScript(src) { return new Promise((res, rej) => { const s = document
 function loadPool(key) {
   if (!POOLS[key]) key = 'goat';
   if (!loading[key]) loading[key] = (async () => {
-    await loadScript(`data/${key}/pool.js?v=${V}`);
+    await Promise.all([loadScript(`data/${key}/pool.js?v=${V}`), loadScript(`data/${key}/errata.js?v=${V}`).catch(() => {})]);
     const raw = (window.YGO_POOLS || {})[key] || {};
     const cards = Array.isArray(raw) ? raw : (raw.cards || []);
     const byR = [[], [], [], [], []]; cards.forEach(c => byR[c.r].push(c));
@@ -486,6 +486,15 @@ function statsLine(c) {
   const nums = t.includes('Link') ? `ATK ${c.a ?? '?'}` : `ATK ${c.a ?? '?'} &nbsp; DEF ${c.d ?? '?'}`;
   return `<p class="d-stats"><span>${head}</span><span>${nums}</span></p>`;
 }
+const ERA = { dk: ['Duelist Kingdom', '2002'], goat: ['GOAT', '2005'], edison: ['Edison', '2010'] };
+// The card text in force in this pool's era, next to today's text when an errata changed it since
+function textHTML(c) {
+  const key = ACT ? ACT.key : 'goat'; const e = ((window.YGO_ERRATA || {})[key] || {})[c.i];
+  if (!e) return `<p class="d-text">${esc(c.x)}</p>`;
+  const [fmt, yr] = ERA[key] || ['this format', ''];
+  return `<div class="errata"><p class="e-lbl">Text in ${esc(fmt)} (${yr}) <small>as printed in ${esc(e.from)}</small></p><p class="d-text">${esc(e.era)}</p>
+    <details class="e-now"><summary>Today’s text (changed by errata since)</summary><p class="d-text">${esc(e.now)}</p></details></div>`;
+}
 function detailHTML(c, actions = '') {
   const cfg = ACT ? ACT.cfg : POOLS.goat; const t = ACT ? ACT.tier : TIERS.tcg;
   const played = cfg.usage && !c.fb && c.u ? ` Played in ${Math.round(100 * c.u / cfg.sample)}% of ${cfg.sample} ${esc(cfg.tiers === 'md' ? 'Master Duel' : cfg.name)} decklists.` : '';
@@ -493,7 +502,7 @@ function detailHTML(c, actions = '') {
   return `<div class="d-head"><img class="d-img" src="${imgSrc(c.i)}" alt="${esc(c.n)}" width="210" height="306">
     <div class="d-info"><h2>${esc(c.n)}</h2><div class="d-tags"><span class="pill ${cfg.tiers === 'md' ? 'md' + c.r : ''}">${t.label[c.r]}</span></div>
     <p class="d-type">${esc(typeLine(c))}</p>${statsLine(c)}</div></div>
-    <p class="d-text">${esc(c.x)}</p><p class="d-foot">${foot}</p>
+    ${textHTML(c)}<p class="d-foot">${foot}</p>
     <div class="actions">${actions}<button class="ghost more" type="button" data-act="more">Card text</button><button class="ghost close" type="button" data-act="close">Close</button></div>`;
 }
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3800); }
@@ -637,6 +646,8 @@ function renderSpectate() {
     ${g ? `<ul class="seats">${g.seats.map(s => `<li>${esc(s.name)}</li>`).join('')}</ul>` : ''}</div></section>`;
 }
 function renderDraft() {
+  if (S.opening && document.querySelector('#table .opening')) { S.renderLater = true; return; }
+  S.opening = false;
   const g = game(); const me = mySeat(g);
   if (!g || me < 0) { S.view = S.online ? (S.room && S.room.game ? 'spectate' : 'lobby') : 'home'; render(); return; }
   usePool(g.settings.pool);
@@ -668,7 +679,7 @@ function renderDraft() {
   let act = '';
   if (!done && focus) {
     if (n === 1) act = `<button class="cta" type="button" data-act="pick" ${S.busy ? 'disabled' : ''}>Pick ${esc(focus.n)}</button><p class="hint">Or tap the card again.</p>`;
-    else act = `<ul class="chosen">${S.sel.map((s, k) => `<li>${k + 1}. ${esc((C(cidOf(s)) || {}).n || '')}</li>`).join('')}</ul><button class="cta" type="button" data-act="pick" ${S.sel.length === n && !S.busy ? '' : 'disabled'}>${S.sel.length === n ? 'Pick these 2' : `Choose ${n - S.sel.length} more`}</button>`;
+    else act = `<ul class="chosen">${S.sel.map((s, k) => `<li>${k + 1}. ${esc((C(cidOf(s)) || {}).n || '')}</li>`).join('')}</ul><button class="cta" type="button" data-act="pick" ${S.sel.length === n && !S.busy && !S.opening ? '' : 'disabled'}>${S.sel.length === n ? 'Pick these 2' : `Choose ${n - S.sel.length} more`}</button><p class="hint">Tap a chosen card again to unchoose it.</p>`;
   }
   const sig = [key, done, S.sel.join(','), S.focus, S.busy, S.expanded, picks.length, g.seats[me].bot, wide()].join('|');
   if (!anim && S.lastSig === sig && $('#packGrid') && $('#seatsWrap')) { $('#seatsWrap').innerHTML = seatsHTML; $('#waitWrap').innerHTML = reclaim + waitbar; return; }
@@ -725,7 +736,7 @@ function playOpen(poolKey, packs, label) {
     if (over) return; over = true; timers.forEach(clearTimeout);
     anims.forEach(a => { try { a.cancel(); } catch (_) {} });
     ov.remove(); fx.remove(); cleanup(); S.opening = false;
-    document.querySelectorAll('[data-act="pick"]').forEach(b => { b.disabled = false; });
+    if (S.view === 'draft') { S.renderLater = false; renderDraft(); }   // redraw with the real Pick state (and anything that changed meanwhile)
   };
   setTimeout(finish, 14000);
   document.querySelectorAll('[data-act="pick"]').forEach(b => { b.disabled = true; });
@@ -1339,10 +1350,10 @@ document.addEventListener('click', e => {
   const card = t.closest('.card');
   if (!card || card.closest('#poolBody')) return;
   if (S.view === 'draft' && card.closest('#packGrid')) {
-    const g = game(); const me = mySeat(g); if (!g || me < 0 || g.done[me] || S.busy) return;
+    const g = game(); const me = mySeat(g); if (!g || me < 0 || g.done[me] || S.busy || S.opening) return;
     const id = card.dataset.u, n = need(g, me);
     if (n === 1) { if (S.sel[0] === id && S.focus === id) { submitPick(); return; } S.sel = [id]; }
-    else { const k = S.sel.indexOf(id); if (k >= 0 && S.focus === id) S.sel.splice(k, 1); else if (k < 0) { S.sel.push(id); if (S.sel.length > n) S.sel.shift(); } }
+    else { const k = S.sel.indexOf(id); if (k >= 0) S.sel.splice(k, 1); else { S.sel.push(id); if (S.sel.length > n) S.sel.shift(); } }
     S.focus = id; S.expanded = false; renderDraft();
     const again = document.querySelector(`#packGrid .card[data-u="${CSS.escape(id)}"]`); again && again.focus({ preventScroll: true }); return;
   }

@@ -444,3 +444,11 @@ body.is-dragging{cursor:grabbing;-webkit-user-select:none;user-select:none}
 .export.play{border-top:2px solid var(--gold);padding-top:14px;margin-top:8px}
 .casual{margin-top:12px;padding-top:10px;border-top:1px solid var(--line);display:grid;gap:8px}
 .casual p{margin:0}
+
+/* v20: errata */
+.errata{display:grid;gap:6px}
+.errata .e-lbl{margin:0;font:700 13px/1.3 var(--ui);color:var(--gold);text-transform:uppercase;letter-spacing:.04em}
+.errata .e-lbl small{text-transform:none;letter-spacing:0;color:var(--ink-soft);font-weight:600;margin-left:4px}
+.e-now{border:1px dashed var(--line);border-radius:10px;padding:6px 10px;background:var(--surface)}
+.e-now summary{cursor:pointer;font:700 13px/1.3 var(--ui);color:var(--ink-soft)}
+.e-now .d-text{margin-top:6px;opacity:.85}

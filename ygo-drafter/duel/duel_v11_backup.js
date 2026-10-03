@@ -3,8 +3,8 @@
 import createCore, { OcgDuelMode, OcgProcessResult, cardMatchesOpcode } from './engine/index.js';
 import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYPES, autoAnswer as legalAnswer } from './glue.js';
 
-const V = 12;
-const FORMATS = { goat: { label: 'GOAT', year: '2005', db: 'goat-db.json', errata: 'errata-goat.json', samples: 'sample-decks.json', rules: 'GOAT rules (April 2005)' }, edison: { label: 'Edison', year: '2010', db: 'edison-db.json', errata: 'errata-edison.json', samples: 'sample-decks-edison.json', rules: 'Edison rules (April 2010, Master Rule 1)' } };
+const V = 10;
+const FORMATS = { goat: { label: 'GOAT', db: 'goat-db.json', samples: 'sample-decks.json', rules: 'GOAT rules (April 2005)' }, edison: { label: 'Edison', db: 'edison-db.json', samples: 'sample-decks-edison.json', rules: 'Edison rules (April 2010, Master Rule 1)' } };
 const FCACHE = {};
 const FAST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('fast');   // testing only: the computer answers instantly
 const FB_VERSION = '12.19.0';
@@ -50,8 +50,8 @@ async function boot() {
 }
 async function loadFormat(f) {
   if (!FORMATS[f]) f = 'goat';
-  if (!FCACHE[f]) { const [db, samples, errata] = await Promise.all([fetch(`${FORMATS[f].db}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].samples}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].errata}?v=${V}`).then(r => r.json()).catch(() => ({}))]); FCACHE[f] = { db, samples, errata, cards: makeCardMap(db) }; }
-  Object.assign(S, { format: f, db: FCACHE[f].db, samples: FCACHE[f].samples, cards: FCACHE[f].cards, errata: FCACHE[f].errata });
+  if (!FCACHE[f]) { const [db, samples] = await Promise.all([fetch(`${FORMATS[f].db}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].samples}?v=${V}`).then(r => r.json())]); FCACHE[f] = { db, samples, cards: makeCardMap(db) }; }
+  Object.assign(S, { format: f, db: FCACHE[f].db, samples: FCACHE[f].samples, cards: FCACHE[f].cards });
 }
 function toFormat(ids) { if (S.format === 'goat') return toGoat(S.db, ids); const v = S.db.variants || {}; return ids.map(i => (v[i] ? +v[i] : i)); }
 function readScript(name) {
@@ -515,23 +515,11 @@ function controlsHTML() {
   const popBox = S.mode === 'online' && S.mySeat < 0 ? '' : `<div class="chainmode"><p class="lbl">Action menu</p><div class="seg tiny" role="radiogroup" aria-label="Where the action menu opens">${[['cursor', 'Above the cursor'], ['corner', 'Top left']].map(([v, l]) => `<label><input type="radio" name="poppos" value="${v}" ${S.popPos === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>`;
   return `${req}${chainBox}${popBox}<div class="row-btns">${undoBtn}${sur}<button class="ghost" type="button" data-act="${solo ? 'setup' : 'leave'}">${solo ? 'New duel' : 'Leave'}</button></div>`;
 }
-// Card text: the version in force in this format's year, plus today's text if an errata changed it since
-function textBlock(code) {
-  const c = card(code); if (!c) return '';
-  const base = c.alias && (code >= 100000000 || Math.abs(code - c.alias) < 20) ? c.alias : code;
-  const e = (S.errata || {})[code] || (S.errata || {})[base];
-  const variant = code >= 100000000 || / \((GOAT|Pre-Errata)\)$/.test(c.name);
-  const yr = FORMATS[S.format].year;
-  const engine = variant ? `The duel plays this card by its ${yr} version.` : S.format === 'goat' ? 'The duel plays this card the way EDOPro’s GOAT list does.' : 'The duel plays this card by today’s script.';
-  if (!e) return `<p class="d-text">${esc(c.desc)}</p>`;
-  return `<div class="errata"><p class="e-lbl">Text in ${esc(FORMATS[S.format].label)} (${yr}) <small>as printed in ${esc(e.from)}</small></p><p class="d-text">${esc(e.era)}</p>
-    <details class="e-now"><summary>Today’s text (changed by errata since)</summary><p class="d-text">${esc(e.now)}</p></details><p class="e-eng">${engine}</p></div>`;
-}
 function detailHTML() {
   const code = S.focusCode; if (!code) return '<p class="hint">Hover a card, or right-click it, to read it.</p>';
   const c = card(code); if (!c) return '';
   const stats = c.type & 1 ? `<p class="d-stats">${c.type & 0x800000 ? 'Rank' : 'Level'} ${c.level} · ATK ${c.attack < 0 ? '?' : c.attack} / DEF ${c.defense < 0 ? '?' : c.defense}</p>` : '';
-  return `<img class="d-img" src="${imgFor(code)}" alt="" onerror="this.remove()"><h3>${esc(c.name.replace(/ \((GOAT|Pre-Errata)\)$/, ''))}</h3>${stats}${textBlock(code)}`;
+  return `<img class="d-img" src="${imgFor(code)}" alt="" onerror="this.remove()"><h3>${esc(c.name)}</h3>${stats}<p class="d-text">${esc(c.desc)}</p>`;
 }
 function sidePanelHTML() {
   const online = S.mode === 'online'; const chat = (S.room && S.room.chatList) || [];
@@ -718,7 +706,7 @@ function openInfo(key, code) {
   const c = card(code); if (!c) return;
   let live = '';
   if (key) { const [p, l, s] = key.split(':').map(Number); const q = at({ controller: p, location: l, sequence: s }); if (q && l === LOC.MZONE) live = `<p class="d-stats">Now: ATK ${q.attack} / DEF ${q.defense}, ${POSNAME[q.position] || ''}${q.position & 10 ? '' : ''}</p>`; if (q) live += `<p class="d-stats">${p === bottomE() ? 'Yours' : `${esc(P(p))}’s`}, ${LOCNAME[l] || ''}</p>`; }
-  $('#infoBody').innerHTML = `<img class="i-img" src="${imgFor(code)}" alt="" onerror="this.remove()"><div><h2>${esc(c.name.replace(/ \((GOAT|Pre-Errata)\)$/, ''))}</h2>${c.type & 1 ? `<p class="d-stats">${c.type & 0x800000 ? 'Rank' : 'Level'} ${c.level} · ATK ${c.attack < 0 ? '?' : c.attack} / DEF ${c.defense < 0 ? '?' : c.defense}</p>` : ''}${live}${textBlock(code)}</div>`;
+  $('#infoBody').innerHTML = `<img class="i-img" src="${imgFor(code)}" alt="" onerror="this.remove()"><div><h2>${esc(c.name)}</h2>${c.type & 1 ? `<p class="d-stats">${c.type & 0x800000 ? 'Rank' : 'Level'} ${c.level} · ATK ${c.attack < 0 ? '?' : c.attack} / DEF ${c.defense < 0 ? '?' : c.defense}</p>` : ''}${live}<p class="d-text">${esc(c.desc)}</p></div>`;
   $('#info').hidden = false;
 }
 function bindAnnounce(m) {

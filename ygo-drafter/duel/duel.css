@@ -185,3 +185,11 @@ body.is-dragging{cursor:grabbing;user-select:none}
 .pop.docked::after{display:none}
 .pop.docked{border-color:var(--turq)}
 .pop.below::after{bottom:auto;top:-9px;transform:translateX(-50%) rotate(225deg)}
+/* v12: errata */
+.errata{display:grid;gap:6px}
+.errata .e-lbl{margin:0;font:700 12.5px/1.3 var(--ui);color:var(--gold);text-transform:uppercase;letter-spacing:.04em}
+.errata .e-lbl small{text-transform:none;letter-spacing:0;color:var(--ink-soft);font-weight:600;margin-left:4px}
+.e-now{border:1px dashed var(--line);border-radius:10px;padding:6px 10px}
+.e-now summary{cursor:pointer;font:700 12.5px/1.3 var(--ui);color:var(--ink-soft)}
+.e-now .d-text{margin-top:6px;opacity:.85}
+.e-eng{margin:0;font-size:12.5px;color:var(--turq);font-weight:600}

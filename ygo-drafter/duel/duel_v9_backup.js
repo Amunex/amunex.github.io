@@ -3,10 +3,9 @@
 import createCore, { OcgDuelMode, OcgProcessResult, cardMatchesOpcode } from './engine/index.js';
 import { LOC, T, makeCardMap, createDuel, toGoat, isExtra, freeZones, SELECT_TYPES, autoAnswer as legalAnswer } from './glue.js';
 
-const V = 12;
-const FORMATS = { goat: { label: 'GOAT', year: '2005', db: 'goat-db.json', errata: 'errata-goat.json', samples: 'sample-decks.json', rules: 'GOAT rules (April 2005)' }, edison: { label: 'Edison', year: '2010', db: 'edison-db.json', errata: 'errata-edison.json', samples: 'sample-decks-edison.json', rules: 'Edison rules (April 2010, Master Rule 1)' } };
+const V = 8;
+const FORMATS = { goat: { label: 'GOAT', db: 'goat-db.json', samples: 'sample-decks.json', rules: 'GOAT rules (April 2005)' }, edison: { label: 'Edison', db: 'edison-db.json', samples: 'sample-decks-edison.json', rules: 'Edison rules (April 2010, Master Rule 1)' } };
 const FCACHE = {};
-const FAST = typeof location !== 'undefined' && new URLSearchParams(location.search).has('fast');   // testing only: the computer answers instantly
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = { apiKey: 'AIzaSyAto8uv4bsHkhDGkhiCFa-PuILGZS9Hf08', authDomain: 'goat-draft-796f7.firebaseapp.com', databaseURL: 'https://goat-draft-796f7-default-rtdb.firebaseio.com', projectId: 'goat-draft-796f7', storageBucket: 'goat-draft-796f7.firebasestorage.app', messagingSenderId: '906831006037', appId: '1:906831006037:web:80e372d9ca72e53073c7dc' };
 const $ = (s, el = document) => el.querySelector(s);
@@ -50,8 +49,8 @@ async function boot() {
 }
 async function loadFormat(f) {
   if (!FORMATS[f]) f = 'goat';
-  if (!FCACHE[f]) { const [db, samples, errata] = await Promise.all([fetch(`${FORMATS[f].db}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].samples}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].errata}?v=${V}`).then(r => r.json()).catch(() => ({}))]); FCACHE[f] = { db, samples, errata, cards: makeCardMap(db) }; }
-  Object.assign(S, { format: f, db: FCACHE[f].db, samples: FCACHE[f].samples, cards: FCACHE[f].cards, errata: FCACHE[f].errata });
+  if (!FCACHE[f]) { const [db, samples] = await Promise.all([fetch(`${FORMATS[f].db}?v=${V}`).then(r => r.json()), fetch(`${FORMATS[f].samples}?v=${V}`).then(r => r.json())]); FCACHE[f] = { db, samples, cards: makeCardMap(db) }; }
+  Object.assign(S, { format: f, db: FCACHE[f].db, samples: FCACHE[f].samples, cards: FCACHE[f].cards });
 }
 function toFormat(ids) { if (S.format === 'goat') return toGoat(S.db, ids); const v = S.db.variants || {}; return ids.map(i => (v[i] ? +v[i] : i)); }
 function readScript(name) {
@@ -138,7 +137,7 @@ function scheduleAI() {
     const cur = S.prompt; if (cur !== m) return;
     const r = aiAnswer(m) || autoAnswer(m) || legalFallback(m); if (!r) return;
     apply({ r, e: m.player, a: 0, ai: 1 }); pump([], true); render();
-  }, FAST ? 15 : quick ? 260 : 650);
+  }, quick ? 260 : 650);
 }
 function chainModeFor(e) { return S.mode === 'solo' ? S.chainMode[e] : S.chainMode[0]; }
 function autoAnswer(m) {
@@ -155,7 +154,7 @@ function autoAnswer(m) {
 }
 function onMsg(m) {
   const t = m.type;
-  if (SELECT_TYPES.has(t)) { if (t === 10 || t === 11 || t === 16) S.expect = null; S.prompt = m; S.lastPrompt = m; S.promptSeq = (S.promptSeq || 0) + 1; return; }
+  if (SELECT_TYPES.has(t)) { S.prompt = m; S.lastPrompt = m; return; }
   const fx = S.quiet ? null : S.fx;
   switch (t) {
     case 1: S.retry = true; break;
@@ -163,18 +162,18 @@ function onMsg(m) {
     case 5: S.winner = m; log(m.player === 2 ? 'The duel is a draw.' : `${P(m.player)} wins the duel.`, 'win'); break;
     case 40: S.turn++; S.turnPlayer = m.player; log(`Turn ${S.turn}: ${P(m.player)}`, 'turn', m.player); if (fx) fx.push({ k: 'banner', text: `Turn ${S.turn}`, sub: P(m.player), e: m.player }); break;
     case 41: S.phase = m.phase; if (fx && [4, 8, 256, 512].includes(m.phase)) fx.push({ k: 'banner', text: phaseName(m.phase) + ' Phase', small: true }); break;
-    case 60: checkPlayed(m.code); log(`${P(m.controller)} Normal Summons ${cname(m.code)}.`, '', m.controller); break;
-    case 62: checkPlayed(m.code); log(`${P(m.controller)} Special Summons ${cname(m.code)}.`, '', m.controller); break;
-    case 64: checkPlayed(m.code); log(`${P(m.controller)} Flip Summons ${cname(m.code)}.`, '', m.controller); break;
-    case 54: checkPlayed(m.code); log(`${P(m.controller)} sets a card.`, '', m.controller); break;
-    case 70: checkPlayed(m.code); log(`${P(m.controller)} activates ${cname(m.code)} (chain link ${m.chain_size}).`, 'chain', m.controller); if (fx) fx.push({ k: 'chain', loc: { controller: m.controller, location: m.location, sequence: m.sequence }, n: m.chain_size, code: m.code }); break;
+    case 60: log(`${P(m.controller)} Normal Summons ${cname(m.code)}.`, '', m.controller); break;
+    case 62: log(`${P(m.controller)} Special Summons ${cname(m.code)}.`, '', m.controller); break;
+    case 64: log(`${P(m.controller)} Flip Summons ${cname(m.code)}.`, '', m.controller); break;
+    case 54: log(`${P(m.controller)} sets a card.`, '', m.controller); break;
+    case 70: log(`${P(m.controller)} activates ${cname(m.code)} (chain link ${m.chain_size}).`, 'chain', m.controller); if (fx) fx.push({ k: 'chain', loc: { controller: m.controller, location: m.location, sequence: m.sequence }, n: m.chain_size, code: m.code }); break;
     case 73: if (fx) fx.push({ k: 'resolve', n: m.chain_size }); break;
     case 75: log('The activation was negated.', 'chain'); break;
     case 90: log(`${P(m.player)} draws ${m.drawn.length === 1 ? 'a card' : m.drawn.length + ' cards'}.`, '', m.player); break;
     case 91: if (S.curBattle) S.curBattle.dmg[m.player] += m.amount; else log(`${P(m.player)} takes ${m.amount} damage.`, 'dmg', m.player); if (fx) fx.push({ k: 'lp', e: m.player, amount: -m.amount, battle: !!S.curBattle }); break;
     case 92: log(`${P(m.player)} gains ${m.amount} LP.`, 'heal', m.player); if (fx) fx.push({ k: 'lp', e: m.player, amount: m.amount }); break;
     case 100: log(`${P(m.player)} pays ${m.amount} LP.`, '', m.player); if (fx) fx.push({ k: 'lp', e: m.player, amount: -m.amount }); break;
-    case 110: { if (S.expect && S.expect.kind === 'attack') { const a = at(m.card); if (a && a.code !== S.expect.code) console.error(`Card check failed: attacked with ${a.code}, chose ${S.expect.code}`); S.expect = null; } S.attacking = null; const a = at(m.card), d = m.target && at(m.target); log(`${a ? cname(a.code) : 'A monster'} attacks ${d ? (d.position & 10 ? 'a face-down monster' : cname(d.code)) : 'directly'}.`, '', m.card.controller); if (fx) fx.push({ k: 'attack', from: m.card, to: m.target }); break; }
+    case 110: { S.attacking = null; const a = at(m.card), d = m.target && at(m.target); log(`${a ? cname(a.code) : 'A monster'} attacks ${d ? (d.position & 10 ? 'a face-down monster' : cname(d.code)) : 'directly'}.`, '', m.card.controller); if (fx) fx.push({ k: 'attack', from: m.card, to: m.target }); break; }
     case 111: { const direct = !m.target || !m.target.location; const a = at(m.card), d = direct ? null : at(m.target); S.curBattle = { a: { ...m.card, code: a ? a.code : 0 }, d: direct ? null : { ...m.target, code: d ? d.code : 0 }, dmg: [0, 0] }; break; }
     case 114: if (S.curBattle) { const b = S.curBattle; S.curBattle = null; log(battleText(b), 'battle', b.a.controller); if (fx) fx.push({ k: 'battle', b }); } break;
     case 53: if (fx && (m.prev_position & 10) && !(m.position & 10)) fx.push({ k: 'flip', loc: { controller: m.controller, location: m.location, sequence: m.sequence } }); break;
@@ -209,12 +208,6 @@ function predict(atk, c) {
   if (q.position & 4) return atk > q.defense ? `Destroys it (DEF ${q.defense}). No damage.` : atk < q.defense ? `Bounces off (DEF ${q.defense}): you take ${q.defense - atk}.` : `Nothing happens (DEF ${q.defense}).`;
   return atk > q.attack ? `Destroys it: they take ${atk - q.attack}.` : atk < q.attack ? `Your monster is destroyed: you take ${q.attack - atk}.` : 'Both are destroyed. No damage.';
 }
-function checkPlayed(code) {
-  if (!S.expect || S.expect.kind !== 'play') return;
-  const want = S.expect.code; S.expect = null;
-  const same = code === want || (card(code) && card(code).alias === want) || (card(want) && card(want).alias === code);
-  if (!same && code) { console.error(`Card check failed: chose ${cname(want)} (${want}) but the engine played ${cname(code)} (${code})`); log(`Warning: you chose ${cname(want)}, but ${cname(code)} was played. Please report this.`, 'dmg'); }
-}
 function log(text, kind = '', e = -1) { if (text) S.log.push({ text, kind, e }); }
 function refreshField() {
   if (!S.h) return;
@@ -227,17 +220,8 @@ function refreshField() {
 }
 
 /* ================= answering ================= */
-function expectedCard(m, r) {
-  if (m.type === 11 && r.type === 1 && r.action <= 5 && r.action !== 2) return ([m.summons, m.special_summons, m.pos_changes, m.monster_sets, m.spell_sets, m.activates][r.action][r.index] || {}).code;
-  if (m.type === 10 && r.type === 0 && r.action <= 1) return ([m.chains, m.attacks][r.action][r.index] || {}).code;
-  if (m.type === 16 && r.type === 8 && r.index != null) return (m.selects[r.index] || {}).code;
-  return 0;
-}
-function answer(r, chosenCode = 0) {
+function answer(r) {
   const m = S.prompt; if (!m || !decides(m.player)) return;
-  const exp = expectedCard(m, r);
-  if (chosenCode && exp && exp !== chosenCode) { console.error(`Card check failed before sending: chose ${chosenCode}, action is for ${exp}`); toast('That action belongs to another card. Tap the card again.'); closePop(); render(); return; }
-  S.expect = exp ? { code: exp, kind: m.type === 10 && r.action === 1 ? 'attack' : 'play' } : null;
   if (m.type === 10 && r.type === 0 && r.action === 1 && m.attacks[r.index]) { const a = m.attacks[r.index]; S.attacking = { atk: fieldAtk(a), code: a.code }; }
   S.sel = []; S.menu = null; S.pickerClosed = false; closeModal('#picker'); closePop();
   if (S.mode === 'online') { send(r, m.player, false); render(); return; }
@@ -375,7 +359,7 @@ function slotHTML(e, loc, seq, kind, label, acts, chainNo) {
   if (loc === LOC.MZONE && !down) { const up = (v, b) => v > b ? 'up' : v < b ? 'down' : ''; stat = `<span class="stat"><b class="${up(c.attack, c.baseAttack)}">${c.attack ?? '?'}</b><i>/</i><b class="${up(c.defense, c.baseDefense)}">${c.defense ?? '?'}</b></span>`; }
   const ch = chainNo.get(key);
   return `<div class="slot ${kind} filled" data-key="${key}"><button class="dcard ${down ? 'fd' : ''} ${peek ? 'peek' : ''} ${def ? 'def' : ''} ${glow(acts, key)}" type="button" data-key="${key}" data-code="${down && !peek ? '' : c.code}" aria-label="${esc(down && !peek ? 'Face-down card' : cname(c.code))}">
-    <img src="${img}" alt="" draggable="false" data-alt="${esc(cname(c.code))}">${peek ? '<span class="settag">Set</span>' : ''}${stat}${(c.counters && Object.keys(c.counters).length) ? `<span class="ctr">${Object.values(c.counters).reduce((a, b) => a + b, 0)}</span>` : ''}${ch ? `<span class="chainno">${ch}</span>` : ''}</button></div>`;
+    <img src="${img}" alt="" draggable="false" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'tname',textContent:${JSON.stringify(cname(c.code))}}))">${peek ? '<span class="settag">Set</span>' : ''}${stat}${(c.counters && Object.keys(c.counters).length) ? `<span class="ctr">${Object.values(c.counters).reduce((a, b) => a + b, 0)}</span>` : ''}${ch ? `<span class="chainno">${ch}</span>` : ''}</button></div>`;
 }
 function pileHTML(e, loc, label, list, acts) {
   const n = Array.isArray(list) ? list.length : list; const top = Array.isArray(list) && list.length ? list[list.length - 1] : null;
@@ -400,7 +384,7 @@ function orderedHand(e) {
 }
 function handHTML(e, acts) {
   const vis = visibleTo(e);
-  const cards = orderedHand(e).map(({ c, i }) => { const key = `${e}:2:${i}`; return `<button class="dcard hc ${glow(acts, key)}" type="button" data-key="${key}" data-code="${vis ? c.code : ''}" aria-label="${esc(vis ? cname(c.code) : 'Card in hand')}"><img src="${vis ? imgFor(c.code) : BACK}" alt="" draggable="false" data-alt="${esc(vis ? cname(c.code) : '')}"></button>`; }).join('');
+  const cards = orderedHand(e).map(({ c, i }) => { const key = `${e}:2:${i}`; return `<button class="dcard hc ${glow(acts, key)}" type="button" data-key="${key}" data-code="${vis ? c.code : ''}" aria-label="${esc(vis ? cname(c.code) : 'Card in hand')}"><img src="${vis ? imgFor(c.code) : BACK}" alt="" draggable="false" onerror="this.replaceWith(Object.assign(document.createElement('span'),{className:'tname',textContent:${JSON.stringify(vis ? cname(c.code) : '')}}))"></button>`; }).join('');
   return `<div class="hand ${vis ? 'mine' : 'hidden'}" data-hand="${e}">${cards || '<span class="emptyhand">No cards in hand</span>'}</div>`;
 }
 function chainBadges() { const m = new Map(); S.chain.forEach((l, i) => { if (l.location === LOC.MZONE || l.location === LOC.SZONE) m.set(`${l.controller}:${l.location}:${l.sequence}`, i + 1); }); return m; }
@@ -458,22 +442,16 @@ function promptHTML() {
 function waitingText(m) { return { 11: 'Main Phase', 10: 'Battle Phase', 16: 'Deciding whether to respond', 15: 'Choosing cards', 20: 'Choosing Tributes', 12: 'Deciding on an effect', 13: 'Deciding', 14: 'Choosing an effect', 19: 'Choosing a position' }[m.type] || 'Thinking'; }
 function menuHTML() {
   if (!S.menu) return '';
-  if (S.menuSeq !== undefined && S.menuSeq !== S.promptSeq) { S.menu = null; return ''; }
-  if (S.menuCode) { const c0 = cardAt(S.menu); if (!c0 || c0.code !== S.menuCode) { S.menu = null; return ''; } }
   const acts = actionMap().get(S.menu) || []; if (!acts.length) return '';
   const [p, l, s] = S.menu.split(':').map(Number); const c = at({ controller: p, location: l, sequence: s });
   return `<div class="menu"><p class="menu-title">${esc(c ? cname(c.code) : 'Card')}</p>${acts.map(a => `<button class="cta" type="button" data-r='${enc(a.r)}'>${esc(a.label)}</button>`).join('')}<button class="linkish" type="button" data-act="closemenu">Cancel</button></div>`;
 }
-function cardAt(key) { const [p, l, s] = key.split(':').map(Number); return at({ controller: p, location: l, sequence: s }); }
-function popStillValid() { if (!S.pop) return false; const c = cardAt(S.pop.key); return S.pop.seq === S.promptSeq && !!c && (!S.pop.code || c.code === S.pop.code); }
-const actKind = r => r.type === 1 ? ['summon', 'spsummon', 'position', 'mset', 'sset', 'activate'][r.action] || 'phase' : r.type === 0 ? (r.action === 1 ? 'attack' : r.action === 0 ? 'activate' : 'phase') : r.type === 8 ? 'activate' : 'other';
 function renderPop() {
   let el = $('#pop'); if (!el) { el = document.createElement('div'); el.id = 'pop'; el.className = 'pop'; el.setAttribute('role', 'menu'); document.body.appendChild(el); }
-  if (S.pop && !popStillValid()) S.pop = null;          // the game moved on, or that spot now holds another card
   const acts = S.pop ? (actionMap().get(S.pop.key) || []) : [];
   if (!S.pop || !acts.length) { el.hidden = true; S.pop = null; return; }
-  const c = cardAt(S.pop.key);
-  el.innerHTML = `<p class="pop-title">${esc(c ? cname(c.code) : 'Card')}</p>${acts.map(a => `<button class="${a.ss ? 'ss' : ''}" type="button" role="menuitem" data-kind="${actKind(a.r)}" data-r='${enc(a.r)}'>${esc(a.label)}</button>`).join('')}<button class="linkish" type="button" data-act="closepop">Cancel</button>`;
+  const [p, l, s] = S.pop.key.split(':').map(Number); const c = at({ controller: p, location: l, sequence: s });
+  el.innerHTML = `<p class="pop-title">${esc(c ? cname(c.code) : 'Card')}</p>${acts.map(a => `<button class="${a.ss ? 'ss' : ''}" type="button" role="menuitem" data-r='${enc(a.r)}'>${esc(a.label)}</button>`).join('')}<button class="linkish" type="button" data-act="closepop">Cancel</button>`;
   el.hidden = false; placePop();
 }
 function placePop() {
@@ -515,23 +493,11 @@ function controlsHTML() {
   const popBox = S.mode === 'online' && S.mySeat < 0 ? '' : `<div class="chainmode"><p class="lbl">Action menu</p><div class="seg tiny" role="radiogroup" aria-label="Where the action menu opens">${[['cursor', 'Above the cursor'], ['corner', 'Top left']].map(([v, l]) => `<label><input type="radio" name="poppos" value="${v}" ${S.popPos === v ? 'checked' : ''}><span>${l}</span></label>`).join('')}</div></div>`;
   return `${req}${chainBox}${popBox}<div class="row-btns">${undoBtn}${sur}<button class="ghost" type="button" data-act="${solo ? 'setup' : 'leave'}">${solo ? 'New duel' : 'Leave'}</button></div>`;
 }
-// Card text: the version in force in this format's year, plus today's text if an errata changed it since
-function textBlock(code) {
-  const c = card(code); if (!c) return '';
-  const base = c.alias && (code >= 100000000 || Math.abs(code - c.alias) < 20) ? c.alias : code;
-  const e = (S.errata || {})[code] || (S.errata || {})[base];
-  const variant = code >= 100000000 || / \((GOAT|Pre-Errata)\)$/.test(c.name);
-  const yr = FORMATS[S.format].year;
-  const engine = variant ? `The duel plays this card by its ${yr} version.` : S.format === 'goat' ? 'The duel plays this card the way EDOPro’s GOAT list does.' : 'The duel plays this card by today’s script.';
-  if (!e) return `<p class="d-text">${esc(c.desc)}</p>`;
-  return `<div class="errata"><p class="e-lbl">Text in ${esc(FORMATS[S.format].label)} (${yr}) <small>as printed in ${esc(e.from)}</small></p><p class="d-text">${esc(e.era)}</p>
-    <details class="e-now"><summary>Today’s text (changed by errata since)</summary><p class="d-text">${esc(e.now)}</p></details><p class="e-eng">${engine}</p></div>`;
-}
 function detailHTML() {
   const code = S.focusCode; if (!code) return '<p class="hint">Hover a card, or right-click it, to read it.</p>';
   const c = card(code); if (!c) return '';
   const stats = c.type & 1 ? `<p class="d-stats">${c.type & 0x800000 ? 'Rank' : 'Level'} ${c.level} · ATK ${c.attack < 0 ? '?' : c.attack} / DEF ${c.defense < 0 ? '?' : c.defense}</p>` : '';
-  return `<img class="d-img" src="${imgFor(code)}" alt="" onerror="this.remove()"><h3>${esc(c.name.replace(/ \((GOAT|Pre-Errata)\)$/, ''))}</h3>${stats}${textBlock(code)}`;
+  return `<img class="d-img" src="${imgFor(code)}" alt="" onerror="this.remove()"><h3>${esc(c.name)}</h3>${stats}<p class="d-text">${esc(c.desc)}</p>`;
 }
 function sidePanelHTML() {
   const online = S.mode === 'online'; const chat = (S.room && S.room.chatList) || [];
@@ -539,7 +505,7 @@ function sidePanelHTML() {
   const tabs = online ? `<div class="ptabs"><button type="button" data-act="tab-log" aria-selected="${S.tab === 'log'}">Log</button><button type="button" data-act="tab-chat" aria-selected="${S.tab === 'chat'}">Chat${unread ? ` <b>${unread}</b>` : ''}</button></div>` : '';
   const body = online && S.tab === 'chat'
     ? `<div class="chat" id="chatBox">${chat.map(x => `<p class="${x.seat === 0 ? 's0' : x.seat === 1 ? 's1' : 'sw'}"><b>${esc(x.name)}:</b> ${esc(x.text)}</p>`).join('') || '<p class="hint">Say hi.</p>'}</div><form class="chatform" data-form="chat"><input class="text" id="chatIn" maxlength="200" placeholder="Message" autocomplete="off"><button class="cta" type="submit">Send</button></form>`
-    : `<div class="log" id="log" data-n="${S.log.length}">${S.log.slice(-120).map(l => `<p class="${l.kind} ${l.e >= 0 ? (l.e === bottomE() ? 'me' : 'opp') : ''}">${esc(l.text)}</p>`).join('')}</div>`;
+    : `<div class="log" id="log">${S.log.slice(-120).map(l => `<p class="${l.kind} ${l.e >= 0 ? (l.e === bottomE() ? 'me' : 'opp') : ''}">${esc(l.text)}</p>`).join('')}</div>`;
   const watchers = online && S.room && S.room.watchers ? Object.values(S.room.watchers).length : 0;
   return `<div class="cdetail" id="cdetail">${detailHTML()}</div><div class="logchat">${tabs}${body}</div>${online ? `<p class="tiny-note">${watchers ? `${watchers} watching. ` : ''}Spectator link: <button class="linkish" type="button" data-act="copy-watch">copy</button></p>` : ''}`;
 }
@@ -718,7 +684,7 @@ function openInfo(key, code) {
   const c = card(code); if (!c) return;
   let live = '';
   if (key) { const [p, l, s] = key.split(':').map(Number); const q = at({ controller: p, location: l, sequence: s }); if (q && l === LOC.MZONE) live = `<p class="d-stats">Now: ATK ${q.attack} / DEF ${q.defense}, ${POSNAME[q.position] || ''}${q.position & 10 ? '' : ''}</p>`; if (q) live += `<p class="d-stats">${p === bottomE() ? 'Yours' : `${esc(P(p))}’s`}, ${LOCNAME[l] || ''}</p>`; }
-  $('#infoBody').innerHTML = `<img class="i-img" src="${imgFor(code)}" alt="" onerror="this.remove()"><div><h2>${esc(c.name.replace(/ \((GOAT|Pre-Errata)\)$/, ''))}</h2>${c.type & 1 ? `<p class="d-stats">${c.type & 0x800000 ? 'Rank' : 'Level'} ${c.level} · ATK ${c.attack < 0 ? '?' : c.attack} / DEF ${c.defense < 0 ? '?' : c.defense}</p>` : ''}${live}${textBlock(code)}</div>`;
+  $('#infoBody').innerHTML = `<img class="i-img" src="${imgFor(code)}" alt="" onerror="this.remove()"><div><h2>${esc(c.name)}</h2>${c.type & 1 ? `<p class="d-stats">${c.type & 0x800000 ? 'Rank' : 'Level'} ${c.level} · ATK ${c.attack < 0 ? '?' : c.attack} / DEF ${c.defense < 0 ? '?' : c.defense}</p>` : ''}${live}<p class="d-text">${esc(c.desc)}</p></div>`;
   $('#info').hidden = false;
 }
 function bindAnnounce(m) {
@@ -903,7 +869,7 @@ async function reportMatch(r) {
 function toast(msg) { const t = $('#toast'); t.textContent = msg; t.hidden = false; clearTimeout(toast._t); toast._t = setTimeout(() => t.hidden = true, 3200); }
 document.addEventListener('click', async e => {
   const t = e.target;
-  const r = t.closest('[data-r]'); if (r) { if (r.closest('#pop') && !popStillValid()) { closePop(); toast('The game moved on. Tap the card again.'); return; } answer(dec(r.dataset.r), r.closest('#pop') && S.pop ? S.pop.code : 0); return; }
+  const r = t.closest('[data-r]'); if (r) { answer(dec(r.dataset.r)); return; }
   const a = t.closest('[data-act]')?.dataset.act;
   if (a) {
     if (a === 'start-solo') return startSolo();
@@ -929,10 +895,10 @@ document.addEventListener('click', async e => {
   }
   const pi = t.closest('[data-pi]'); if (pi) { pickClick(+pi.dataset.pi); return; }
   const pk = t.closest('[data-pick]'); if (pk) { pickConfirm(pk.dataset.pick); return; }
-  const vk = t.closest('[data-vkey]'); if (vk) { S.focusCode = +vk.dataset.code || S.focusCode; const acts = actionMap().get(vk.dataset.vkey); if (acts && acts.length) { S.menu = vk.dataset.vkey; S.menuSeq = S.promptSeq; S.menuCode = +vk.dataset.code || 0; openViewer(S.viewer.e, S.viewer.loc); } else { const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } return; }
+  const vk = t.closest('[data-vkey]'); if (vk) { S.focusCode = +vk.dataset.code || S.focusCode; const acts = actionMap().get(vk.dataset.vkey); if (acts && acts.length) { S.menu = vk.dataset.vkey; openViewer(S.viewer.e, S.viewer.loc); } else { const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } return; }
   const pl = t.closest('[data-pile]'); if (pl) { const [p, l] = pl.dataset.pile.split(':').map(Number); openViewer(p, l); return; }
   if (t.closest('#pop')) return;
-  const dc = t.closest('#board .dcard'); if (dc) { if (dc.dataset.code) { S.focusCode = +dc.dataset.code; const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } const acts = actionMap().get(dc.dataset.key); if (acts && acts.length) { S.pop = { key: dc.dataset.key, code: +dc.dataset.code || 0, seq: S.promptSeq, x: e.clientX || null, y: e.clientY || null }; renderPop(); } else closePop(); return; }
+  const dc = t.closest('#board .dcard'); if (dc) { if (dc.dataset.code) { S.focusCode = +dc.dataset.code; const d = $('#cdetail'); if (d) d.innerHTML = detailHTML(); } const acts = actionMap().get(dc.dataset.key); if (acts && acts.length) { S.pop = { key: dc.dataset.key, x: e.clientX || null, y: e.clientY || null }; renderPop(); } else closePop(); return; }
   if (S.pop) closePop();
   if (t.closest('.modal') && !t.closest('.sheet')) { if (t.closest('#viewer')) { S.viewer = null; closeModal('#viewer'); } if (t.closest('#info')) closeModal('#info'); }
 });
@@ -954,14 +920,14 @@ function drTarget(x, y) {
 function drStart(x, y) { const r = DR.el.getBoundingClientRect(); DR.ox = x - r.left; DR.oy = y - r.top; const g = DR.el.cloneNode(true); g.classList.add('drag-ghost'); g.style.width = r.width + 'px'; document.body.appendChild(g); DR.ghost = g; DR.started = true; DR.el.classList.add('dragging'); document.body.classList.add('is-dragging'); drMove(x, y); }
 function drMove(x, y) { DR.ghost.style.transform = `translate(${x - DR.ox}px, ${y - DR.oy}px) rotate(4deg) scale(1.08)`; document.querySelectorAll('.drop-on,.drop-before').forEach(el => el.classList.remove('drop-on', 'drop-before')); const t = drTarget(x, y); if (t.hand) t.hand.classList.add('drop-on'); if (t.before) t.before.classList.add('drop-before'); if (t.field) t.field.classList.add('drop-on'); }
 function drFinish(x, y) {
-  const t = drTarget(x, y); const el = DR.el; const key = el.dataset.key; const e = +key.split(':')[0]; const code = +el.dataset.code || 0; const seq = DR.seq;
+  const t = drTarget(x, y); const el = DR.el; const key = el.dataset.key; const e = +key.split(':')[0];
   drCancel(); DR.swallow = true; setTimeout(() => { DR.swallow = false; }, 60);
   if (t.hand) { const cards = [...t.hand.querySelectorAll('.dcard')].filter(c => c !== el); const at = t.before ? cards.indexOf(t.before) : cards.length; cards.splice(at < 0 ? cards.length : at, 0, el); S.handOrder[e] = cards.map(c => { const [p, l, s] = c.dataset.key.split(':').map(Number); return S.field[p].hand[s].code; }); render(); }
-  else if (t.field) { const c = cardAt(key); if (seq !== S.promptSeq || !c || (code && c.code !== code)) { toast('The game moved on. Drag the card again.'); return; } const acts = actionMap().get(key); if (el.dataset.code) S.focusCode = +el.dataset.code; if (acts && acts.length) { S.pop = { key, code, seq, x, y }; renderPop(); } else toast('That card can’t be played right now.'); }
+  else if (t.field) { const acts = actionMap().get(key); if (el.dataset.code) S.focusCode = +el.dataset.code; if (acts && acts.length) { S.pop = { key, x, y }; renderPop(); } else toast('That card can’t be played right now.'); }
 }
 document.addEventListener('pointerdown', e => {
   if (e.button > 0) return; const c = e.target.closest('[data-hand] .dcard'); if (!c || !S.h) return;
-  drCancel(); Object.assign(DR, { el: c, sx: e.clientX, sy: e.clientY, id: e.pointerId, touch: e.pointerType !== 'mouse', started: false, seq: S.promptSeq });
+  drCancel(); Object.assign(DR, { el: c, sx: e.clientX, sy: e.clientY, id: e.pointerId, touch: e.pointerType !== 'mouse', started: false });
   if (DR.touch) { DR.timer = setTimeout(() => { if (DR.el) drStart(DR.sx, DR.sy); }, 300); }
 });
 document.addEventListener('pointermove', e => { if (!DR.el || e.pointerId !== DR.id) return; if (!DR.started) { const d = Math.hypot(e.clientX - DR.sx, e.clientY - DR.sy); if (DR.touch) { if (d > 10) drCancel(); return; } if (d < 6) return; drStart(e.clientX, e.clientY); } drMove(e.clientX, e.clientY); });
@@ -973,6 +939,4 @@ document.addEventListener('click', e => { if (DR.swallow) { e.stopPropagation();
 let lp = null;
 document.addEventListener('touchstart', e => { const dc = e.target.closest('.dcard,.pcard'); if (!dc || !dc.dataset.code || dc.closest('[data-hand]')) return; clearTimeout(lp); lp = setTimeout(() => openInfo(dc.dataset.key, +dc.dataset.code), 550); }, { passive: true });
 ['touchend', 'touchmove', 'touchcancel'].forEach(n => document.addEventListener(n, () => clearTimeout(lp), { passive: true }));
-// a card picture that fails to load (tokens have none) shows the card's name instead
-document.addEventListener('error', e => { const img = e.target; if (img && img.tagName === 'IMG' && img.dataset && img.dataset.alt !== undefined && img.isConnected) { const s = document.createElement('span'); s.className = 'tname'; s.textContent = img.dataset.alt; img.replaceWith(s); } }, true);
 boot();
