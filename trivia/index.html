@@ -1,0 +1,2285 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Trivia Night</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%230a1fd4'/%3E%3Ctext x='32' y='48' font-family='Impact,Arial Narrow,sans-serif' font-size='44' text-anchor='middle' fill='%23ffc72c'%3E%3F%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&family=Merriweather:wght@700;900&display=swap">
+<style>
+:root{
+  --blue:#0a1fd4;--blue-deep:#06127e;--blue-hi:#2440ff;--gold:#ffc72c;
+  --room:#0c1022;--desk:#141933;--desk-2:#1c2244;--desk-3:#252c57;--wire:#2a3262;
+  --ink:#e8eaf7;--ink-2:#a1a8cf;--ink-3:#6f77a3;--ok:#36d07f;--bad:#ff5a5f;--onair:#ff3b30;
+  --f-num:"Anton",Impact,"Arial Narrow Bold",sans-serif;
+  --f-cond:"Barlow Condensed","Roboto Condensed","Arial Narrow",sans-serif;
+  --f-ui:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --f-clue:"Merriweather",Georgia,"Times New Roman",serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--room);color:var(--ink);font:400 15px/1.45 var(--f-ui);-webkit-font-smoothing:antialiased}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+a{color:inherit}
+:focus-visible{outline:2px solid var(--gold);outline-offset:2px}
+.hidden{display:none!important}
+.grow{flex:1}
+.ic{fill:currentColor;flex:none;display:block}
+.boot{display:flex;align-items:center;justify-content:center;height:100vh;color:var(--ink-2)}
+
+/* buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;height:36px;padding:0 14px;border-radius:7px;border:1px solid var(--wire);background:var(--desk-2);color:var(--ink);font-weight:600;font-size:14px;line-height:1;white-space:nowrap;text-decoration:none;transition:background-color .12s,border-color .12s,color .12s}
+.btn:hover{background:var(--desk-3);border-color:#3a4486}
+.btn:disabled{opacity:.42;cursor:default;pointer-events:none}
+.btn.sm{height:30px;padding:0 10px;font-size:13px;border-radius:6px}
+.btn.big{height:48px;padding:0 22px;font-size:17px}
+.btn.wide{width:100%}
+.btn.icon{width:36px;padding:0}
+.btn.sm.icon{width:30px}
+.btn.ghost{background:transparent;border-color:transparent;color:var(--ink-2)}
+.btn.ghost:hover{background:var(--desk-2);color:var(--ink)}
+.btn.primary{background:var(--gold);border-color:var(--gold);color:#1b1400}
+.btn.primary:hover{background:#ffd65c;border-color:#ffd65c}
+.btn.ok{background:#11402a;border-color:#1d6a45;color:#c6f6dc}
+.btn.ok:hover{background:#175236}
+.btn.bad{background:#46171c;border-color:#7b2930;color:#ffd0d2}
+.btn.bad:hover{background:#5a1d23}
+.btn.danger{color:#ff9ea1}
+.kbd{display:inline-block;margin-left:3px;padding:2px 5px;border-radius:4px;border:1px solid currentColor;opacity:.6;font-size:11px;font-weight:600;line-height:1.1}
+
+/* fields */
+.txt{width:100%;background:var(--room);border:1px solid var(--wire);border-radius:8px;color:var(--ink);padding:9px 12px;line-height:1.45}
+input.txt{height:38px;padding:0 12px}
+.txt:focus{outline:none;border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,199,44,.15)}
+textarea.txt{resize:vertical;min-height:110px}
+.txt.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:13px}
+.txt.tall{min-height:300px}
+.txt.short{width:84px}
+.field{display:flex;flex-direction:column;gap:6px}
+.field>span{font-size:13px;font-weight:600;color:var(--ink-2)}
+.hint{margin:0;color:var(--ink-2);font-size:13.5px}
+.small{font-size:12.5px}
+select{background:var(--desk-2);border:1px solid var(--wire);border-radius:6px;height:30px;padding:0 6px;font-size:13px}
+
+/* editor */
+.topbar{position:sticky;top:0;z-index:20;display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:10px 20px;background:rgba(12,16,34,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--wire)}
+.brand{font:400 25px/1 var(--f-num);color:var(--gold);text-shadow:2px 2px 0 #000;margin-right:10px;white-space:nowrap}
+.game-pick{height:36px;min-width:160px;max-width:280px;padding:0 10px;border-radius:7px;font-size:14px;font-weight:600}
+.editor{max-width:1440px;margin:0 auto;padding:26px 20px 90px}
+.title-in{width:100%;background:transparent;border:0;border-bottom:2px solid var(--wire);padding:4px 0 8px;font:700 38px/1.15 var(--f-cond);color:#fff}
+.title-in:focus{outline:none;border-bottom-color:var(--gold)}
+.meta{display:flex;flex-wrap:wrap;gap:6px 22px;margin:12px 0 18px;color:var(--ink-2);font-size:14px}
+.meta .err{color:#ffb4b6}
+.egrid-wrap{overflow-x:auto;padding-bottom:6px}
+.egrid{display:grid;gap:6px;padding:6px;background:#000;border-radius:8px;width:100%;min-width:min-content}
+.egrid>*{min-width:0}
+.eg-corner{display:flex;align-items:flex-end;justify-content:center;padding:8px;border-radius:4px;background:var(--room);color:var(--ink-3);font-size:12.5px;font-weight:600}
+.eg-cat{position:relative;display:flex;align-items:center;min-height:80px;padding:8px 26px 8px 8px;border-radius:3px;background:var(--blue)}
+.cat-in{width:100%;height:60px;padding:2px;background:transparent;border:0;resize:none;overflow:hidden;text-align:center;color:#fff;font:700 19px/1.12 var(--f-cond);text-transform:uppercase;text-shadow:2px 2px 0 #000}
+.cat-in::placeholder{color:rgba(255,255,255,.45);text-shadow:none}
+.cat-in:focus{outline:none;background:rgba(0,0,0,.25);border-radius:4px}
+.eg-more{position:absolute;top:4px;right:3px;display:flex;align-items:center;justify-content:center;width:22px;height:22px;border:0;border-radius:4px;background:transparent;color:rgba(255,255,255,.75)}
+.eg-more:hover{background:rgba(0,0,0,.35);color:#fff}
+.eg-row{position:relative;display:flex;align-items:center;justify-content:center;padding:6px 24px 6px 6px;border-radius:4px;background:var(--room)}
+.eg-row .eg-more{color:var(--ink-3)}
+.pts-in{width:100%;height:36px;padding:0 4px;text-align:center;background:var(--desk-2);border:1px solid var(--wire);border-radius:6px;color:var(--gold);font:400 20px/1 var(--f-num);-moz-appearance:textfield}
+.pts-in::-webkit-inner-spin-button,.pts-in::-webkit-outer-spin-button,.pscore::-webkit-inner-spin-button,.pscore::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
+.pts-in:focus{outline:none;border-color:var(--gold)}
+.ecell{position:relative;display:flex;flex-direction:column;gap:5px;min-height:108px;padding:9px 10px;border:0;border-radius:3px;background:var(--blue);color:#fff;text-align:left;transition:background-color .12s}
+.ecell:hover{background:var(--blue-hi)}
+.ec-top{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.ec-pts{font:400 21px/1 var(--f-num);color:var(--gold);text-shadow:2px 2px 0 #000}
+.ec-pts sup{margin-left:2px;font:600 11px var(--f-ui);color:#fff;vertical-align:top}
+.ec-q{font-size:13px;line-height:1.32;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ec-a{font-size:12px;color:#bfc8ff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ec-a.warn{color:#ffd27a}
+.ecell.empty{background:var(--blue-deep);box-shadow:inset 0 0 0 1px rgba(120,140,255,.28)}
+.ecell.empty:hover{background:#0b1aa8}
+.ecell.empty .ec-q{color:#93a0ee}
+.badges{display:flex;gap:4px}
+.badge{display:inline-flex;align-items:center;justify-content:center;height:18px;min-width:18px;padding:0 4px;border-radius:4px;background:rgba(0,0,0,.4);font:700 10.5px/1 var(--f-ui);color:#fff}
+.badge.dd{background:var(--gold);color:#1b1400}
+.eg-add{display:flex;align-items:center;justify-content:center;gap:8px;min-height:44px;border:1px dashed #3a4486;border-radius:4px;background:transparent;color:var(--ink-2);font-weight:600;font-size:14px}
+.eg-add:hover{border-color:var(--gold);color:var(--gold)}
+.eg-add:disabled{opacity:.35;pointer-events:none}
+.ed-settings{display:flex;flex-wrap:wrap;align-items:center;gap:14px 28px;margin-top:26px;padding:16px 18px;border:1px solid var(--wire);border-radius:10px;background:var(--desk)}
+.es-item{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-2)}
+.ed-settings .hint{flex-basis:100%}
+
+/* menu */
+.menu{position:fixed;z-index:100;min-width:200px;padding:6px;border-radius:8px;background:var(--desk);border:1px solid var(--wire);box-shadow:0 12px 32px rgba(0,0,0,.5)}
+.menu button{display:flex;width:100%;padding:8px 10px;border:0;border-radius:5px;background:none;text-align:left;font-size:14px}
+.menu button:hover,.menu button:focus-visible{background:var(--desk-2)}
+.menu button:disabled{opacity:.4;cursor:default;background:none}
+.menu button.danger{color:#ff9ea1}
+.menu hr{margin:4px 0;border:0;border-top:1px solid var(--wire)}
+
+/* modals */
+.modal-bg{position:fixed;inset:0;z-index:50;display:flex;align-items:flex-start;justify-content:center;padding:5vh 16px;overflow-y:auto;background:rgba(4,6,16,.74)}
+.modal{width:min(1060px,100%);border-radius:12px;background:var(--desk);border:1px solid var(--wire);box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.modal.narrow{width:min(680px,100%)}
+.modal-head{display:flex;align-items:center;gap:6px;padding:12px 14px 12px 20px;border-bottom:1px solid var(--wire)}
+.mh-title{display:flex;align-items:baseline;gap:12px;min-width:0}
+.mh-title b{font:700 22px/1.2 var(--f-cond);text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mh-plain{font:700 18px/1.2 var(--f-ui)}
+.mh-pts{font:400 22px/1 var(--f-num);color:var(--gold)}
+.modal-body{padding:20px}
+.modal-body.stack{display:flex;flex-direction:column;gap:12px}
+.modal-foot{display:flex;align-items:center;gap:10px;padding:12px 20px;border-top:1px solid var(--wire)}
+.dlg-title{margin:0 0 6px;font:700 20px/1.2 var(--f-ui)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.side{display:flex;flex-direction:column;gap:8px;padding:14px;border-radius:10px;background:var(--room);border:1px solid var(--wire)}
+.side.drag{border-color:var(--gold);box-shadow:0 0 0 3px rgba(255,199,44,.15)}
+.side h4{margin:0;font:700 17px/1.2 var(--f-ui)}
+.side[data-side="a"] h4{color:var(--gold)}
+.side .txt{background:var(--desk)}
+.mlist{display:flex;flex-direction:column;gap:8px}
+.mlist:empty{display:none}
+.mitem{display:grid;grid-template-columns:56px minmax(0,1fr) auto auto;gap:10px;align-items:center;padding:6px;border-radius:8px;background:var(--desk);border:1px solid var(--wire)}
+.mthumb{display:flex;align-items:center;justify-content:center;width:56px;height:40px;border-radius:5px;background:#000 center/cover no-repeat;color:var(--ink-2)}
+.mkind{font-size:13px;font-weight:700}
+.msrc{font-size:12px;color:var(--ink-2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.madd{display:flex;gap:6px}
+.madd .txt{height:34px;font-size:13.5px}
+.opts{display:flex;flex-wrap:wrap;align-items:center;gap:14px 30px;margin:18px 0 10px}
+.chk{display:flex;align-items:center;gap:10px;font-weight:600;cursor:pointer}
+.chk input{width:18px;height:18px;accent-color:var(--gold)}
+.chk em{margin-left:4px;font-style:normal;font-weight:400;font-size:13px;color:var(--ink-2)}
+.pts-over{display:flex;align-items:center;gap:10px;font-size:14px;color:var(--ink-2)}
+.pts-over .txt{width:110px}
+.mnote{min-height:20px;font-size:13px;color:#ffd27a}
+.imp-row{display:flex;align-items:center;gap:12px}
+.app-toast{position:fixed;left:50%;bottom:24px;z-index:90;padding:10px 18px;border-radius:8px;background:#000;border:1px solid var(--wire);font-weight:600;box-shadow:0 10px 30px rgba(0,0,0,.5);transform:translateX(-50%);animation:appToast 2.4s ease forwards}
+@keyframes appToast{0%{opacity:0;transform:translate(-50%,10px)}10%,80%{opacity:1;transform:translate(-50%,0)}100%{opacity:0}}
+@media (max-width:820px){.two{grid-template-columns:1fr}.topbar{padding:10px 12px}.editor{padding:18px 12px 80px}}
+
+/* host console */
+.host{display:grid;grid-template-columns:minmax(0,1fr) 384px;height:100vh;height:100dvh}
+.host-main{display:flex;flex-direction:column;gap:10px;min-width:0;min-height:0;padding:12px 14px 14px}
+.host-top{display:flex;align-items:center;gap:12px;min-width:0}
+.ht-title{min-width:0;font:700 20px/1.2 var(--f-cond);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ht-hint{color:var(--ink-3);font-size:13px;white-space:nowrap}
+.monitor{position:relative;flex:1;min-height:0;border-radius:8px;overflow:hidden;background:#000;box-shadow:0 0 0 1px var(--wire)}
+.hpanel{overflow-y:auto;background:var(--desk);border-left:1px solid var(--wire)}
+.hp-sec{display:flex;flex-direction:column;gap:10px;padding:16px 18px;border-bottom:1px solid var(--wire)}
+.hp-sec h3{display:flex;align-items:center;gap:8px;margin:0;font:700 15px/1.2 var(--f-ui)}
+.hp-h3row{display:flex;align-items:center;justify-content:space-between}
+.hp-muted{margin:0;color:var(--ink-2);font-size:13.5px}
+.hp-btns{display:flex;flex-wrap:wrap;gap:8px}
+.hp-live{display:flex;align-items:center;justify-content:space-between;gap:10px}
+.onair{display:inline-flex;align-items:center;gap:8px;height:26px;padding:0 10px;border-radius:4px;background:#2b0e11;border:1px solid #6b2027;color:#ff9d97;font:700 13px/1 var(--f-ui)}
+.onair i{width:8px;height:8px;border-radius:50%;background:var(--onair);box-shadow:0 0 8px var(--onair)}
+.onair.off{background:var(--desk-2);border-color:var(--wire);color:var(--ink-2)}
+.onair.off i{background:var(--ink-3);box-shadow:none}
+.onair.wait i{background:#ffb020;box-shadow:0 0 8px #ffb020}
+.hp-viewers{color:var(--ink-2);font-size:13px;text-align:right}
+.hp-code{display:flex;align-items:baseline;gap:10px}
+.hp-code span{color:var(--ink-2);font-size:13px}
+.hp-code b{font:400 34px/1 var(--f-num);letter-spacing:.05em;color:#fff}
+.hp-note{margin:0;font-size:13px;color:#ffd27a}
+.hp-who summary{cursor:pointer;color:var(--ink-2);font-size:13.5px}
+.hp-who ul{margin:6px 0 0;padding-left:18px;color:var(--ink-2);font-size:13.5px}
+.hp-cluehead{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.hp-cluehead b{font:700 18px/1.15 var(--f-cond);text-transform:uppercase}
+.hp-cluehead span{font:400 22px/1 var(--f-num);color:var(--gold);white-space:nowrap}
+.answer-box{display:flex;flex-direction:column;gap:6px;padding:12px 14px;border-radius:10px;background:#0b0e1f;border:1px solid #4a3c0c}
+.ab-label{font-size:12.5px;font-weight:700;color:#c9a53a}
+.ab-ans{font:900 21px/1.3 var(--f-clue);color:var(--gold);overflow-wrap:anywhere}
+.ab-ans em{font:italic 500 15px var(--f-ui);color:var(--ink-2)}
+.ab-extra{font-size:12.5px;color:var(--ink-2)}
+.ab-q{padding-top:8px;border-top:1px solid var(--wire);font-size:13.5px;color:var(--ink-2);overflow-wrap:anywhere}
+.hp-row{display:flex;flex-wrap:wrap;align-items:center;gap:6px}
+.hp-lbl{display:inline-flex;align-items:center;gap:6px;margin-right:4px;color:var(--ink-2);font-size:13px}
+.hp-media{display:flex;flex-direction:column;gap:6px}
+.hp-mrow{display:flex;align-items:center;gap:6px}
+.hp-mrow span{flex:1;font-size:13px;color:var(--ink-2)}
+.tag{padding:4px 7px;border-radius:999px;background:var(--desk-3);color:var(--ink-2);font:600 11.5px/1 var(--f-ui)}
+.tag.ok{background:#11402a;color:#9ff0c4}
+.buzz-list{display:flex;flex-direction:column;gap:4px;margin:0;padding-left:22px}
+.buzz-list li{font-size:14px}
+.buzz-list li:first-child{color:var(--gold);font-weight:700}
+.buzz-list span{margin-left:8px;color:var(--ink-3);font-size:12.5px;font-weight:400}
+.plist{display:flex;flex-direction:column;gap:2px}
+.prow{display:grid;grid-template-columns:18px minmax(0,1fr) 78px auto;gap:6px;align-items:center;padding:4px 6px;border-radius:7px}
+.prow.sel{background:rgba(255,199,44,.1);box-shadow:inset 0 0 0 1px rgba(255,199,44,.4)}
+.prow.buzzed{background:rgba(36,64,255,.25)}
+.pn{text-align:center;font-size:12px;color:var(--ink-3)}
+.pname{min-width:0;height:30px;padding:0 6px;border:1px solid transparent;border-radius:6px;background:transparent;font-weight:600}
+.pname:hover,.pname:focus{outline:none;border-color:var(--wire);background:var(--room)}
+.pscore{width:78px;height:30px;padding:0 8px;text-align:right;border:1px solid var(--wire);border-radius:6px;background:var(--room);color:var(--gold);font:400 18px/1 var(--f-num);-moz-appearance:textfield}
+.pbtns{display:flex;gap:4px}
+.pbtns .btn{gap:3px;padding:0 7px}
+.tgl{position:relative;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:2px 0;font-size:14px;cursor:pointer}
+.tgl input{position:absolute;opacity:0;pointer-events:none}
+.tgl i{position:relative;flex:none;width:34px;height:20px;border-radius:999px;background:var(--desk-3);transition:background-color .15s}
+.tgl i:after{content:"";position:absolute;top:3px;left:3px;width:14px;height:14px;border-radius:50%;background:#cfd3ea;transition:transform .15s}
+.tgl input:checked+i{background:#c79600}
+.tgl input:checked+i:after{transform:translateX(14px);background:#fff}
+.tgl input:focus-visible+i{outline:2px solid var(--gold);outline-offset:2px}
+@media (max-width:1100px){.host{grid-template-columns:1fr;height:auto}.monitor{flex:none;aspect-ratio:16/9}.hpanel{overflow:visible;border-left:0;border-top:1px solid var(--wire)}}
+
+/* stage: designed at 1920x1080, scaled to fit */
+.stage-wrap{position:absolute;inset:0;overflow:hidden;background:#000}
+.stage{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden;transform-origin:0 0;background:#000;color:#fff;font-family:var(--f-cond);--scoresH:0px}
+.board-area{position:absolute;left:0;top:0;right:0;bottom:var(--scoresH)}
+.board{position:absolute;inset:0;display:flex;flex-direction:column;gap:16px;padding:10px;background:#000}
+.cats,.tiles{display:grid;gap:10px}
+.tiles{flex:1;min-height:0}
+.cat,.tile{position:relative;background:var(--blue);box-shadow:inset 0 0 0 3px rgba(255,255,255,.05),inset 0 -26px 46px rgba(0,0,10,.28)}
+.cat{display:flex;align-items:center;justify-content:center;overflow:hidden;padding:10px 14px}
+.cat span{display:block;width:100%;text-align:center;font-weight:700;line-height:1.04;text-transform:uppercase;text-shadow:3px 3px 0 #000;overflow-wrap:break-word}
+.tile{display:flex;align-items:center;justify-content:center;user-select:none}
+.val{font-family:var(--f-num);font-size:var(--valSize,96px);line-height:1;color:var(--gold);text-shadow:5px 5px 0 #000}
+.tile.empty{background:var(--blue-deep)}
+.interactive .tile:not(.empty){cursor:pointer}
+.interactive .tile:not(.done):not(.empty):hover{background:var(--blue-hi)}
+.interactive .tile.done:hover{background:#0c1cb8}
+.tile.kb{box-shadow:inset 0 0 0 7px #fff}
+.board.fill .cat,.board.fill .tile{animation:tileOn .32s steps(2,end) both;animation-delay:var(--d,0s)}
+.board.fill .val{animation:valOn .34s ease-out both;animation-delay:var(--d,0s)}
+@keyframes tileOn{from{background:#020523;box-shadow:none}}
+@keyframes valOn{from{opacity:0;transform:scale(.7)}to{opacity:1;transform:none}}
+.ov{position:absolute;inset:0;z-index:5}
+.clue,.intro,.waiting{background:radial-gradient(ellipse 70% 60% at 50% 42%,rgba(60,90,255,.5),transparent 70%),linear-gradient(#0c22e6,#071399)}
+.clue{display:flex;flex-direction:column;padding:44px 110px 52px;transform-origin:0 0}
+.clue.zoom,.dd.zoom{transition:transform .42s cubic-bezier(.2,.75,.2,1)}
+.interactive .clue,.interactive .dd,.interactive .intro{cursor:pointer}
+.clue-head{flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:20px;height:64px;margin-bottom:20px}
+.ch-cat{font:700 34px/1 var(--f-cond);text-transform:uppercase;color:#d5dbff;text-shadow:2px 2px 0 #000;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ch-right{display:flex;align-items:center;justify-content:flex-end;gap:26px}
+.ch-val,.ch-time{font:400 46px/1 var(--f-num);text-shadow:3px 3px 0 #000;white-space:nowrap}
+.ch-val{color:var(--gold)}
+.ch-time.low{color:#ff8a8d}
+.clue-body{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:center;gap:28px}
+.clue-text,.clue-ans{flex:none;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.clue-text>div,.clue-ans>div{width:100%;text-align:center;font-family:var(--f-clue);font-weight:900;line-height:1.24;text-transform:uppercase;text-shadow:4px 4px 0 #000;overflow-wrap:break-word}
+.clue-ans{border-top:4px solid rgba(255,199,44,.55);padding-top:20px}
+.clue-ans>div{color:var(--gold)}
+.clue-media{flex:none;display:flex;justify-content:center;gap:28px;min-height:0}
+.mbox{flex:1 1 0;min-width:0;height:100%;display:flex;align-items:center;justify-content:center}
+.mbox img,.mbox video{display:block;width:100%;height:100%;object-fit:contain}
+.mbox iframe{display:block;width:min(100%,calc(var(--mh,600px) * 1.7778));height:auto;max-height:100%;aspect-ratio:16/9;border:0;background:#000;box-shadow:0 0 0 4px #000}
+.mbox.spotify iframe{width:min(100%,960px);height:min(352px,100%);aspect-ratio:auto;border-radius:12px}
+.aud{display:flex;flex-direction:column;align-items:center;gap:26px;width:min(100%,960px)}
+.aud .ic{color:var(--gold);filter:drop-shadow(6px 6px 0 #000)}
+.aud audio{width:100%}
+.mlink{display:flex;align-items:center;gap:22px;max-width:100%;padding:26px 40px;border-radius:14px;background:rgba(0,0,30,.4);border:3px solid rgba(255,255,255,.3);color:#fff;text-decoration:none;font:700 42px/1.15 var(--f-cond)}
+.mlink span{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mlink .ic{color:var(--gold)}
+.timer{position:absolute;left:0;right:0;top:0;height:12px;background:rgba(0,0,0,.4)}
+.timer i{display:block;height:100%;background:var(--gold);transform-origin:0 50%}
+.timer.out i{background:var(--bad)}
+.timer.out{animation:timeFlash .5s steps(2) 3}
+@keyframes timeFlash{50%{background:var(--bad)}}
+.buzz-pill{display:inline-flex;align-items:center;gap:14px;max-width:860px;height:64px;padding:0 30px 0 22px;border-radius:999px;background:var(--gold);color:#160f00;box-shadow:5px 5px 0 #000;font:700 40px/1 var(--f-cond);text-transform:uppercase;white-space:nowrap;animation:pop .35s cubic-bezier(.2,.9,.3,1.3) both}
+.buzz-pill b{overflow:hidden;text-overflow:ellipsis}
+.buzz-pill small{font:700 26px/1 var(--f-cond);opacity:.65}
+@keyframes pop{from{transform:scale(.5);opacity:0}to{transform:none;opacity:1}}
+.dd{display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transform-origin:0 0;background:radial-gradient(circle at 50% 50%,#2a48ff 0%,#0a1fd4 38%,#040b5e 100%)}
+.rays{position:absolute;left:50%;top:50%;width:3000px;height:3000px;margin:-1500px 0 0 -1500px;background:repeating-conic-gradient(rgba(255,255,255,.07) 0deg 9deg,transparent 9deg 18deg);animation:spin 26s linear infinite}
+.dd h1{position:relative;margin:0;text-align:center;font:400 270px/.93 var(--f-num);text-transform:uppercase;color:var(--gold);text-shadow:12px 12px 0 #000;animation:ddIn 1s cubic-bezier(.2,.9,.25,1.15) both}
+.ddcat{position:relative;margin-top:40px;font:700 50px/1 var(--f-cond);text-transform:uppercase;text-shadow:3px 3px 0 #000}
+@keyframes ddIn{0%{transform:scale(.08) rotate(-24deg);opacity:0}70%{opacity:1}100%{transform:none}}
+@keyframes spin{to{transform:rotate(1turn)}}
+.intro,.waiting{display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;padding:80px 110px}
+.in-title{display:flex;align-items:center;justify-content:center;width:1700px;height:500px}
+.in-title h1{width:100%;margin:0;font:400 180px/.95 var(--f-num);text-transform:uppercase;color:var(--gold);text-shadow:9px 9px 0 #000;overflow-wrap:break-word}
+.in-sub,.w-sub{margin:26px 0 0;font:700 46px/1.2 var(--f-cond);text-shadow:3px 3px 0 #000}
+.in-join{margin-top:64px;font:600 38px/1.3 var(--f-cond);color:#d5dbff}
+.in-join b{color:#fff}
+.w-title{font:400 150px/1 var(--f-num);text-transform:uppercase;color:var(--gold);text-shadow:8px 8px 0 #000}
+.final{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;padding:50px 120px;background:#000}
+.final h1{margin:0;font:400 120px/1 var(--f-num);text-transform:uppercase;color:var(--gold);text-shadow:7px 7px 0 #000}
+.final ol{display:flex;flex-direction:column;gap:14px;width:min(1400px,100%);margin:0;padding:0;list-style:none}
+.final li{display:grid;grid-template-columns:1.6em minmax(0,1fr) auto;align-items:center;gap:.6em;padding:0 .8em;background:var(--blue);box-shadow:6px 6px 0 #222a66;font-weight:700;line-height:1;text-transform:uppercase}
+.final li .nm{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.final li .rk{font-family:var(--f-num);font-weight:400;color:#c6cdfd}
+.final li .pt{font-family:var(--f-num);font-weight:400;color:var(--gold);text-shadow:4px 4px 0 #000}
+.final li.win{background:var(--gold);color:#1b1400;box-shadow:6px 6px 0 #7a5a00}
+.final li.win .rk,.final li.win .pt{color:#1b1400;text-shadow:none}
+.paused{position:absolute;left:50%;top:24px;z-index:12;padding:14px 30px;border-radius:999px;background:rgba(0,0,0,.78);font:700 34px/1 var(--f-cond);transform:translateX(-50%)}
+.confetti{position:absolute;inset:0;z-index:15;pointer-events:none}
+.scores{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;height:var(--scoresH);padding:0 10px 10px;background:#000}
+.scores:empty{display:none}
+.sc{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;background:var(--blue);box-shadow:inset 0 0 0 3px rgba(255,255,255,.05);transition:background-color .2s}
+.sc .nm{max-width:92%;font-weight:700;line-height:1.05;text-transform:uppercase;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:2px 2px 0 #000}
+.sc .pt{font-family:var(--f-num);line-height:1;text-shadow:3px 3px 0 #000}
+.sc .pt.neg{color:#ff9a9c}
+.sc.buzzed{background:var(--blue-hi);box-shadow:inset 0 0 0 5px var(--gold)}
+.sc.flash-ok{animation:flashOk 1s ease-out}
+.sc.flash-bad{animation:flashBad 1s ease-out}
+@keyframes flashOk{0%,30%{background:#16a35c}}
+@keyframes flashBad{0%,30%{background:#c4323a}}
+.toasts{position:absolute;left:0;right:0;top:28px;z-index:20;display:flex;flex-direction:column;align-items:center;gap:12px;pointer-events:none}
+.toast{padding:12px 36px;border-radius:12px;background:#000;box-shadow:0 0 0 5px currentColor;font:400 70px/1 var(--f-num);text-transform:uppercase;animation:toast 1.9s ease-out forwards}
+.toast.ok{color:var(--ok)}
+.toast.bad{color:var(--bad)}
+@keyframes toast{0%{opacity:0;transform:translateY(24px) scale(.92)}12%{opacity:1;transform:none}78%{opacity:1}100%{opacity:0;transform:translateY(-30px)}}
+
+/* display tab and players */
+body.is-screen{overflow:hidden;background:#000}
+.viewer{position:fixed;inset:0;display:flex;flex-direction:column;background:#000}
+.screen-host{position:relative;flex:1;min-height:0}
+.chrome{position:fixed;top:12px;right:12px;z-index:40;display:flex;gap:8px;transition:opacity .3s}
+body.idle .chrome{opacity:0}
+body.idle{cursor:none}
+.pill{display:inline-flex;align-items:center;gap:8px;height:34px;padding:0 12px;border-radius:999px;border:1px solid rgba(255,255,255,.2);background:rgba(0,0,0,.65);color:#fff;font:600 13px/1 var(--f-ui)}
+button.pill{cursor:pointer}
+.pill .dot{width:8px;height:8px;border-radius:50%;background:#ffb020}
+.pill.ok .dot{background:var(--ok)}
+.pill.bad .dot{background:var(--bad)}
+.pbar{flex:none;display:flex;align-items:center;justify-content:center;gap:18px;height:96px;background:#05070f;border-top:1px solid #1d2240}
+.buzzbtn{height:64px;min-width:260px;padding:0 40px;border:0;border-radius:999px;background:var(--bad);color:#fff;font:400 34px/1 var(--f-num);text-transform:uppercase;letter-spacing:.03em;box-shadow:0 6px 0 #8a1f25}
+.buzzbtn:active:not(:disabled){transform:translateY(4px);box-shadow:0 2px 0 #8a1f25}
+.buzzbtn:disabled{background:#2a2f4c;color:#7d84ad;box-shadow:0 6px 0 #171a2e;cursor:default}
+.buzzbtn.first{background:var(--gold);color:#1b1400;box-shadow:0 6px 0 #8a6a00}
+.pbar-note{min-width:190px;color:var(--ink-2);font-size:15px}
+.cover{position:fixed;inset:0;z-index:60;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:24px;text-align:center;background:rgba(0,0,0,.62)}
+.cover p{max-width:460px;margin:0;color:#e3e6f7}
+.nudge{position:absolute;left:50%;bottom:24px;z-index:45;transform:translateX(-50%)}
+.join-screen{display:flex;align-items:center;justify-content:center;min-height:100vh;min-height:100dvh;padding:24px;background:radial-gradient(ellipse at 50% 30%,#1a32f0,#060f80 60%,#02052e)}
+.join-card{display:flex;flex-direction:column;gap:16px;width:min(420px,100%);padding:28px;border-radius:14px;background:var(--desk);border:1px solid var(--wire);box-shadow:0 30px 80px rgba(0,0,0,.5)}
+.jc-brand{font:400 22px/1 var(--f-num);color:var(--gold)}
+.join-card h1{margin:0;font:700 34px/1.1 var(--f-cond);color:#fff}
+.room{font:400 22px/1 var(--f-num);letter-spacing:.06em;color:#fff}
+@media (prefers-reduced-motion:reduce){.clue.zoom,.dd.zoom{transition:none}.board.fill .cat,.board.fill .tile,.board.fill .val,.dd h1,.rays,.toast,.buzz-pill,.sc.flash-ok,.sc.flash-bad,.timer.out,.app-toast{animation:none!important}}
+
+</style>
+</head>
+<body>
+<div id="app"><div class="boot">Loading</div></div>
+<script>
+/* Trivia Night: a Jeopardy-style board with a host console, a display tab and live join links.
+   Games are saved in this browser (IndexedDB). Live join uses PeerJS (WebRTC); the display tab
+   talks to the host tab through BroadcastChannel. No server or account needed. */
+(() => {
+'use strict';
+
+const PEER_PREFIX = 'amx-trivia-';
+const BC_NAME = 'amx-trivia-local';
+const PEER_SRC = [
+  'https://cdnjs.cloudflare.com/ajax/libs/peerjs/1.5.5/peerjs.min.js',
+  'https://cdn.jsdelivr.net/npm/peerjs@1.5.5/dist/peerjs.min.js'
+];
+const CODE_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const MAX_COLS = 12, MAX_ROWS = 10, MAX_PLAYERS = 16;
+const W = 1920, H = 1080;
+const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
+const IS_FILE = location.protocol === 'file:';
+
+/* ---------- helpers ---------- */
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => Array.from(r.querySelectorAll(s));
+const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(36).slice(-5);
+const clone = o => JSON.parse(JSON.stringify(o));
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const debounce = (fn, ms) => { let t; const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; d.flush = () => { clearTimeout(t); fn(); }; return d; };
+const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const randCode = (n = 6) => { const a = new Uint32Array(n); crypto.getRandomValues(a); return Array.from(a, x => CODE_CHARS[x % CODE_CHARS.length]).join(''); };
+const fmtNum = n => String(Math.round(+n || 0));
+const fmtScore = (n, pre) => (n < 0 ? '\u2212' : '') + (pre || '') + Math.abs(Math.round(+n || 0)).toLocaleString('en-US');
+const snippet = (s, n = 90) => { const t = String(s || '').replace(/\s+/g, ' ').trim(); return t.length > n ? t.slice(0, n - 1) + '\u2026' : t; };
+const slug = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+const fmtBytes = b => b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
+const safeSrc = s => /^(https?:\/\/|data:(image|audio|video)\/)/i.test(String(s || '').trim());
+const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+
+function richText(s) {
+  const str = String(s || ''); let out = '', last = 0, m;
+  const re = /https?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;
+  while ((m = re.exec(str))) {
+    out += esc(str.slice(last, m.index)) + `<a href="${esc(m[0])}" target="_blank" rel="noopener">${esc(m[0])}</a>`;
+    last = m.index + m[0].length;
+  }
+  return (out + esc(str.slice(last))).replace(/\n/g, '<br>');
+}
+
+/* Largest font size (px) that keeps node inside boxW x boxH. node must be a block that fills boxW. */
+function fitText(node, max, min, boxW, boxH) {
+  const ok = () => node.scrollWidth <= boxW + 1 && node.scrollHeight <= boxH + 1;
+  node.style.fontSize = max + 'px';
+  if (ok()) return max;
+  let lo = min, hi = max, best = min;
+  for (let i = 0; i < 10; i++) {
+    const mid = (lo + hi) / 2;
+    node.style.fontSize = mid + 'px';
+    if (ok()) { best = mid; lo = mid; } else hi = mid;
+  }
+  node.style.fontSize = Math.floor(best) + 'px';
+  return best;
+}
+
+function copyText(text) {
+  if (navigator.clipboard && window.isSecureContext) return navigator.clipboard.writeText(text).catch(() => legacyCopy(text));
+  return Promise.resolve(legacyCopy(text));
+}
+function legacyCopy(text) {
+  const t = document.createElement('textarea'); t.value = text; t.style.position = 'fixed'; t.style.opacity = '0';
+  document.body.appendChild(t); t.select();
+  try { document.execCommand('copy'); } catch (e) {}
+  t.remove();
+}
+function flashMsg(text) {
+  $$('.app-toast').forEach(n => n.remove());
+  const d = document.createElement('div'); d.className = 'app-toast'; d.setAttribute('role', 'status'); d.textContent = text;
+  document.body.appendChild(d); setTimeout(() => d.remove(), 2500);
+}
+function loadScript(src) {
+  return new Promise((res, rej) => {
+    const s = document.createElement('script'); s.src = src; s.async = true; s.crossOrigin = 'anonymous';
+    s.onload = res; s.onerror = () => { s.remove(); rej(new Error('load failed: ' + src)); };
+    document.head.appendChild(s);
+  });
+}
+let peerLoading = null;
+function loadPeerJS() {
+  if (window.Peer) return Promise.resolve();
+  if (!peerLoading) {
+    peerLoading = (async () => {
+      for (const src of PEER_SRC) { try { await loadScript(src); if (window.Peer) return; } catch (e) {} }
+      throw new Error('PeerJS did not load');
+    })();
+    peerLoading.catch(() => { peerLoading = null; });
+  }
+  return peerLoading;
+}
+function toggleFullscreen() {
+  const d = document;
+  try {
+    if (d.fullscreenElement || d.webkitFullscreenElement) (d.exitFullscreen || d.webkitExitFullscreen).call(d);
+    else { const e = d.documentElement; (e.requestFullscreen || e.webkitRequestFullscreen).call(e); }
+  } catch (e) {}
+}
+function idleCursor() {
+  let t = 0;
+  const wake = () => { document.body.classList.remove('idle'); clearTimeout(t); t = setTimeout(() => document.body.classList.add('idle'), 2600); };
+  ['mousemove', 'pointerdown', 'keydown', 'touchstart'].forEach(ev => addEventListener(ev, wake, { passive: true }));
+  wake();
+}
+
+/* ---------- icons (24px grid, filled) ---------- */
+const ICONS = {
+  play: 'M8 5v14l11-7z',
+  pause: 'M6 5h4v14H6zm8 0h4v14h-4z',
+  restart: 'M12 6V3L7 7l5 4V8a4 4 0 1 1-4 4H6a6 6 0 1 0 6-6z',
+  plus: 'M11 5h2v6h6v2h-6v6h-2v-6H5v-2h6z',
+  minus: 'M5 11h14v2H5z',
+  x: 'M6.4 5 5 6.4 10.6 12 5 17.6 6.4 19l5.6-5.6 5.6 5.6 1.4-1.4-5.6-5.6L19 6.4 17.6 5 12 10.6z',
+  check: 'M9.5 16.2 5.3 12l-1.4 1.4L9.5 19 21 7.5l-1.4-1.4z',
+  dots: '<circle cx="5" cy="12" r="2"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="12" r="2"/>',
+  copy: 'M8 3h11a2 2 0 0 1 2 2v11h-2V5H8zM5 7h10a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2zm0 2v10h10V9z',
+  ext: 'M14 3h7v7h-2V6.4l-9.3 9.3-1.4-1.4L17.6 5H14zM5 5h6v2H5v12h12v-6h2v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2z',
+  vol: 'M3 9v6h4l5 5V4L7 9zm13.5 3A4.5 4.5 0 0 0 14 8v8a4.5 4.5 0 0 0 2.5-4zM14 3.2v2.1a7 7 0 0 1 0 13.4v2.1a9 9 0 0 0 0-17.6z',
+  mute: 'M3 9v6h4l5 5V4L7 9zm13.6 3 2.7-2.7-1.4-1.4-2.7 2.7-2.7-2.7-1.4 1.4 2.7 2.7-2.7 2.7 1.4 1.4 2.7-2.7 2.7 2.7 1.4-1.4z',
+  full: 'M4 4h6v2H6v4H4zm10 0h6v6h-2V6h-4zM4 14h2v4h4v2H4zm14 0h2v6h-6v-2h4z',
+  upload: 'M11 16V7.8l-3.3 3.3-1.4-1.4L12 4l5.7 5.7-1.4 1.4L13 7.8V16zM5 18h14v2H5z',
+  chevL: 'M15.4 7.4 14 6l-6 6 6 6 1.4-1.4-4.6-4.6z',
+  chevR: 'M8.6 7.4 10 6l6 6-6 6-1.4-1.4 4.6-4.6z',
+  image: 'M4 5h16a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V6a1 1 0 0 1 1-1zm1 2v9.6l4-4 3 3 4-4 3 3V7zm3.5 1.5a1.5 1.5 0 1 1 0 3 1.5 1.5 0 0 1 0-3z',
+  film: 'M4 4h16v16H4zm2 2v2h2V6zm10 0v2h2V6zM6 10v4h12v-4zm0 6v2h2v-2zm10 0v2h2v-2z',
+  music: 'M19 3v12.5a2.5 2.5 0 1 1-2-2.45V7.3L9 8.9v8.6A2.5 2.5 0 1 1 7 15.05V5z',
+  link: 'M7 7h4v2H7a3 3 0 0 0 0 6h4v2H7A5 5 0 0 1 7 7zm6 0h4a5 5 0 0 1 0 10h-4v-2h4a3 3 0 0 0 0-6h-4zm-5 4h8v2H8z',
+  tv: 'M3 4h18v13H3zm2 2v9h14V6zM8 19h8v2H8z',
+  bolt: 'M13 2 4 14h7l-1 8 9-12h-7z',
+  timer: 'M9 1h6v2H9zm3 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm-1 2h2v5.4l3.3 1.9-1 1.7-4.3-2.4z',
+  undo: 'M8 7V4L3 9l5 5v-3h6a4 4 0 0 1 0 8h-3v2h3a6 6 0 0 0 0-12z',
+  trophy: 'M7 3h10v2h3v3a4 4 0 0 1-4 4h-.4A5 5 0 0 1 13 14.9V18h3v2H8v-2h3v-3.1A5 5 0 0 1 8.4 12H8a4 4 0 0 1-4-4V5h3zm0 4H6v1a2 2 0 0 0 1 1.7zm10 0v2.7A2 2 0 0 0 18 8V7z'
+};
+const icon = (n, s = 18) => {
+  const d = ICONS[n] || '';
+  return `<svg class="ic" viewBox="0 0 24 24" width="${s}" height="${s}" aria-hidden="true">${d.startsWith('<') ? d : `<path d="${d}"/>`}</svg>`;
+};
+
+/* ---------- storage: IndexedDB with an in-memory fallback ---------- */
+const Store = (() => {
+  let dbp = null, broken = false;
+  const mem = new Map();
+  function open() {
+    if (!dbp) {
+      dbp = new Promise((res, rej) => {
+        if (!window.indexedDB) return rej(new Error('no indexedDB'));
+        const r = indexedDB.open('amx-trivia', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('kv');
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+        r.onblocked = () => rej(new Error('blocked'));
+      });
+      dbp.catch(() => { broken = true; });
+    }
+    return dbp;
+  }
+  function run(mode, fn) {
+    return open().then(db => new Promise((res, rej) => {
+      const tx = db.transaction('kv', mode), req = fn(tx.objectStore('kv'));
+      tx.oncomplete = () => res(req ? req.result : undefined);
+      tx.onerror = () => rej(tx.error);
+      tx.onabort = () => rej(tx.error);
+    }));
+  }
+  return {
+    async get(k) { try { return await run('readonly', s => s.get(k)); } catch (e) { return mem.has(k) ? clone(mem.get(k)) : undefined; } },
+    async set(k, v) {
+      try { await run('readwrite', s => s.put(v, k)); }
+      catch (e) { if (broken) { mem.set(k, clone(v)); return; } throw e; }
+    },
+    async del(k) { try { await run('readwrite', s => s.delete(k)); } catch (e) { mem.delete(k); } },
+    get broken() { return broken; }
+  };
+})();
+
+/* ---------- sound effects, synthesized (no audio files) ---------- */
+const SFX = (() => {
+  let ctx = null, out = null;
+  function ac() {
+    if (!ctx) {
+      const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
+      ctx = new C(); out = ctx.createGain(); out.gain.value = 0.28; out.connect(ctx.destination);
+    }
+    if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+    return ctx;
+  }
+  function tone(f, t0, dur, type = 'sine', vol = 1, f2 = 0) {
+    const c = ac(); if (!c) return;
+    const t = c.currentTime + t0, o = c.createOscillator(), g = c.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(vol, t + 0.012); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    o.connect(g); g.connect(out); o.start(t); o.stop(t + dur + 0.05);
+  }
+  function noise(t0, dur, vol = 0.4, freq = 1500) {
+    const c = ac(); if (!c) return;
+    const len = Math.max(1, Math.floor(c.sampleRate * dur)), buf = c.createBuffer(1, len, c.sampleRate), d = buf.getChannelData(0);
+    for (let i = 0; i < len; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / len);
+    const s = c.createBufferSource(), bp = c.createBiquadFilter(), g = c.createGain();
+    s.buffer = buf; bp.type = 'bandpass'; bp.frequency.value = freq; g.gain.value = vol;
+    s.connect(bp); bp.connect(g); g.connect(out); s.start(c.currentTime + t0);
+  }
+  const lib = {
+    open() { noise(0, 0.22, 0.45, 1800); tone(440, 0, 0.18, 'triangle', 0.5, 880); },
+    reveal() { [784, 1047, 1319].forEach((f, i) => tone(f, i * 0.06, 0.4, 'sine', 0.45)); },
+    correct() { [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.075, 0.32, 'triangle', 0.55)); },
+    wrong() { tone(185, 0, 0.55, 'sawtooth', 0.3, 140); tone(175, 0, 0.55, 'square', 0.12, 130); },
+    dd() { for (let i = 0; i < 10; i++) tone(330 * Math.pow(2, i / 6), i * 0.05, 0.22, 'square', 0.16); tone(1320, 0.55, 0.7, 'triangle', 0.4); noise(0, 0.9, 0.22, 3000); },
+    timeup() { tone(233, 0, 1, 'square', 0.25); tone(220, 0, 1, 'sawtooth', 0.18); },
+    buzz() { tone(1046, 0, 0.12, 'square', 0.3); tone(1568, 0.1, 0.16, 'square', 0.25); },
+    tick() { tone(1400, 0, 0.04, 'square', 0.12); },
+    fill() { for (let i = 0; i < 16; i++) tone(600 + Math.random() * 900, i * 0.06, 0.08, 'triangle', 0.22); },
+    win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, i === 5 ? 0.9 : 0.22, 'triangle', 0.5)); }
+  };
+  return { play(n) { try { if (lib[n]) lib[n](); } catch (e) {} }, unlock() { ac(); } };
+})();
+
+/* ---------- game model ---------- */
+const emptyCell = () => ({ q: '', a: '', qm: [], am: [], dd: false, pts: null, played: false });
+const freshLive = () => ({ phase: 'intro', players: [], open: null, seq: 0, history: [] });
+const defaultSettings = () => ({ prefix: '', sfx: true, showScores: true, buzzers: false, autoAdd: true, autoplay: true });
+
+function newGame(nC = 6, nR = 5, title = 'Untitled game') {
+  return {
+    id: uid(), title, created: Date.now(), updated: Date.now(),
+    rows: Array.from({ length: nR }, (_, i) => (i + 1) * 100),
+    cats: Array.from({ length: nC }, () => ({ name: '', cells: Array.from({ length: nR }, emptyCell) })),
+    settings: defaultSettings(), live: freshLive()
+  };
+}
+const cellFilled = cell => !!(cell && (String(cell.q || '').trim() || (cell.qm && cell.qm.length)));
+function cellValue(g, c, r) {
+  const cell = g.cats[c] && g.cats[c].cells[r];
+  if (cell && cell.pts !== null && cell.pts !== '' && cell.pts !== undefined && !isNaN(+cell.pts)) return +cell.pts;
+  return +g.rows[r] || 0;
+}
+
+const KINDS = ['auto', 'image', 'video', 'audio', 'youtube', 'vimeo', 'drive', 'spotify', 'embed', 'link'];
+const KIND_LABEL = { auto: 'Auto', image: 'Image', video: 'Video file', audio: 'Audio file', youtube: 'YouTube', vimeo: 'Vimeo', drive: 'Google Drive', spotify: 'Spotify', embed: 'Web embed', link: 'Link' };
+const KIND_ICON = { image: 'image', video: 'film', youtube: 'film', vimeo: 'film', drive: 'film', audio: 'music', spotify: 'music', embed: 'tv', link: 'link' };
+const PLAYABLE = ['video', 'audio', 'youtube', 'vimeo'];
+
+function normMedia(x, trustKind) {
+  if (!x) return null;
+  if (typeof x === 'string') { const s = x.trim(); return s ? { src: s, kind: 'auto' } : null; }
+  if (typeof x !== 'object') return null;
+  const src = String(x.src || x.url || x.href || '').trim();
+  if (!src) return null;
+  let kind = String(x.kind || x.type || 'auto').toLowerCase();
+  if (!trustKind) kind = (kind === 'link' || kind === 'embed') ? kind : 'auto';
+  if (!KINDS.includes(kind)) kind = 'auto';
+  const m = { src, kind };
+  if (x.name) m.name = String(x.name).slice(0, 120);
+  return m;
+}
+const mediaArr = (v, trust) => (Array.isArray(v) ? v : (v ? [v] : [])).map(x => normMedia(x, trust)).filter(Boolean);
+
+function normCell(x, trust) {
+  const c = emptyCell();
+  if (!x || typeof x !== 'object') return c;
+  c.q = String(x.q ?? x.clue ?? x.question ?? '');
+  c.a = String(x.a ?? x.answer ?? '');
+  c.qm = x.qm !== undefined ? mediaArr(x.qm, trust)
+    : mediaArr([x.media, x.clueMedia, x.image, x.video, x.audio, x.youtube, x.link].flat().filter(Boolean), trust);
+  c.am = mediaArr(x.am ?? x.answerMedia ?? x.answer_media, trust);
+  c.dd = !!(x.dd ?? x.dailyDouble ?? x.daily_double);
+  const p = x.pts;
+  c.pts = (p === null || p === undefined || p === '' || isNaN(+p)) ? null : +p;
+  c.played = !!x.played;
+  return c;
+}
+
+function fixLive(g) {
+  const L = g.live = Object.assign(freshLive(), g.live && typeof g.live === 'object' ? g.live : {});
+  if (!['intro', 'board', 'final'].includes(L.phase)) L.phase = 'intro';
+  L.players = (Array.isArray(L.players) ? L.players : []).filter(p => p && typeof p === 'object').slice(0, MAX_PLAYERS)
+    .map(p => ({ id: String(p.id || uid()), name: String(p.name || 'Player').slice(0, 28), score: Math.round(+p.score || 0), pid: p.pid ? String(p.pid) : null }));
+  L.history = Array.isArray(L.history) ? L.history.slice(-200) : [];
+  L.seq = +L.seq || 0;
+  const o = L.open;
+  if (o && !(o && g.cats[o.c] && cellFilled(g.cats[o.c].cells[o.r]))) L.open = null;
+  return L;
+}
+
+/* Accepts this app's own format (cats/rows) or the simple AI format (categories/clues). */
+function normalizeGame(o) {
+  if (!o || typeof o !== 'object') throw new Error('That isn\u2019t a game file.');
+  if (o.game && typeof o.game === 'object') o = o.game;
+  const g = newGame(0, 0, String(o.title || o.name || 'Imported game').slice(0, 200));
+  if (Array.isArray(o.cats)) {
+    const firstLen = o.cats[0] && Array.isArray(o.cats[0].cells) ? o.cats[0].cells.length : 1;
+    const rows = Array.isArray(o.rows) && o.rows.length ? o.rows : Array.from({ length: firstLen }, (_, i) => (i + 1) * 100);
+    g.rows = rows.map((v, i) => isNaN(+v) ? (i + 1) * 100 : +v);
+    g.cats = o.cats.map(c => ({ name: String((c && c.name) || ''), cells: g.rows.map((_, r) => normCell(c && Array.isArray(c.cells) ? c.cells[r] : null, true)) }));
+    if (o.settings && typeof o.settings === 'object') {
+      for (const k of Object.keys(g.settings)) if (k in o.settings) g.settings[k] = k === 'prefix' ? String(o.settings[k] || '').slice(0, 3) : !!o.settings[k];
+    }
+    if (o.id) g.id = String(o.id);
+    if (o.created) g.created = +o.created || Date.now();
+    if (o.live) g.live = o.live;
+  } else if (Array.isArray(o.categories)) {
+    const cats = o.categories.filter(c => c && typeof c === 'object');
+    const list = c => Array.isArray(c.clues) ? c.clues : Array.isArray(c.questions) ? c.questions : [];
+    const nR = Math.max(1, ...cats.map(c => list(c).length));
+    g.rows = Array.from({ length: nR }, (_, r) => {
+      for (const c of cats) { const v = list(c)[r]; const p = v && +(v.points ?? v.value); if (p) return p; }
+      return (r + 1) * 100;
+    });
+    g.cats = cats.map(c => ({
+      name: String(c.name ?? c.category ?? c.title ?? ''),
+      cells: g.rows.map((rp, r) => {
+        const v = list(c)[r], cell = normCell(v, false), p = v && +(v.points ?? v.value);
+        if (p && p !== rp) cell.pts = p;
+        return cell;
+      })
+    }));
+  } else throw new Error('No categories found. The JSON needs a "categories" list.');
+  if (!g.cats.length) throw new Error('That game has no categories.');
+  g.cats = g.cats.slice(0, MAX_COLS);
+  if (g.rows.length > MAX_ROWS) { g.rows = g.rows.slice(0, MAX_ROWS); g.cats.forEach(c => { c.cells = c.cells.slice(0, MAX_ROWS); }); }
+  fixLive(g);
+  return g;
+}
+
+/* ---------- media links ---------- */
+function urlOf(s) { try { return new URL(String(s).trim()); } catch (e) { return null; } }
+function parseTime(t) {
+  if (!t) return 0;
+  if (/^\d+$/.test(t)) return +t;
+  const m = String(t).match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+  return m ? (+m[1] || 0) * 3600 + (+m[2] || 0) * 60 + (+m[3] || 0) : 0;
+}
+function ytInfo(src) {
+  const u = urlOf(src); if (!u) return null;
+  const h = u.hostname.replace(/^(www|m|music)\./, '');
+  if (!/(^|\.)youtube(-nocookie)?\.com$/.test(h) && h !== 'youtu.be') return null;
+  let id = null;
+  if (h === 'youtu.be') id = u.pathname.split('/')[1];
+  else if (u.pathname === '/watch') id = u.searchParams.get('v');
+  else { const m = u.pathname.match(/^\/(?:embed|shorts|live|v)\/([\w-]{6,})/); if (m) id = m[1]; }
+  if (!id || !/^[\w-]{6,}$/.test(id)) return null;
+  const t = u.searchParams.get('t') || u.searchParams.get('start') || ((u.hash.match(/t=([\dhms]+)/) || [])[1]) || '';
+  return { id, start: parseTime(t), end: parseTime(u.searchParams.get('end') || '') };
+}
+function vimeoInfo(src) {
+  const u = urlOf(src); if (!u || !/(^|\.)vimeo\.com$/.test(u.hostname)) return null;
+  const m = u.pathname.match(/(?:\/video)?\/(\d{6,})(?:\/([\da-f]{6,}))?/);
+  return m ? { id: m[1], h: m[2] || u.searchParams.get('h') || '' } : null;
+}
+function driveId(src) {
+  const u = urlOf(src); if (!u || !/^(drive|docs)\.google\.com$/.test(u.hostname)) return null;
+  const m = u.pathname.match(/\/file\/d\/([\w-]{10,})/);
+  return m ? m[1] : (u.searchParams.get('id') || null);
+}
+function spotifyEmbed(src) {
+  const u = urlOf(src); if (!u || u.hostname !== 'open.spotify.com') return null;
+  const m = u.pathname.match(/^\/(?:intl-[a-z-]+\/)?(track|album|playlist|episode|show|artist)\/([A-Za-z0-9]+)/);
+  return m ? `https://open.spotify.com/embed/${m[1]}/${m[2]}` : null;
+}
+function directSrc(src) {
+  const u = urlOf(src);
+  if (u && /(^|\.)dropbox\.com$/.test(u.hostname)) { u.searchParams.delete('dl'); u.searchParams.set('raw', '1'); return u.toString(); }
+  return src;
+}
+const IMAGE_HOSTS = ['i.imgur.com', 'media.giphy.com', 'i.giphy.com', 'i.redd.it', 'pbs.twimg.com', 'images.unsplash.com', 'i.ytimg.com', 'cdn.discordapp.com', 'media.discordapp.net', 'lh3.googleusercontent.com'];
+function detectKind(src) {
+  const s = String(src || '').trim();
+  const dm = s.match(/^data:(image|video|audio)\//i); if (dm) return dm[1].toLowerCase();
+  const u = urlOf(s); if (!u) return 'link';
+  const h = u.hostname.replace(/^(www|m)\./, '');
+  let p = u.pathname; try { p = decodeURIComponent(p); } catch (e) {} p = p.toLowerCase();
+  if (ytInfo(s)) return 'youtube';
+  if (vimeoInfo(s)) return 'vimeo';
+  if (driveId(s)) return 'drive';
+  if (spotifyEmbed(s)) return 'spotify';
+  if (/\.(png|jpe?g|gif|webp|avif|svg|bmp)$/.test(p)) return 'image';
+  if (/\.(mp4|webm|mov|m4v|ogv)$/.test(p)) return 'video';
+  if (/\.(mp3|wav|m4a|aac|oga|ogg|flac|opus)$/.test(p)) return 'audio';
+  if (IMAGE_HOSTS.includes(h)) return 'image';
+  return 'link';
+}
+const kindOf = m => (m && m.kind && m.kind !== 'auto') ? m.kind : detectKind(m && m.src);
+function linkText(src) { const u = urlOf(src); return u ? (u.hostname.replace(/^www\./, '') + u.pathname).replace(/\/$/, '') : String(src); }
+function ytEmbed(y, auto, muted) {
+  const p = new URLSearchParams({ enablejsapi: '1', rel: '0', playsinline: '1' });
+  if (y.start) p.set('start', y.start);
+  if (y.end) p.set('end', y.end);
+  if (auto) p.set('autoplay', '1');
+  if (muted) p.set('mute', '1');
+  if (/^https?:$/.test(location.protocol)) p.set('origin', location.origin);
+  return `https://www.youtube.com/embed/${encodeURIComponent(y.id)}?${p}`;
+}
+function vimeoEmbed(v, auto, muted) {
+  const p = new URLSearchParams({ playsinline: '1' });
+  if (v.h) p.set('h', v.h);
+  if (auto) p.set('autoplay', '1');
+  if (muted) p.set('muted', '1');
+  return `https://player.vimeo.com/video/${v.id}?${p}`;
+}
+
+/* ---------- demo board ---------- */
+function demoGame() {
+  const g = newGame(5, 3, 'Game Night Demo');
+  const set = (c, name, clues) => { g.cats[c].name = name; clues.forEach((x, r) => Object.assign(g.cats[c].cells[r], x)); };
+  set(0, 'Premiere Pro', [
+    { q: 'Press this key to start and stop playback in the timeline.', a: 'Spacebar' },
+    { q: 'This shortcut adds an edit, a cut, at the playhead.', a: 'Ctrl + K (Cmd + K on Mac)' },
+    { q: 'Tap this key more than once to play forward faster. J does the same in reverse.', a: 'L' }
+  ]);
+  set(1, 'After Effects', [
+    { q: 'Select a layer and press this key to show only its Position property.', a: 'P' },
+    { q: 'This key shows a layer\u2019s Opacity, and it isn\u2019t O.', a: 'T' },
+    { q: 'An After Effects project file ends with this extension.', a: '.aep' }
+  ]);
+  set(2, 'Card Games', [
+    { q: 'This Electric-type Pok\u00e9mon is No. 025 in the National Pok\u00e9dex.', a: 'Pikachu' },
+    { q: 'Seto Kaiba\u2019s signature monster, this Level 8 dragon has 3000 ATK and 2500 DEF.', a: 'Blue-Eyes White Dragon', dd: true },
+    { q: 'In the One Piece Card Game, each player\u2019s DON!! deck has this many cards.', a: '10' }
+  ]);
+  set(3, 'Editing Lingo', [
+    { q: 'A sudden cut between two shots of the same subject from nearly the same angle, so time seems to skip.', a: 'Jump cut' },
+    { q: 'Extra footage cut over the main shot, like product close-ups over a talking head.', a: 'B-roll' },
+    { q: 'The cut where the next shot\u2019s audio starts before its picture appears.', a: 'J-cut' }
+  ]);
+  set(4, 'Media Round', [
+    { q: 'Name this landmark.', a: 'The Eiffel Tower',
+      qm: [{ src: 'https://commons.wikimedia.org/wiki/Special:FilePath/Tour_Eiffel_Wikimedia_Commons.jpg?width=960', kind: 'auto' }],
+      am: [{ src: 'https://en.wikipedia.org/wiki/Eiffel_Tower', kind: 'auto' }] },
+    { q: 'The Blender Foundation released this 2008 open movie about a giant rabbit.', a: 'Big Buck Bunny',
+      qm: [{ src: 'https://www.youtube.com/watch?v=aqz-KE-bpKQ', kind: 'auto' }] },
+    { q: 'Name the composer.', a: 'Ludwig van Beethoven (F\u00fcr Elise)',
+      qm: [{ src: 'https://upload.wikimedia.org/wikipedia/commons/transcoded/a/a5/F%C3%BCr-Elise-Audio-Sample-measures-1-4.ogg/F%C3%BCr-Elise-Audio-Sample-measures-1-4.ogg.mp3', kind: 'auto' }] }
+  ]);
+  return g;
+}
+
+/* ---------- stage renderer: what everyone sees ----------
+   Messages from the host: state (board, scores, open clue meta), clue (question content),
+   answer (answer content, only after reveal), media (play/pause/restart), fx (sounds, toasts). */
+function createScreen(container, opts = {}) {
+  const self = { S: null, clue: null, ans: null, muted: !!opts.muted, sel: null, primed: false };
+  container.innerHTML = `
+<div class="stage-wrap"><div class="stage${opts.interactive ? ' interactive' : ''}">
+  <div class="board-area">
+    <div class="board"><div class="cats"></div><div class="tiles"></div></div>
+    <div class="ov intro hidden"></div>
+    <div class="ov clue hidden">
+      <div class="timer hidden"><i></i></div>
+      <div class="clue-head"><div class="ch-cat"></div><div class="ch-mid"></div><div class="ch-right"><span class="ch-time"></span><span class="ch-val"></span></div></div>
+      <div class="clue-body"><div class="clue-text"><div></div></div><div class="clue-media"></div><div class="clue-ans hidden"><div></div></div></div>
+    </div>
+    <div class="ov dd hidden"><div class="rays"></div><h1>Daily<br>Double</h1><div class="ddcat"></div></div>
+    <div class="ov final hidden"></div>
+    <div class="ov waiting"><div class="w-title"></div><div class="w-sub"></div></div>
+    <div class="paused hidden">The host is editing the game</div>
+    <canvas class="confetti hidden" width="${W}" height="${H}"></canvas>
+    <div class="toasts"></div>
+  </div>
+  <div class="scores"></div>
+</div></div>`;
+  const wrap = $('.stage-wrap', container), stage = $('.stage', container), q = s => $(s, stage);
+  const el = {
+    area: q('.board-area'), board: q('.board'), cats: q('.cats'), tiles: q('.tiles'), intro: q('.intro'), clue: q('.clue'),
+    dd: q('.dd'), final: q('.final'), waiting: q('.waiting'), paused: q('.paused'), timer: q('.timer'), bar: q('.timer i'),
+    cat: q('.ch-cat'), mid: q('.ch-mid'), time: q('.ch-time'), val: q('.ch-val'), text: q('.clue-text'), textIn: q('.clue-text > div'),
+    media: q('.clue-media'), ans: q('.clue-ans'), ansIn: q('.clue-ans > div'), scores: q('.scores'), toasts: q('.toasts'), confetti: q('.confetti')
+  };
+  $('.w-title', el.waiting).textContent = opts.waitTitle || 'Trivia Night';
+  $('.w-sub', el.waiting).textContent = opts.waitText || 'Waiting for the host';
+  const keys = {};
+  let scoresH = 0, fillT = 0, tInt = 0, tEnd = 0, tKey = null, tLast = -1;
+  const soundOn = () => !self.muted && !(self.S && self.S.sfx === false);
+
+  function fit() {
+    const w = wrap.clientWidth, h = wrap.clientHeight; if (!w || !h) return;
+    const s = Math.min(w / W, h / H);
+    stage.style.transform = `translate(${((w - W * s) / 2).toFixed(2)}px,${((h - H * s) / 2).toFixed(2)}px) scale(${s})`;
+  }
+  if (window.ResizeObserver) new ResizeObserver(fit).observe(wrap); else addEventListener('resize', fit);
+  fit();
+
+  if (opts.interactive) {
+    el.tiles.addEventListener('click', e => {
+      const t = e.target.closest('.tile');
+      if (t && !t.classList.contains('empty') && opts.onTile) opts.onTile(+t.dataset.c, +t.dataset.r);
+    });
+    [['clue', el.clue], ['dd', el.dd], ['intro', el.intro]].forEach(([k, node]) => node.addEventListener('click', e => {
+      if (e.target.closest('.mbox, a')) return;
+      if (opts.onStage) opts.onStage(k);
+    }));
+  }
+
+  function handle(m) {
+    if (!m || typeof m !== 'object') return;
+    if (m.t === 'state') {
+      if (!m.s || typeof m.s !== 'object') return;
+      const prev = self.S || {};
+      self.S = m.s;
+      const fill = self.primed && prev.phase === 'intro' && m.s.phase === 'board';
+      const sounds = self.primed ? soundsFor(prev, m.s) : [];
+      render();
+      if (fill) fillAnim();
+      sounds.forEach(n => { if (soundOn()) SFX.play(n); });
+      self.primed = true;
+    } else if (m.t === 'clue') { self.clue = m.c; if (self.S) render(); }
+    else if (m.t === 'answer') { self.ans = m.a; if (self.S) render(); }
+    else if (m.t === 'media') media(m);
+    else if (m.t === 'fx') fx(m);
+  }
+
+  function soundsFor(p, S) {
+    const out = [], o = S.phase === 'board' ? S.open : null, po = p.open;
+    if (p.phase === 'intro' && S.phase === 'board') out.push('fill');
+    if (o) {
+      if (!po || po.key !== o.key) out.push(o.phase === 'dd' ? 'dd' : 'open');
+      else if (po.phase === 'dd' && o.phase === 'clue') out.push('open');
+      if (o.revealed && !o.quiet && !(po && po.key === o.key && po.revealed)) out.push('reveal');
+    }
+    const f = S.buzz && S.buzz.order && S.buzz.order[0], pf = p.buzz && p.buzz.order && p.buzz.order[0];
+    if (f && (!pf || pf.pid !== f.pid)) out.push('buzz');
+    return out;
+  }
+
+  function render() {
+    const S = self.S;
+    if (!S) { el.waiting.classList.remove('hidden'); return; }
+    el.waiting.classList.add('hidden');
+    el.paused.classList.toggle('hidden', !S.paused);
+    const show = !!S.show && S.players.length > 0, sh = show ? 132 : 0;
+    if (sh !== scoresH) { scoresH = sh; stage.style.setProperty('--scoresH', sh + 'px'); keys.board = keys.layout = null; }
+    renderBoard();
+    renderScores(show);
+    el.intro.classList.toggle('hidden', S.phase !== 'intro');
+    if (S.phase === 'intro') renderIntro();
+    el.final.classList.toggle('hidden', S.phase !== 'final');
+    if (S.phase === 'final') renderFinal();
+    const o = S.phase === 'board' ? S.open : null;
+    if (o && o.phase === 'dd') renderDD(o);
+    else { el.dd.classList.add('hidden'); if (!o) keys.dd = null; }
+    if (o && o.phase === 'clue') renderClue(o); else hideClue();
+    if (opts.onState) opts.onState(S);
+  }
+
+  function renderBoard() {
+    const S = self.S, nC = S.cats.length, nR = S.rows.length;
+    const k = JSON.stringify([S.cats, S.vals, S.empty, S.done, S.prefix, scoresH]);
+    if (k === keys.board) return;
+    keys.board = k;
+    const boardH = H - scoresH - 20, catH = Math.round(clamp(boardH * 0.16, 96, 190));
+    el.cats.style.height = catH + 'px';
+    el.cats.style.gridTemplateColumns = el.tiles.style.gridTemplateColumns = `repeat(${nC}, minmax(0, 1fr))`;
+    el.tiles.style.gridTemplateRows = `repeat(${nR}, minmax(0, 1fr))`;
+    const done = new Set(S.done), pre = S.prefix || '';
+    el.cats.innerHTML = S.cats.map(n => `<div class="cat"><span>${esc(n)}</span></div>`).join('');
+    let h = '', longest = 1;
+    for (let r = 0; r < nR; r++) for (let c = 0; c < nC; c++) {
+      const d = done.has(c + ',' + r), e = S.empty[c][r], label = pre + fmtNum(S.vals[c][r]);
+      if (!d && !e) longest = Math.max(longest, label.length);
+      h += `<div class="tile${d ? ' done' : ''}${e ? ' empty' : ''}" data-c="${c}" data-r="${r}">${d || e ? '' : `<span class="val">${esc(label)}</span>`}</div>`;
+    }
+    el.tiles.innerHTML = h;
+    const tileW = (W - 20 - (nC - 1) * 10) / nC, tileH = (boardH - catH - 16 - (nR - 1) * 10) / nR;
+    stage.style.setProperty('--valSize', Math.floor(Math.min(tileH * 0.62, (tileW * 0.8) / (longest * 0.5))) + 'px');
+    $$('.cat span', el.cats).forEach(s => fitText(s, Math.min(62, catH * 0.34), 16, tileW - 28, catH - 20));
+    markSel();
+  }
+  function markSel() {
+    $$('.tile.kb', el.tiles).forEach(t => t.classList.remove('kb'));
+    if (self.sel) { const t = $(`.tile[data-c="${self.sel.c}"][data-r="${self.sel.r}"]`, el.tiles); if (t) t.classList.add('kb'); }
+  }
+
+  function renderScores(show) {
+    const S = self.S, first = S.buzz && S.buzz.order && S.buzz.order[0], fp = first ? first.pid : '';
+    const k = JSON.stringify([show, S.players, fp, S.prefix]);
+    if (k === keys.scores) return;
+    keys.scores = k;
+    if (!show) { el.scores.innerHTML = ''; return; }
+    const n = S.players.length, ns = n > 8 ? 22 : n > 5 ? 27 : 32, ps = n > 8 ? 36 : n > 5 ? 44 : 52;
+    el.scores.innerHTML = S.players.map(p => `<div class="sc${p.pid && p.pid === fp ? ' buzzed' : ''}" data-id="${esc(p.id)}"><div class="nm" style="font-size:${ns}px">${esc(p.name || 'Player')}</div><div class="pt${p.score < 0 ? ' neg' : ''}" style="font-size:${ps}px">${esc(fmtScore(p.score, S.prefix))}</div></div>`).join('');
+  }
+
+  function renderIntro() {
+    const S = self.S, k = JSON.stringify([S.title, S.join]);
+    if (k === keys.intro) return;
+    keys.intro = k;
+    el.intro.innerHTML = `<div class="in-title"><h1>${esc(S.title || 'Trivia Night')}</h1></div><p class="in-sub">The board opens soon</p>${S.join ? `<div class="in-join">Play along on your own screen: <b>${esc(S.join.url)}</b></div>` : ''}`;
+    fitText($('h1', el.intro), 190, 56, 1700, 500);
+  }
+
+  function renderFinal() {
+    const S = self.S, k = JSON.stringify([S.players, S.prefix]);
+    if (k === keys.final) return;
+    keys.final = k;
+    const ps = S.players.slice().sort((a, b) => b.score - a.score);
+    const n = Math.max(1, ps.length), rowH = Math.min(118, Math.floor((H - 330) / n) - 14), fs = Math.round(rowH * 0.46);
+    const top = ps.length ? ps[0].score : 0;
+    el.final.innerHTML = `<h1>Final scores</h1><ol>${ps.map(p => {
+      const rank = 1 + ps.filter(x => x.score > p.score).length;
+      return `<li class="${p.score === top ? 'win' : ''}" style="height:${rowH}px;font-size:${fs}px"><span class="rk">${rank}</span><span class="nm">${esc(p.name)}</span><span class="pt">${esc(fmtScore(p.score, S.prefix))}</span></li>`;
+    }).join('')}</ol>`;
+  }
+
+  function zoomFrom(ov, c, r) {
+    if (REDUCED) return;
+    const t = $(`.tile[data-c="${c}"][data-r="${r}"]`, el.tiles), aw = el.area.offsetWidth, ah = el.area.offsetHeight;
+    if (!t || !aw || !ah) return;
+    ov.classList.remove('zoom');
+    ov.style.transform = `translate(${t.offsetLeft}px,${t.offsetTop}px) scale(${t.offsetWidth / aw},${t.offsetHeight / ah})`;
+    void ov.offsetWidth;
+    ov.classList.add('zoom');
+    ov.style.transform = '';
+    clearTimeout(ov._zt);
+    ov._zt = setTimeout(() => ov.classList.remove('zoom'), 480);
+  }
+
+  function renderDD(o) {
+    el.dd.classList.remove('hidden');
+    if (keys.dd === o.key) return;
+    keys.dd = o.key;
+    $('.ddcat', el.dd).textContent = self.S.cats[o.c] || '';
+    const h = $('h1', el.dd); h.style.animation = 'none'; void h.offsetWidth; h.style.animation = '';
+    zoomFrom(el.dd, o.c, o.r);
+    keys.zoomed = o.key;
+  }
+
+  function renderClue(o) {
+    const S = self.S;
+    const c = self.clue && self.clue.key === o.key ? self.clue : null;
+    const a = o.revealed && self.ans && self.ans.key === o.key ? self.ans : null;
+    const wasHidden = el.clue.classList.contains('hidden');
+    el.clue.classList.remove('hidden');
+    el.cat.textContent = S.cats[o.c] || '';
+    el.val.textContent = (o.dd ? 'Wager ' : '') + (S.prefix || '') + fmtNum(o.value);
+    const qk = o.key + (c ? '+' : '-');
+    if (keys.q !== qk) {
+      keys.q = qk; keys.a = null; keys.layout = null;
+      el.textIn.innerHTML = c ? richText(c.q) : '';
+      el.media.innerHTML = c ? c.qm.map((m, i) => mediaHTML(m, 'q' + i, 'q')).join('') : '';
+      initMedia(Array.from(el.media.children));
+    }
+    const ak = a ? o.key : '';
+    if (keys.a !== ak) {
+      keys.a = ak; keys.layout = null;
+      $$('.mbox[data-side="a"]', el.media).forEach(n => n.remove());
+      el.ansIn.innerHTML = a ? richText(a.a) : '';
+      if (a && a.am.length) {
+        const tmp = document.createElement('div');
+        tmp.innerHTML = a.am.map((m, i) => mediaHTML(m, 'a' + i, 'a')).join('');
+        const nodes = Array.from(tmp.children);
+        nodes.forEach(n => el.media.appendChild(n));
+        initMedia(nodes);
+      }
+    }
+    layoutClue(c, a);
+    if (wasHidden && keys.zoomed !== o.key) { keys.zoomed = o.key; zoomFrom(el.clue, o.c, o.r); }
+    renderTimer();
+    renderBuzz();
+  }
+
+  function hideClue() {
+    el.clue.classList.add('hidden');
+    if (keys.q) { el.media.innerHTML = ''; el.textIn.innerHTML = ''; el.ansIn.innerHTML = ''; }
+    keys.q = keys.a = keys.layout = keys.buzz = null;
+    el.mid.innerHTML = '';
+    stopTimer();
+  }
+
+  function layoutClue(c, a) {
+    const lk = [keys.q, keys.a, scoresH, keys.fonts || 0].join('|');
+    if (keys.layout === lk) return;
+    keys.layout = lk;
+    const bodyH = (H - scoresH) - 44 - 52 - 64 - 20, bodyW = W - 220, gap = 28;
+    const hasQ = !!(c && c.q.trim()), nM = el.media.children.length, hasA = !!(a && a.a.trim());
+    const ansH = hasA ? Math.round(bodyH * (nM ? 0.22 : hasQ ? 0.36 : 0.6)) : 0;
+    const rest = bodyH - ansH - (hasA ? gap : 0);
+    const textH = hasQ ? (nM ? Math.round(rest * 0.3) : rest) : 0;
+    const mediaH = nM ? rest - textH - (hasQ ? gap : 0) : 0;
+    el.text.classList.toggle('hidden', !hasQ); el.text.style.height = textH + 'px';
+    el.media.classList.toggle('hidden', !nM); el.media.style.height = mediaH + 'px'; el.media.style.setProperty('--mh', mediaH + 'px');
+    el.ans.classList.toggle('hidden', !hasA); el.ans.style.height = ansH + 'px';
+    if (hasQ) fitText(el.textIn, nM ? 74 : 104, 22, bodyW, textH);
+    if (hasA) fitText(el.ansIn, nM ? 62 : 92, 20, bodyW, ansH - 24);
+  }
+
+  function mediaHTML(m, mk, side) {
+    if (!m || !safeSrc(m.src)) return '';
+    const k = kindOf(m), src = directSrc(m.src), auto = !!(self.S && self.S.autoplay), A = `data-mk="${mk}"`;
+    const box = cls => `<div class="mbox${cls ? ' ' + cls : ''}" data-side="${side}">`;
+    if (k === 'image') return `${box()}<img ${A} src="${esc(src)}" alt="" draggable="false"></div>`;
+    if (k === 'video') return `${box()}<video ${A} src="${esc(src)}" playsinline preload="auto" controls></video></div>`;
+    if (k === 'audio') return `${box()}<div class="aud">${icon('music', 150)}<audio ${A} src="${esc(src)}" preload="auto" controls></audio></div></div>`;
+    if (k === 'youtube') { const y = ytInfo(m.src); if (y) return `${box()}<iframe ${A} data-kind="youtube" data-start="${y.start}" src="${esc(ytEmbed(y, auto, self.muted))}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe></div>`; }
+    if (k === 'vimeo') { const v = vimeoInfo(m.src); if (v) return `${box()}<iframe ${A} data-kind="vimeo" src="${esc(vimeoEmbed(v, auto, self.muted))}" allow="autoplay; fullscreen; picture-in-picture"></iframe></div>`; }
+    if (k === 'drive') { const id = driveId(m.src); if (id) return `${box()}<iframe ${A} data-kind="drive" src="https://drive.google.com/file/d/${encodeURIComponent(id)}/preview" allow="autoplay; fullscreen"></iframe></div>`; }
+    if (k === 'spotify') { const s = spotifyEmbed(m.src); if (s) return `${box('spotify')}<iframe ${A} data-kind="spotify" src="${esc(s)}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe></div>`; }
+    if (k === 'embed') return `${box()}<iframe ${A} data-kind="embed" src="${esc(src)}" allow="autoplay; fullscreen; encrypted-media; picture-in-picture"></iframe></div>`;
+    return `${box()}<a class="mlink" ${A} href="${esc(m.src)}" target="_blank" rel="noopener">${icon('ext', 46)}<span>${esc(linkText(m.src))}</span></a></div>`;
+  }
+
+  function initMedia(nodes) {
+    const auto = !!(self.S && self.S.autoplay);
+    nodes.forEach(n => {
+      $$('video,audio', n).forEach(v => { v.muted = self.muted; if (auto) playEl(v); });
+      $$('iframe[data-kind]', n).forEach(f => f.addEventListener('load', () => {
+        if (f.dataset.kind === 'youtube') postTo(f, { event: 'listening', id: 1, channel: 'widget' });
+        setTimeout(() => {
+          f._ready = true;
+          if (f._muteChanged) iframeCmd(f, self.muted ? 'mute' : 'unmute');
+          const a = f._pending; f._pending = null; if (a) iframeCmd(f, a);
+        }, 700);
+      }));
+    });
+  }
+  function playEl(v) {
+    try {
+      const p = v.play();
+      if (p && p.catch) p.catch(err => { if (err && err.name === 'NotAllowedError') nudge(); });
+    } catch (e) {}
+  }
+  function nudge() {
+    if ($('.nudge', container)) return;
+    const b = document.createElement('button');
+    b.className = 'btn primary big nudge'; b.type = 'button'; b.innerHTML = `${icon('vol', 20)}Turn on sound`;
+    b.onclick = () => { SFX.unlock(); b.remove(); $$('video,audio', el.media).forEach(v => { v.muted = self.muted; playEl(v); }); };
+    container.appendChild(b);
+  }
+  function postTo(f, o) { try { if (f.contentWindow) f.contentWindow.postMessage(JSON.stringify(o), '*'); } catch (e) {} }
+  function iframeCmd(f, action) {
+    const k = f.dataset.kind;
+    if (k === 'youtube') {
+      const cmd = (func, args) => postTo(f, { event: 'command', func, args: args || [], id: 1, channel: 'widget' });
+      if (action === 'pause') cmd('pauseVideo');
+      else if (action === 'mute') cmd('mute');
+      else if (action === 'unmute') cmd('unMute');
+      else { if (action === 'restart') cmd('seekTo', [+f.dataset.start || 0, true]); cmd('playVideo'); }
+    } else if (k === 'vimeo') {
+      if (action === 'pause') postTo(f, { method: 'pause' });
+      else if (action === 'mute') postTo(f, { method: 'setVolume', value: 0 });
+      else if (action === 'unmute') postTo(f, { method: 'setVolume', value: 1 });
+      else { if (action === 'restart') postTo(f, { method: 'setCurrentTime', value: 0 }); postTo(f, { method: 'play' }); }
+    }
+  }
+  function media(m) {
+    const o = self.S && self.S.open;
+    if (!o || o.key !== m.key) return;
+    const n = $(`[data-mk="${m.mk}"]`, el.media); if (!n) return;
+    if (n.tagName === 'VIDEO' || n.tagName === 'AUDIO') {
+      if (m.action === 'pause') n.pause();
+      else { if (m.action === 'restart') { try { n.currentTime = 0; } catch (e) {} } playEl(n); }
+    } else if (n.tagName === 'IFRAME') {
+      if (n._ready) iframeCmd(n, m.action); else n._pending = m.action;
+    }
+  }
+  function setMuted(v) {
+    self.muted = !!v;
+    $$('video,audio', el.media).forEach(x => { x.muted = self.muted; });
+    $$('iframe[data-kind="youtube"],iframe[data-kind="vimeo"]', el.media).forEach(f => {
+      const a = self.muted ? 'mute' : 'unmute';
+      if (f._ready) iframeCmd(f, a); else f._muteChanged = true;
+    });
+  }
+
+  function renderTimer() {
+    const T = self.S && self.S.timer;
+    if (!T) { stopTimer(); return; }
+    tEnd = Date.now() + T.left;
+    if (T.id === tKey) return;
+    tKey = T.id; tLast = -1;
+    el.timer.classList.remove('hidden', 'out');
+    const dur = Math.max(1, T.dur * 1000), bar = el.bar;
+    bar.style.transition = 'none'; bar.style.transform = `scaleX(${clamp(T.left / dur, 0, 1)})`; void bar.offsetWidth;
+    bar.style.transition = `transform ${T.left}ms linear`; bar.style.transform = 'scaleX(0)';
+    clearInterval(tInt); tInt = setInterval(tTick, 200); tTick();
+  }
+  function tTick() {
+    const left = Math.max(0, tEnd - Date.now()), sec = Math.ceil(left / 1000);
+    if (sec !== tLast) {
+      tLast = sec;
+      el.time.textContent = String(sec);
+      el.time.classList.toggle('low', sec <= 3);
+      if (left > 0 && sec <= 5 && soundOn()) SFX.play('tick');
+    }
+    if (left <= 0) { el.timer.classList.add('out'); clearInterval(tInt); tInt = 0; }
+  }
+  function stopTimer() {
+    clearInterval(tInt); tInt = 0; tKey = null;
+    el.timer.classList.add('hidden'); el.time.textContent = '';
+  }
+
+  function renderBuzz() {
+    const b = self.S.buzz, first = b && b.order && b.order[0], k = first ? first.pid : '';
+    if (keys.buzz !== k) {
+      keys.buzz = k;
+      el.mid.innerHTML = first ? `<div class="buzz-pill">${icon('bolt', 38)}<b>${esc(first.name)}</b><small></small></div>` : '';
+    }
+    const sm = $('small', el.mid);
+    if (sm) sm.textContent = b.order.length > 1 ? `+${b.order.length - 1}` : '';
+  }
+
+  function fx(m) {
+    if (m.sound && soundOn()) SFX.play(m.sound);
+    if (m.toast) toast(m.toast, m.tone);
+    if (m.flash) {
+      const n = Array.from(el.scores.children).find(x => x.dataset.id === m.flash);
+      if (n) { n.classList.remove('flash-ok', 'flash-bad'); void n.offsetWidth; n.classList.add(m.tone === 'bad' ? 'flash-bad' : 'flash-ok'); }
+    }
+    if (m.confetti) confetti();
+  }
+  function toast(text, tone) {
+    const d = document.createElement('div');
+    d.className = 'toast ' + (tone || ''); d.textContent = text;
+    el.toasts.appendChild(d); setTimeout(() => d.remove(), 1950);
+  }
+  function fillAnim() {
+    if (REDUCED) return;
+    $$('.tile, .cat', el.board).forEach(t => t.style.setProperty('--d', (Math.random() * 1.1).toFixed(2) + 's'));
+    el.board.classList.remove('fill'); void el.board.offsetWidth; el.board.classList.add('fill');
+    clearTimeout(fillT); fillT = setTimeout(() => el.board.classList.remove('fill'), 1800);
+  }
+  function confetti() {
+    if (REDUCED) return;
+    const cv = el.confetti, ctx = cv.getContext('2d'); cv.classList.remove('hidden');
+    const cols = ['#ffc72c', '#ffffff', '#2440ff', '#36d07f', '#ff5a5f'];
+    const ps = Array.from({ length: 220 }, () => ({ x: Math.random() * W, y: -20 - Math.random() * H * 0.6, vx: (Math.random() - 0.5) * 6, vy: 4 + Math.random() * 6, r: Math.random() * Math.PI, vr: (Math.random() - 0.5) * 0.3, w: 10 + Math.random() * 12, h: 6 + Math.random() * 8, c: cols[(Math.random() * cols.length) | 0] }));
+    const t0 = performance.now();
+    (function frame(t) {
+      ctx.clearRect(0, 0, W, H);
+      for (const p of ps) { p.x += p.vx; p.y += p.vy; p.vy += 0.05; p.r += p.vr; ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(p.r); ctx.fillStyle = p.c; ctx.fillRect(-p.w / 2, -p.h / 2, p.w, p.h); ctx.restore(); }
+      if (t - t0 < 5500) requestAnimationFrame(frame); else { ctx.clearRect(0, 0, W, H); cv.classList.add('hidden'); }
+    })(t0);
+  }
+
+  return {
+    handle, setMuted,
+    setSel(s) { self.sel = s; markSel(); },
+    setWait(t) { $('.w-sub', el.waiting).textContent = t; },
+    refit() { keys.board = keys.layout = keys.intro = keys.final = keys.scores = null; keys.fonts = (keys.fonts || 0) + 1; if (self.S) render(); },
+    get state() { return self.S; }
+  };
+}
+
+/* ---------- app state ---------- */
+let G = null;          // current game
+let games = [];        // [{id, title, updated}]
+const UI = { mode: 'edit', menu: null, edit: null };
+
+async function persist(g) {
+  g.updated = Date.now();
+  await Store.set('game:' + g.id, g);
+  const meta = { id: g.id, title: g.title, updated: g.updated }, i = games.findIndex(x => x.id === g.id);
+  if (i < 0) games.push(meta); else games[i] = meta;
+  await Store.set('index', games);
+}
+const saveSoon = debounce(async () => {
+  if (!G) return;
+  try { await persist(G); setSaveState('Saved in this browser'); }
+  catch (e) { setSaveState('Not saved: browser storage is full. Export a backup.', true); }
+}, 450);
+function setSaveState(t, bad) { const n = $('#saveState'); if (n) { n.textContent = t; n.classList.toggle('err', !!bad); } }
+
+async function loadGame(id) {
+  const raw = await Store.get('game:' + id);
+  if (!raw) return null;
+  try { return normalizeGame(raw); } catch (e) { return null; }
+}
+async function loadAll() {
+  games = (await Store.get('index')) || [];
+  let cur = lsGet('tn.current', null);
+  if (!games.length) { const d = demoGame(); await persist(d); cur = d.id; }
+  if (!games.find(x => x.id === cur)) cur = games[0].id;
+  G = await loadGame(cur);
+  if (!G) { G = demoGame(); await persist(G); }
+  lsSet('tn.current', G.id);
+}
+async function switchGame(id) {
+  saveSoon.flush();
+  const g = await loadGame(id);
+  if (!g) { flashMsg('That game couldn\u2019t be opened.'); renderEditor(); return; }
+  G = g; lsSet('tn.current', g.id); renderEditor();
+}
+async function addGame(g) { G = g; await persist(g); lsSet('tn.current', g.id); renderEditor(); }
+
+/* ---------- editor page ---------- */
+function renderEditor() {
+  UI.mode = 'edit'; lsSet('tn.mode', 'edit');
+  Host.screen = null;
+  document.body.className = 'is-editor';
+  const g = G, nC = g.cats.length, nR = g.rows.length, pre = g.settings.prefix || '';
+  const filled = g.cats.reduce((n, c) => n + c.cells.filter(cellFilled).length, 0);
+  const list = games.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  const app = $('#app');
+  app.innerHTML = `
+<header class="topbar">
+  <div class="brand">Trivia Night</div>
+  <select class="game-pick" id="gamePick" aria-label="Your games">${list.map(x => `<option value="${esc(x.id)}"${x.id === g.id ? ' selected' : ''}>${esc(x.title || 'Untitled game')}</option>`).join('')}</select>
+  <button class="btn sm" data-act="newGame">${icon('plus', 16)}New game</button>
+  <button class="btn sm icon ghost" data-act="more" title="More" aria-label="More options">${icon('dots', 18)}</button>
+  <div class="grow"></div>
+  <button class="btn sm ghost" data-act="ai">Write with AI</button>
+  <button class="btn sm ghost" data-act="import">Import</button>
+  <button class="btn sm ghost" data-act="export">Export</button>
+  <button class="btn primary" data-act="host">${icon('play', 16)}Host this game</button>
+</header>
+<main class="editor">
+  <input class="title-in" id="titleIn" value="${esc(g.title)}" placeholder="Game title" aria-label="Game title" maxlength="200">
+  <div class="meta"><span>${filled} of ${nC * nR} clues written</span><span>${plural(nC, 'category').replace('categorys', 'categories')}, ${plural(nR, 'row')}</span><span id="saveState">${Store.broken ? '<span class="err">This browser isn\u2019t saving games (private window?). Export before you close it.</span>' : ''}</span></div>
+  <div class="egrid-wrap"><div class="egrid" style="grid-template-columns:96px repeat(${nC},minmax(168px,1fr)) 56px">
+    <div class="eg-corner">Points</div>
+    ${g.cats.map((cat, c) => `<div class="eg-cat"><textarea class="cat-in" data-c="${c}" rows="2" maxlength="80" placeholder="Category ${c + 1}" aria-label="Category ${c + 1} name">${esc(cat.name)}</textarea><button class="eg-more" data-act="colMenu" data-c="${c}" title="Category options" aria-label="Category ${c + 1} options">${icon('dots', 16)}</button></div>`).join('')}
+    <button class="eg-add" data-act="addCol"${nC >= MAX_COLS ? ' disabled' : ''} title="Add a category" aria-label="Add a category">${icon('plus')}</button>
+    ${g.rows.map((pts, r) => `<div class="eg-row"><input class="pts-in" data-r="${r}" type="number" step="100" value="${esc(pts)}" aria-label="Row ${r + 1} points"><button class="eg-more" data-act="rowMenu" data-r="${r}" title="Row options" aria-label="Row ${r + 1} options">${icon('dots', 16)}</button></div>${g.cats.map((_, c) => cellPreview(c, r)).join('')}<div></div>`).join('')}
+    <button class="eg-add" data-act="addRow"${nR >= MAX_ROWS ? ' disabled' : ''} style="grid-column:1 / span ${nC + 1}">${icon('plus')}Add a row</button>
+  </div></div>
+  <section class="ed-settings">
+    <label class="es-item" for="prefixIn">Symbol before points<input class="txt short" id="prefixIn" maxlength="3" value="${esc(pre)}" placeholder="None"></label>
+    <button class="btn sm" data-act="renumber">Renumber rows from the first value</button>
+    <p class="hint">Click a tile to write its clue and answer. Games save in this browser on their own; to play from another computer, export the game and import it there.</p>
+  </section>
+</main>`;
+  app.onclick = e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) editAct(b.dataset.act, b.dataset, b); };
+  app.oninput = onEditorInput;
+  app.onchange = e => { if (e.target.id === 'gamePick') switchGame(e.target.value); };
+  app.onkeydown = e => { if (e.target.classList.contains('cat-in') && e.key === 'Enter') { e.preventDefault(); e.target.blur(); } };
+}
+
+function cellPreview(c, r) {
+  const g = G, cell = g.cats[c].cells[r], f = cellFilled(cell);
+  const kinds = [...new Set([...cell.qm, ...cell.am].map(kindOf))];
+  const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
+  return `<button class="ecell${f ? '' : ' empty'}" data-act="edit" data-c="${c}" data-r="${r}" aria-label="Edit clue">
+    <span class="ec-top"><span class="ec-pts">${esc((g.settings.prefix || '') + fmtNum(cellValue(g, c, r)))}${cell.pts !== null ? '<sup>*</sup>' : ''}</span><span class="badges">${badges}</span></span>
+    <span class="ec-q">${f ? esc(snippet(cell.q) || 'Media clue') : 'Add a clue'}</span>
+    ${f ? `<span class="ec-a${cell.a.trim() ? '' : ' warn'}">${cell.a.trim() ? esc(snippet(cell.a, 60)) : 'No answer yet'}</span>` : ''}
+  </button>`;
+}
+function refreshCells(rowOnly) {
+  $$('.ecell').forEach(b => {
+    const c = +b.dataset.c, r = +b.dataset.r;
+    if (rowOnly == null || r === rowOnly) b.outerHTML = cellPreview(c, r);
+  });
+}
+
+function onEditorInput(e) {
+  const t = e.target;
+  if (t.id === 'titleIn') {
+    G.title = t.value; saveSoon();
+    const o = $(`#gamePick option[value="${CSS.escape(G.id)}"]`); if (o) o.textContent = G.title || 'Untitled game';
+  } else if (t.classList.contains('cat-in')) { G.cats[+t.dataset.c].name = t.value.replace(/\n/g, ' '); saveSoon(); }
+  else if (t.classList.contains('pts-in')) { const v = parseInt(t.value, 10); if (!isNaN(v)) { G.rows[+t.dataset.r] = v; saveSoon(); refreshCells(+t.dataset.r); } }
+  else if (t.id === 'prefixIn') { G.settings.prefix = t.value.slice(0, 3); saveSoon(); refreshCells(); }
+}
+
+function editAct(a, d, btn) {
+  const c = +d.c, r = +d.r;
+  switch (a) {
+    case 'edit': openCellEditor(c, r); break;
+    case 'addCol': insertCol(G.cats.length); break;
+    case 'addRow': insertRow(G.rows.length); break;
+    case 'colMenu': showMenu(btn, [
+      ['Insert category left', () => insertCol(c)],
+      ['Insert category right', () => insertCol(c + 1)],
+      ['Move left', () => moveCol(c, -1), c === 0],
+      ['Move right', () => moveCol(c, 1), c === G.cats.length - 1],
+      '-',
+      ['Clear this category\u2019s clues', () => clearCol(c)],
+      ['Delete category', () => deleteCol(c), G.cats.length <= 1, 'danger']
+    ]); break;
+    case 'rowMenu': showMenu(btn, [
+      ['Insert row above', () => insertRow(r)],
+      ['Insert row below', () => insertRow(r + 1)],
+      ['Move clues up', () => moveRow(r, -1), r === 0],
+      ['Move clues down', () => moveRow(r, 1), r === G.rows.length - 1],
+      '-',
+      ['Delete row', () => deleteRow(r), G.rows.length <= 1, 'danger']
+    ]); break;
+    case 'more': showMenu(btn, [
+      ['Duplicate this game', duplicateGame],
+      ['Add the demo game', () => addGame(demoGame())],
+      ['Join someone else\u2019s game', joinPrompt],
+      '-',
+      ['Delete this game', deleteGame, false, 'danger']
+    ]); break;
+    case 'newGame': addGame(newGame(6, 5, 'Untitled game')).then(() => { const t = $('#titleIn'); if (t) { t.focus(); t.select(); } }); break;
+    case 'import': openImport(); break;
+    case 'export': exportGame(); break;
+    case 'ai': openAI(); break;
+    case 'renumber': { const step = +G.rows[0] || 100; G.rows = G.rows.map((_, i) => step * (i + 1)); afterStructure(); break; }
+    case 'host': enterHost(); break;
+  }
+}
+
+/* board structure */
+function afterStructure() { if (G.live.open) G.live.open = null; saveSoon(); renderEditor(); }
+function insertCol(i) {
+  if (G.cats.length >= MAX_COLS) return;
+  G.cats.splice(i, 0, { name: '', cells: G.rows.map(emptyCell) });
+  afterStructure();
+  const t = $(`.cat-in[data-c="${i}"]`); if (t) t.focus();
+}
+function deleteCol(i) {
+  const cat = G.cats[i], n = cat.cells.filter(cellFilled).length;
+  if (n && !confirm(`Delete \u201c${cat.name || 'this category'}\u201d and its ${plural(n, 'clue')}?`)) return;
+  G.cats.splice(i, 1); afterStructure();
+}
+function moveCol(i, d) { const j = i + d; if (j < 0 || j >= G.cats.length) return; [G.cats[i], G.cats[j]] = [G.cats[j], G.cats[i]]; afterStructure(); }
+function clearCol(i) { if (!confirm('Clear every clue in this category?')) return; G.cats[i].cells = G.rows.map(emptyCell); afterStructure(); }
+function insertRow(i) {
+  if (G.rows.length >= MAX_ROWS) return;
+  const rows = G.rows; let v;
+  if (i >= rows.length) { const last = +rows[rows.length - 1] || 0, prev = rows.length > 1 ? +rows[rows.length - 2] : 0; v = last + ((last - prev) || 100); }
+  else v = rows[i];
+  rows.splice(i, 0, v);
+  G.cats.forEach(c => c.cells.splice(i, 0, emptyCell()));
+  afterStructure();
+}
+function deleteRow(i) {
+  const n = G.cats.filter(c => cellFilled(c.cells[i])).length;
+  if (n && !confirm(`Delete this row and its ${plural(n, 'clue')}?`)) return;
+  G.rows.splice(i, 1); G.cats.forEach(c => c.cells.splice(i, 1)); afterStructure();
+}
+function moveRow(i, d) { const j = i + d; if (j < 0 || j >= G.rows.length) return; G.cats.forEach(c => { [c.cells[i], c.cells[j]] = [c.cells[j], c.cells[i]]; }); afterStructure(); }
+
+/* games */
+async function duplicateGame() {
+  const g = clone(G); g.id = uid(); g.title = (G.title || 'Untitled game') + ' (copy)'; g.created = Date.now();
+  g.live = freshLive(); g.cats.forEach(c => c.cells.forEach(x => { x.played = false; }));
+  await addGame(g); flashMsg('Game duplicated');
+}
+async function deleteGame() {
+  if (!confirm(`Delete \u201c${G.title || 'Untitled game'}\u201d? This can\u2019t be undone. Export it first if you might want it later.`)) return;
+  const id = G.id;
+  await Store.del('game:' + id);
+  games = games.filter(x => x.id !== id);
+  await Store.set('index', games);
+  if (!games.length) { await addGame(newGame()); return; }
+  const next = games.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0))[0];
+  await switchGame(next.id);
+}
+function joinPrompt() {
+  const c = prompt('Room code');
+  if (c && c.trim()) location.href = location.pathname + '?join=' + encodeURIComponent(c.trim().toUpperCase());
+}
+function exportGame() {
+  saveSoon.flush();
+  const g = clone(G); delete g.live; g.cats.forEach(c => c.cells.forEach(x => { delete x.played; }));
+  const blob = new Blob([JSON.stringify({ app: 'trivia-night', version: 1, game: g }, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = (slug(G.title) || 'trivia-game') + '.json';
+  document.body.appendChild(a); a.click();
+  setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1500);
+  flashMsg('Exported');
+}
+
+/* popover menu */
+function showMenu(anchor, items) {
+  closeMenu();
+  const m = document.createElement('div'); m.className = 'menu'; m.setAttribute('role', 'menu');
+  items.forEach(it => {
+    if (it === '-') { m.appendChild(document.createElement('hr')); return; }
+    const [label, fn, disabled, cls] = it, b = document.createElement('button');
+    b.type = 'button'; b.textContent = label; b.setAttribute('role', 'menuitem');
+    if (cls) b.className = cls;
+    if (disabled) b.disabled = true;
+    b.onclick = () => { closeMenu(); fn(); };
+    m.appendChild(b);
+  });
+  document.body.appendChild(m);
+  const r = anchor.getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+  m.style.left = clamp(r.left, 8, innerWidth - mw - 8) + 'px';
+  m.style.top = (r.bottom + 6 + mh > innerHeight ? Math.max(8, r.top - mh - 6) : r.bottom + 6) + 'px';
+  const outside = e => { if (!m.contains(e.target)) closeMenu(); };
+  const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); closeMenu(); anchor.focus(); } };
+  setTimeout(() => { document.addEventListener('pointerdown', outside, true); document.addEventListener('keydown', onKey, true); }, 0);
+  UI.menu = { el: m, off() { document.removeEventListener('pointerdown', outside, true); document.removeEventListener('keydown', onKey, true); } };
+  const first = $('button:not(:disabled)', m); if (first) first.focus();
+}
+function closeMenu() { if (UI.menu) { UI.menu.off(); UI.menu.el.remove(); UI.menu = null; } }
+
+/* generic modal */
+function openModal(html) {
+  const bg = document.createElement('div'); bg.className = 'modal-bg'; bg.innerHTML = html;
+  document.body.appendChild(bg);
+  const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); close(); } };
+  const close = () => { bg.remove(); document.removeEventListener('keydown', onKey, true); };
+  document.addEventListener('keydown', onKey, true);
+  bg.addEventListener('mousedown', e => { bg._down = e.target === bg; });
+  bg.addEventListener('click', e => { if ((e.target === bg && bg._down) || e.target.closest('[data-m="close"]')) close(); });
+  return { bg, close };
+}
+function choose(title, text, options) {
+  return new Promise(res => {
+    const { bg, close } = openModal(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="modal-body"><h3 class="dlg-title">${esc(title)}</h3><p class="hint">${esc(text)}</p></div><div class="modal-foot"><button class="btn ghost" data-v="">Cancel</button><div class="grow"></div>${options.map(([v, l, cls]) => `<button class="btn ${cls || ''}" data-v="${esc(v)}">${esc(l)}</button>`).join('')}</div></div>`);
+    let done = false;
+    const finish = v => { if (done) return; done = true; close(); res(v || null); };
+    bg.addEventListener('click', e => { const b = e.target.closest('[data-v]'); if (b) finish(b.dataset.v); });
+    new MutationObserver((_, obs) => { if (!bg.isConnected) { obs.disconnect(); finish(null); } }).observe(document.body, { childList: true });
+    const p = $('.btn.primary', bg); if (p) p.focus();
+  });
+}
+
+/* import, AI prompt */
+function parseGameText(text) {
+  let t = String(text || '').trim();
+  if (!t) throw new Error('Paste the game JSON first.');
+  const a = t.indexOf('{'), b = t.lastIndexOf('}');
+  if (a < 0 || b < a) throw new Error('That doesn\u2019t look like JSON. It should start with { and end with }.');
+  let obj;
+  try { obj = JSON.parse(t.slice(a, b + 1)); } catch (e) { throw new Error('The JSON has a typo: ' + e.message); }
+  const g = normalizeGame(obj);
+  g.id = uid(); g.created = Date.now(); g.live = freshLive();
+  g.cats.forEach(c => c.cells.forEach(x => { x.played = false; }));
+  return g;
+}
+function openImport() {
+  const { bg, close } = openModal(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="Import a game">
+  <div class="modal-head"><b class="mh-plain">Import a game</b><div class="grow"></div><button class="btn sm icon ghost" data-m="close" title="Close" aria-label="Close">${icon('x')}</button></div>
+  <div class="modal-body stack">
+    <p class="hint">Paste the reply from \u201cWrite with AI\u201d or a game you exported. You can also choose a .json file.</p>
+    <textarea class="txt mono tall" id="impText" spellcheck="false" placeholder='{ "title": "Game night", "categories": [ ... ] }'></textarea>
+    <div class="imp-row"><label class="btn sm">${icon('upload', 16)}Choose file<input type="file" hidden id="impFile" accept=".json,application/json,text/plain"></label><span class="mnote" id="impMsg"></span></div>
+  </div>
+  <div class="modal-foot"><div class="grow"></div><button class="btn ghost" data-m="close">Cancel</button><button class="btn primary" id="impGo">Import as a new game</button></div></div>`);
+  const ta = $('#impText', bg), msg = $('#impMsg', bg);
+  $('#impFile', bg).onchange = async e => { const f = e.target.files[0]; if (f) { ta.value = await f.text(); msg.textContent = ''; } };
+  $('#impGo', bg).onclick = async () => {
+    try { const g = parseGameText(ta.value); close(); await addGame(g); flashMsg(`Imported \u201c${g.title}\u201d`); }
+    catch (err) { msg.textContent = err.message || String(err); }
+  };
+  setTimeout(() => ta.focus(), 0);
+}
+function aiPrompt() {
+  const nC = G.cats.length, nR = G.rows.length, rows = G.rows;
+  return `Write a Jeopardy-style trivia board for my team's game night.
+
+Who's playing: my video editing team (add details here)
+Categories: (list the ones you want, or write "pick fun ones")
+Board size: ${nC} categories with ${nR} clues each, worth ${rows.join(', ')} points.
+
+Rules:
+- Each "clue" is the statement shown on screen. Each "answer" is short, for the host to check.
+- Difficulty goes up with the points.
+- Only use facts you're sure are correct.
+- Mark exactly one clue with "dailyDouble": true.
+- Only add "media" when you have a real, working link (a YouTube video, or a direct image, audio or video file URL). Otherwise leave it out.
+
+Reply with only the JSON, no other text, in this shape:
+{
+  "title": "Game title",
+  "categories": [
+    {
+      "name": "Category name",
+      "clues": [
+        { "points": ${rows[0] ?? 100}, "clue": "...", "answer": "..." },
+        { "points": ${rows[1] ?? 200}, "clue": "...", "answer": "...", "media": "https://..." }
+      ]
+    }
+  ]
+}`;
+}
+function openAI() {
+  const { bg, close } = openModal(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="Write the questions with AI">
+  <div class="modal-head"><b class="mh-plain">Write the questions with AI</b><div class="grow"></div><button class="btn sm icon ghost" data-m="close" title="Close" aria-label="Close">${icon('x')}</button></div>
+  <div class="modal-body stack">
+    <p class="hint">Fill in who\u2019s playing and the topics, copy this prompt into Claude, then paste its reply into Import. The prompt matches this board\u2019s size.</p>
+    <textarea class="txt mono tall" id="aiText" spellcheck="false"></textarea>
+  </div>
+  <div class="modal-foot"><a class="btn ghost" href="https://claude.ai/new" target="_blank" rel="noopener">${icon('ext', 16)}Open Claude</a><div class="grow"></div><button class="btn" id="aiCopy">${icon('copy', 16)}Copy prompt</button><button class="btn primary" id="aiImp">Import the reply</button></div></div>`);
+  $('#aiText', bg).value = aiPrompt();
+  $('#aiCopy', bg).onclick = () => copyText($('#aiText', bg).value).then(() => flashMsg('Prompt copied'));
+  $('#aiImp', bg).onclick = () => { close(); openImport(); };
+}
+
+/* ---------- clue editor ---------- */
+const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
+async function shrinkImage(f, max = 1600, q = 0.86) {
+  const url = URL.createObjectURL(f);
+  try {
+    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+    const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+    if (s === 1 && f.size < 450e3) return await readURL(f);
+    const cv = document.createElement('canvas');
+    cv.width = Math.max(1, Math.round(img.naturalWidth * s)); cv.height = Math.max(1, Math.round(img.naturalHeight * s));
+    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+    let out = cv.toDataURL('image/webp', q);
+    if (!out.startsWith('data:image/webp')) out = cv.toDataURL('image/jpeg', q);
+    return out;
+  } finally { URL.revokeObjectURL(url); }
+}
+async function fileToMedia(f, note) {
+  const type = f.type || '';
+  if (type.startsWith('image/')) {
+    if (type === 'image/gif' || type === 'image/svg+xml') {
+      if (f.size > 6e6) { note(`${f.name} is ${fmtBytes(f.size)}. Images over 6 MB are too big; paste a link to it instead.`); return null; }
+      return { src: await readURL(f), kind: 'image', name: f.name };
+    }
+    return { src: await shrinkImage(f), kind: 'image', name: f.name };
+  }
+  if (type.startsWith('audio/') || type.startsWith('video/')) {
+    if (f.size > 30e6) { note(`${f.name} is ${fmtBytes(f.size)}. Files over 30 MB are too big to send to players. Upload it to YouTube (unlisted) or Google Drive and paste the link.`); return null; }
+    if (f.size > 8e6) note(`${f.name} is ${fmtBytes(f.size)}. It works, but people who joined get it when the clue opens, so it can take a moment. YouTube or Drive links start faster.`);
+    return { src: await readURL(f), kind: type.startsWith('audio/') ? 'audio' : 'video', name: f.name };
+  }
+  note(`${f.name} isn\u2019t an image, audio or video file.`);
+  return null;
+}
+function mediaThumb(m) {
+  const k = kindOf(m);
+  if (k === 'image' && safeSrc(m.src)) return `<div class="mthumb" style="background-image:url('${String(directSrc(m.src)).replace(/['"\\\n\r()]/g, ch => encodeURIComponent(ch))}')"></div>`;
+  if (k === 'youtube') { const y = ytInfo(m.src); if (y) return `<div class="mthumb" style="background-image:url('https://i.ytimg.com/vi/${encodeURIComponent(y.id)}/mqdefault.jpg')"></div>`; }
+  return `<div class="mthumb">${icon(KIND_ICON[k] || 'link', 20)}</div>`;
+}
+function srcLabel(m) {
+  if (String(m.src).startsWith('data:')) return `${m.name || 'Uploaded file'} (${fmtBytes(m.src.length * 0.75)})`;
+  return m.src;
+}
+
+function openCellEditor(c, r) {
+  closeMenu();
+  let bg = $('.modal-bg.cell-ed');
+  if (!bg) { bg = document.createElement('div'); bg.className = 'modal-bg cell-ed'; document.body.appendChild(bg); }
+  UI.edit = { c, r, side: 'q' };
+  const cell = G.cats[c].cells[r], pre = G.settings.prefix || '';
+  const side = (s, title, hint, ph) => `
+    <div class="side" data-side="${s}">
+      <h4>${title}</h4><p class="hint">${hint}</p>
+      <textarea class="txt" data-f="${s}" placeholder="${ph}">${esc(cell[s])}</textarea>
+      <div class="mlist" data-list="${s}"></div>
+      <div class="madd"><input class="txt" data-url="${s}" placeholder="Paste a YouTube, Drive, image, audio or video link"><button class="btn sm" data-m="add" data-side="${s}">Add</button><label class="btn sm" title="Upload a file">${icon('upload', 16)}Upload<input type="file" hidden multiple accept="image/*,audio/*,video/*" data-file="${s}"></label></div>
+    </div>`;
+  bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Edit clue">
+  <div class="modal-head">
+    <div class="mh-title"><b>${esc(G.cats[c].name || 'Category ' + (c + 1))}</b><span class="mh-pts">${esc(pre + fmtNum(cellValue(G, c, r)))}</span></div>
+    <div class="grow"></div>
+    <button class="btn sm icon ghost" data-m="prev" title="Previous clue (Ctrl+Up)" aria-label="Previous clue">${icon('chevL')}</button>
+    <button class="btn sm icon ghost" data-m="next" title="Next clue (Ctrl+Down)" aria-label="Next clue">${icon('chevR')}</button>
+    <button class="btn sm icon ghost" data-m="close" title="Close (Esc)" aria-label="Close">${icon('x')}</button>
+  </div>
+  <div class="modal-body">
+    <div class="two">
+      ${side('q', 'Clue', 'Everyone sees this when the tile opens.', 'This Pok\u00e9mon is No. 025 in the National Pok\u00e9dex.')}
+      ${side('a', 'Answer', 'Only you see this until you reveal it.', 'Pikachu')}
+    </div>
+    <div class="opts">
+      <label class="chk"><input type="checkbox" data-f="dd"${cell.dd ? ' checked' : ''}><span>Daily Double<em>the player bets before seeing the clue</em></span></label>
+      <label class="pts-over">Points for this clue<input class="txt" type="number" step="100" data-f="pts" placeholder="${esc(G.rows[r])}" value="${cell.pts === null ? '' : esc(cell.pts)}"></label>
+    </div>
+    <p class="hint small">You can paste a copied image straight into this window or drop files on either side. Add ?t=45 to a YouTube link to start it at 0:45.</p>
+    <div class="mnote" id="cellNote" role="status"></div>
+  </div>
+  <div class="modal-foot"><button class="btn ghost danger" data-m="clear">Clear this clue</button><div class="grow"></div><button class="btn primary" data-m="close">Done</button></div>
+</div>`;
+
+  const list = s => s === 'q' ? cell.qm : cell.am;
+  const note = t => { const n = $('#cellNote', bg); if (n) n.textContent = t || ''; };
+  const current = () => UI.edit && UI.edit.c === c && UI.edit.r === r;
+  const renderList = s => {
+    if (!current()) return;
+    $(`[data-list="${s}"]`, bg).innerHTML = list(s).map((m, i) => `<div class="mitem">${mediaThumb(m)}<div class="minfo"><div class="mkind">${esc(KIND_LABEL[kindOf(m)])}</div><div class="msrc" title="${esc(srcLabel(m))}">${esc(srcLabel(m))}</div></div><select data-kind="${s}${i}" aria-label="Media type">${KINDS.map(k => `<option value="${k}"${(m.kind || 'auto') === k ? ' selected' : ''}>${k === 'auto' ? `Auto (${KIND_LABEL[detectKind(m.src)]})` : KIND_LABEL[k]}</option>`).join('')}</select><button class="btn sm icon ghost" data-m="mdel" data-side="${s}" data-i="${i}" title="Remove" aria-label="Remove media">${icon('x')}</button></div>`).join('');
+  };
+  const addText = (s, text) => {
+    let src = String(text || '').trim(), kind = 'auto';
+    if (!src) return false;
+    const im = src.match(/<iframe[^>]*\ssrc=["']([^"']+)["']/i);
+    if (im) { src = im[1].replace(/&amp;/g, '&'); if (src.startsWith('//')) src = 'https:' + src; if (detectKind(src) === 'link') kind = 'embed'; }
+    if (!/^[a-z][a-z0-9+.-]*:/i.test(src) && /^[\w-]+(\.[\w-]+)+([/?#]|$)/.test(src)) src = 'https://' + src;
+    if (!safeSrc(src)) { note('That isn\u2019t a link. Paste a full address that starts with https://'); return false; }
+    list(s).push({ src, kind }); saveSoon(); renderList(s); note('');
+    return true;
+  };
+  const addFiles = async (s, files) => {
+    for (const f of Array.from(files || [])) {
+      try { const m = await fileToMedia(f, note); if (m) { list(s).push(m); saveSoon(); renderList(s); } }
+      catch (e) { note(`Couldn\u2019t read ${f.name}.`); }
+    }
+  };
+
+  bg.onmousedown = e => { bg._down = e.target === bg; };
+  bg.onclick = e => {
+    if (e.target === bg) { if (bg._down) closeCellEditor(); return; }
+    const b = e.target.closest('[data-m]'); if (!b) return;
+    const m = b.dataset.m;
+    if (m === 'close') closeCellEditor();
+    else if (m === 'prev') stepCell(-1);
+    else if (m === 'next') stepCell(1);
+    else if (m === 'add') { const inp = $(`[data-url="${b.dataset.side}"]`, bg); if (addText(b.dataset.side, inp.value)) inp.value = ''; }
+    else if (m === 'mdel') { list(b.dataset.side).splice(+b.dataset.i, 1); saveSoon(); renderList(b.dataset.side); }
+    else if (m === 'clear') { if (confirm('Clear this clue, its answer and its media?')) { Object.assign(cell, emptyCell()); saveSoon(); openCellEditor(c, r); } }
+  };
+  bg.oninput = e => {
+    const t = e.target, f = t.dataset.f;
+    if (f === 'q' || f === 'a') { cell[f] = t.value; saveSoon(); }
+    else if (f === 'pts') {
+      cell.pts = t.value === '' || isNaN(+t.value) ? null : +t.value; saveSoon();
+      $('.mh-pts', bg).textContent = pre + fmtNum(cellValue(G, c, r));
+    }
+  };
+  bg.onchange = e => {
+    const t = e.target;
+    if (t.dataset.f === 'dd') { cell.dd = t.checked; saveSoon(); }
+    else if (t.dataset.kind) { const s = t.dataset.kind[0], m = list(s)[+t.dataset.kind.slice(1)]; if (m) { m.kind = t.value; saveSoon(); renderList(s); } }
+    else if (t.dataset.file) { addFiles(t.dataset.file, t.files).then(() => { t.value = ''; }); }
+  };
+  bg.onkeydown = e => {
+    if (e.target.dataset && e.target.dataset.url && e.key === 'Enter') { e.preventDefault(); if (addText(e.target.dataset.url, e.target.value)) e.target.value = ''; }
+  };
+  bg.onfocusin = e => { const s = e.target.closest('.side'); if (s && UI.edit) UI.edit.side = s.dataset.side; };
+  bg.onpaste = e => {
+    const files = Array.from((e.clipboardData && e.clipboardData.files) || []).filter(f => /^(image|audio|video)\//.test(f.type));
+    if (files.length) { e.preventDefault(); addFiles((UI.edit && UI.edit.side) || 'q', files); }
+  };
+  bg.ondragover = e => {
+    if (!e.dataTransfer) return;
+    e.preventDefault();
+    const s = e.target.closest('.side');
+    $$('.side', bg).forEach(x => x.classList.toggle('drag', x === s));
+  };
+  bg.ondragleave = e => { if (e.target === bg) $$('.side', bg).forEach(x => x.classList.remove('drag')); };
+  bg.ondrop = e => {
+    e.preventDefault();
+    $$('.side', bg).forEach(x => x.classList.remove('drag'));
+    const s = (e.target.closest('.side') || {}).dataset ? e.target.closest('.side').dataset.side : ((UI.edit && UI.edit.side) || 'q');
+    const files = e.dataTransfer ? e.dataTransfer.files : null;
+    if (files && files.length) addFiles(s, files);
+    else if (e.dataTransfer) { const txt = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain'); if (txt) addText(s, txt.split(/\r?\n/).find(l => l && !l.startsWith('#'))); }
+  };
+  renderList('q'); renderList('a');
+  setTimeout(() => { const t = $('[data-f="q"]', bg); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 0);
+}
+function stepCell(d) {
+  if (!UI.edit) return;
+  const nC = G.cats.length, nR = G.rows.length, total = nC * nR;
+  const idx = ((UI.edit.c * nR + UI.edit.r + d) % total + total) % total;
+  openCellEditor(Math.floor(idx / nR), idx % nR);
+}
+function closeCellEditor() {
+  const bg = $('.modal-bg.cell-ed'); if (bg) bg.remove();
+  UI.edit = null; saveSoon.flush(); renderEditor();
+}
+document.addEventListener('keydown', e => {
+  if (!UI.edit) return;
+  if (e.key === 'Escape') { e.preventDefault(); closeCellEditor(); }
+  else if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); stepCell(e.key === 'ArrowDown' ? 1 : -1); }
+});
+
+/* ---------- host mode ---------- */
+const Host = { screen: null };
+const RT = { buzz: { armed: false, order: [], out: new Set() }, timer: null, sel: null, selPlayer: -1, lastSent: { clue: null, ans: null }, outbox: [], hostSound: true, lastPub: null, lastValue: 0, panelDirty: false };
+const Net = { bc: null, peer: null, conns: new Map(), status: 'off', note: '', code: null, locals: new Map(), starting: false };
+
+const joinUrl = () => location.origin + location.pathname + '?join=' + Net.code;
+const countLeft = () => G.cats.reduce((n, c) => n + c.cells.filter(x => cellFilled(x) && !x.played).length, 0);
+function openValue() {
+  const o = G.live.open; if (!o) return 0;
+  if (o.dd && o.wager !== null && o.wager !== undefined && o.wager !== '') return +o.wager || 0;
+  return cellValue(G, o.c, o.r);
+}
+function pubState() {
+  const L = G.live, o = L.open;
+  return {
+    v: 1, title: G.title, phase: L.phase, prefix: G.settings.prefix || '',
+    cats: G.cats.map(c => c.name), rows: G.rows.slice(),
+    vals: G.cats.map((c, ci) => c.cells.map((_, ri) => cellValue(G, ci, ri))),
+    empty: G.cats.map(c => c.cells.map(x => !cellFilled(x))),
+    done: G.cats.flatMap((c, ci) => c.cells.map((x, ri) => x.played ? ci + ',' + ri : null)).filter(Boolean),
+    open: o ? { key: o.key, c: o.c, r: o.r, phase: o.phase, revealed: !!o.revealed, quiet: !!o.quiet, dd: !!o.dd, value: openValue() } : null,
+    players: L.players.map(p => ({ id: p.id, name: p.name, score: p.score, pid: p.pid || null })),
+    show: !!G.settings.showScores, sfx: !!G.settings.sfx, autoplay: !!G.settings.autoplay,
+    buzz: { on: !!G.settings.buzzers, armed: !!RT.buzz.armed, order: RT.buzz.order.map(b => ({ pid: b.pid, name: b.name })), out: Array.from(RT.buzz.out) },
+    timer: RT.timer ? { id: RT.timer.id, dur: RT.timer.dur, left: Math.max(0, RT.timer.end - Date.now()) } : null,
+    join: Net.code && Net.status === 'online' && !IS_FILE ? { url: joinUrl().replace(/^https?:\/\//, ''), code: Net.code } : null,
+    paused: false
+  };
+}
+const mediaOut = list => list.filter(m => safeSrc(m.src)).map(m => ({ src: m.src, kind: m.kind || 'auto' }));
+function clueMsg() { const o = G.live.open, cell = G.cats[o.c].cells[o.r]; return { key: o.key, q: cell.q, qm: mediaOut(cell.qm) }; }
+function answerMsg() { const o = G.live.open, cell = G.cats[o.c].cells[o.r]; return { key: o.key, a: cell.a, am: mediaOut(cell.am) }; }
+
+function sendAll(m) {
+  if (Host.screen) Host.screen.handle(m);
+  if (Net.bc) { try { Net.bc.postMessage(m); } catch (e) {} }
+  sendRemote(m);
+}
+function sendRemote(m) { for (const r of Net.conns.values()) safeSend(r.conn, m); }
+function safeSend(conn, m) { try { if (conn && conn.open) conn.send(m); } catch (e) {} }
+
+function broadcast() {
+  if (!G || UI.mode !== 'host') return;
+  const o = G.live.open, msgs = [];
+  if (o && o.phase === 'clue' && RT.lastSent.clue !== o.key) { msgs.push({ t: 'clue', c: clueMsg() }); RT.lastSent.clue = o.key; }
+  if (o && o.revealed && RT.lastSent.ans !== o.key) { msgs.push({ t: 'answer', a: answerMsg() }); RT.lastSent.ans = o.key; }
+  if (!o) RT.lastSent.clue = RT.lastSent.ans = null;
+  const st = pubState(); RT.lastPub = st;
+  msgs.push({ t: 'state', s: st });
+  msgs.push(...RT.outbox.splice(0));
+  msgs.forEach(sendAll);
+}
+const broadcastSoon = debounce(() => broadcast(), 150);
+function syncTo(send) {
+  if (!G) return;
+  if (UI.mode !== 'host') { if (RT.lastPub) send({ t: 'state', s: Object.assign({}, RT.lastPub, { paused: true, open: null, timer: null }) }); return; }
+  const o = G.live.open;
+  if (o && o.phase === 'clue') send({ t: 'clue', c: clueMsg() });
+  if (o && o.revealed) send({ t: 'answer', a: answerMsg() });
+  send({ t: 'state', s: pubState() });
+}
+function commit() { saveSoon(); broadcast(); renderHostPanel(); }
+
+/* actions */
+function resetBuzz(armed) { RT.buzz = { armed: !!armed, order: [], out: new Set() }; }
+function hostOpenTile(c, r) {
+  const L = G.live, cell = G.cats[c] && G.cats[c].cells[r];
+  if (!cell || !cellFilled(cell) || L.open) return;
+  if (cell.played && !confirm('This clue was already played. Open it again?')) return;
+  L.phase = 'board';
+  L.seq = (+L.seq || 0) + 1;
+  L.open = { c, r, key: `${c}-${r}-${L.seq}`, phase: cell.dd ? 'dd' : 'clue', revealed: false, quiet: false, dd: !!cell.dd, wager: null };
+  cell.played = true;
+  RT.timer = null; resetBuzz(G.settings.buzzers && !cell.dd);
+  RT.sel = { c, r }; RT.lastValue = cellValue(G, c, r);
+  if (Host.screen) Host.screen.setSel(null);
+  commit();
+}
+function hostShowDDClue() {
+  const o = G.live.open; if (!o || o.phase !== 'dd') return;
+  if (o.wager === null || o.wager === '' || isNaN(+o.wager)) o.wager = cellValue(G, o.c, o.r);
+  o.wager = +o.wager; o.phase = 'clue'; RT.lastValue = o.wager;
+  commit();
+}
+function hostReveal() {
+  const o = G.live.open; if (!o) return;
+  if (o.phase === 'dd') return hostShowDDClue();
+  if (o.revealed) return;
+  o.revealed = true; o.quiet = false; RT.buzz.armed = false;
+  commit();
+}
+function hostClose(keepTile) {
+  const L = G.live, o = L.open; if (!o) return;
+  if (keepTile) G.cats[o.c].cells[o.r].played = false;
+  L.open = null; RT.timer = null; resetBuzz(false);
+  commit();
+}
+function hostAward(i, sign) {
+  const L = G.live, p = L.players[i]; if (!p) return;
+  const o = L.open, v = o && o.phase === 'clue' ? openValue() : (RT.lastValue || +G.rows[0] || 100);
+  const d = sign * v;
+  p.score += d;
+  L.history.push({ id: p.id, d }); if (L.history.length > 200) L.history.shift();
+  RT.outbox.push({ t: 'fx', sound: sign > 0 ? 'correct' : 'wrong', toast: `${p.name} ${d >= 0 ? '+' : '\u2212'}${G.settings.prefix || ''}${Math.abs(d).toLocaleString('en-US')}`, tone: sign > 0 ? 'ok' : 'bad', flash: p.id });
+  if (o && o.phase === 'clue') {
+    if (sign > 0 && !o.revealed) { o.revealed = true; o.quiet = true; RT.buzz.armed = false; }
+    if (sign < 0 && p.pid) {
+      RT.buzz.out.add(p.pid);
+      RT.buzz.order = RT.buzz.order.filter(b => b.pid !== p.pid);
+      if (!o.revealed && G.settings.buzzers) RT.buzz.armed = true;
+    }
+  }
+  commit();
+}
+function hostUndo() {
+  const L = G.live, h = L.history.pop(); if (!h) return;
+  const p = L.players.find(x => x.id === h.id); if (p) p.score -= h.d;
+  commit();
+}
+function addPlayer(name, pid) {
+  const L = G.live; if (L.players.length >= MAX_PLAYERS) { flashMsg(`Up to ${MAX_PLAYERS} players or teams`); return null; }
+  const p = { id: uid(), name: String(name || `Player ${L.players.length + 1}`).slice(0, 28), score: 0, pid: pid || null };
+  L.players.push(p); return p;
+}
+function hostTimer(sec) { if (!G.live.open) return; RT.timer = { id: uid(), dur: sec, end: Date.now() + sec * 1000, fired: false }; commit(); }
+function hostMedia(side, i, action) { const o = G.live.open; if (o) sendAll({ t: 'media', key: o.key, mk: side + i, action }); }
+function hostFinal() {
+  const L = G.live; L.open = null; RT.timer = null; resetBuzz(false); L.phase = 'final';
+  RT.outbox.push({ t: 'fx', sound: 'win', confetti: true });
+  commit();
+}
+function moveSel(dc, dr) {
+  const nC = G.cats.length, nR = G.rows.length;
+  RT.sel = RT.sel ? { c: clamp(RT.sel.c + dc, 0, nC - 1), r: clamp(RT.sel.r + dr, 0, nR - 1) } : { c: 0, r: 0 };
+  if (Host.screen) Host.screen.setSel(RT.sel);
+}
+function hostStage(kind) {
+  const L = G.live, o = L.open;
+  if (kind === 'intro') { L.phase = 'board'; commit(); }
+  else if (kind === 'dd') hostShowDDClue();
+  else if (kind === 'clue' && o) { if (!o.revealed) hostReveal(); else hostClose(false); }
+}
+
+setInterval(() => {
+  if (UI.mode === 'host' && RT.timer && !RT.timer.fired && Date.now() >= RT.timer.end) {
+    RT.timer.fired = true;
+    RT.outbox.push({ t: 'fx', sound: 'timeup', toast: 'Time\u2019s up', tone: 'bad' });
+    commit();
+  }
+}, 200);
+setInterval(() => {
+  if (!G || !Net.conns.size && !Net.bc) return;
+  const m = UI.mode === 'host' ? { t: 'state', s: pubState() } : (RT.lastPub ? { t: 'state', s: Object.assign({}, RT.lastPub, { paused: true, open: null, timer: null }) } : null);
+  if (!m) return;
+  sendRemote(m);
+  if (Net.bc) { try { Net.bc.postMessage(m); } catch (e) {} }
+}, 6000);
+setInterval(() => {
+  if (!Net.locals.size) return;
+  const now = Date.now(); let changed = false;
+  for (const [k, t] of Net.locals) if (now - t > 9000) { Net.locals.delete(k); changed = true; }
+  if (changed) { if (!Net.locals.size) { RT.hostSound = true; updateHostAudio(); } renderHostPanel(); }
+}, 3000);
+function updateHostAudio() { if (Host.screen) Host.screen.setMuted(!RT.hostSound); }
+
+/* entering and leaving */
+async function enterHost(opts = {}) {
+  closeMenu();
+  saveSoon.flush();
+  fixLive(G);
+  if (!G.cats.some(c => c.cells.some(cellFilled))) { flashMsg('Write at least one clue first'); return; }
+  const used = G.cats.some(c => c.cells.some(x => x.played)) || G.live.players.some(p => p.score) || G.live.phase !== 'intro';
+  if (used && !opts.silent) {
+    const v = await choose('Pick up where you left off?', 'Some clues in this game were already played or scored.', [['fresh', 'Start fresh'], ['resume', 'Resume', 'primary']]);
+    if (!v) return;
+    if (v === 'fresh') {
+      G.cats.forEach(c => c.cells.forEach(x => { x.played = false; }));
+      G.live = Object.assign(freshLive(), { players: G.live.players.map(p => Object.assign({}, p, { score: 0 })) });
+    }
+  }
+  resetBuzz(false); RT.timer = null; RT.lastSent = { clue: null, ans: null };
+  renderHost();
+}
+function exitHost() {
+  if (G.live.open) { RT.timer = null; }
+  RT.lastPub = pubState();
+  const paused = { t: 'state', s: Object.assign({}, RT.lastPub, { paused: true, open: null, timer: null }) };
+  if (Net.bc) { try { Net.bc.postMessage(paused); } catch (e) {} }
+  sendRemote(paused);
+  saveSoon.flush();
+  renderEditor();
+}
+
+function renderHost() {
+  UI.mode = 'host'; lsSet('tn.mode', 'host');
+  document.body.className = 'is-host';
+  const app = $('#app');
+  app.onclick = app.oninput = app.onchange = app.onkeydown = null;
+  app.innerHTML = `<div class="host">
+  <div class="host-main">
+    <div class="host-top"><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
+    <div class="monitor" id="monitor"></div>
+  </div>
+  <aside class="hpanel" id="hpanel" aria-label="Host controls"></aside>
+</div>`;
+  Host.screen = createScreen($('#monitor'), { interactive: true, muted: !RT.hostSound, onTile: hostOpenTile, onStage: hostStage });
+  $('#exitHost').onclick = exitHost;
+  bindPanel($('#hpanel'));
+  RT.lastSent = { clue: null, ans: null };
+  if (!Net.code) { Net.code = lsGet('tn.room', null) || randCode(); lsSet('tn.room', Net.code); }
+  startLocal();
+  startRemote();
+  broadcast();
+  renderHostPanel();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (Host.screen) Host.screen.refit(); });
+}
+
+const tgl = (k, label) => `<label class="tgl"><span>${label}</span><input type="checkbox" data-setting="${k}"${G.settings[k] ? ' checked' : ''}><i></i></label>`;
+function renderHostPanel() {
+  const pane = $('#hpanel');
+  if (!pane || UI.mode !== 'host') return;
+  const ae = document.activeElement;
+  if (ae && pane.contains(ae) && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(ae.type)))) { RT.panelDirty = true; return; }
+  RT.panelDirty = false;
+  const L = G.live, o = L.open, S = G.settings, pre = S.prefix || '';
+  const viewers = Array.from(Net.conns.values()), on = Net.status === 'online';
+  const badge = on ? '<span class="onair"><i></i>On air</span>' : Net.status === 'connecting' ? '<span class="onair off wait"><i></i>Connecting</span>' : `<span class="onair off"><i></i>${Net.status === 'error' ? 'Offline' : 'Not live'}</span>`;
+  let h = `<section class="hp-sec">
+    <div class="hp-live">${badge}<span class="hp-viewers">${viewers.length === 0 ? 'Nobody joined yet' : viewers.length === 1 ? '1 person joined' : viewers.length + ' people joined'}${Net.locals.size ? '<br>Display tab open' : ''}</span></div>
+    <div class="hp-code"><span>Room</span><b>${esc(Net.code || '')}</b></div>
+    ${IS_FILE ? '<p class="hp-note">This page was opened as a file. Invite links work once it\u2019s on your website.</p>' : ''}
+    ${Net.note ? `<p class="hp-note">${esc(Net.note)}</p>` : ''}
+    <div class="hp-btns"><button class="btn sm" data-act="copyInvite"${on && !IS_FILE ? '' : ' disabled'}>${icon('copy', 16)}Copy invite link</button><button class="btn sm" data-act="openDisplay">${icon('tv', 16)}Open display tab</button></div>
+    ${viewers.length ? `<details class="hp-who"><summary>Who\u2019s here</summary><ul>${viewers.map(v => `<li>${esc(v.name || 'Guest')}</li>`).join('')}</ul></details>` : ''}
+  </section><section class="hp-sec">`;
+  if (L.phase === 'intro') {
+    h += `<h3>Title screen</h3><p class="hp-muted">Everyone sees the game title${on ? ' and the join link' : ''}. Show the board when you\u2019re ready.</p><button class="btn primary wide" data-act="showBoard">Show the board <span class="kbd">Space</span></button>`;
+  } else if (L.phase === 'final') {
+    h += `<h3>Final scores are on screen</h3><button class="btn wide" data-act="backToBoard">Back to the board</button>`;
+  } else if (!o) {
+    const left = countLeft();
+    h += `<h3>Pick a tile</h3><p class="hp-muted">${left ? `${plural(left, 'clue')} left. Click a tile, or use the arrow keys and Enter.` : 'Every clue has been played.'}</p>
+      <div class="hp-btns"><button class="btn sm${left ? '' : ' primary'}" data-act="final">${icon('trophy', 16)}Show final scores</button><button class="btn sm ghost" data-act="intro">Title screen</button></div>`;
+  } else {
+    const cell = G.cats[o.c].cells[o.r];
+    h += `<div class="hp-cluehead"><b>${esc(G.cats[o.c].name || 'Category ' + (o.c + 1))}</b><span>${o.dd ? 'Daily Double' : esc(pre + fmtNum(openValue()))}</span></div>`;
+    if (o.phase === 'dd') {
+      h += `<label class="field"><span>Wager</span><input class="txt" type="number" step="100" data-input="wager" value="${esc(o.wager === null ? cellValue(G, o.c, o.r) : o.wager)}"></label>
+        <button class="btn primary wide" data-act="ddShow">Show the clue <span class="kbd">Space</span></button>`;
+    } else {
+      h += `<div class="answer-box"><div class="ab-label">Answer</div><div class="ab-ans">${cell.a.trim() ? richText(cell.a) : '<em>No answer written</em>'}</div>${cell.am.length ? `<div class="ab-extra">${plural(cell.am.length, 'media item')} with the answer</div>` : ''}<div class="ab-q">${richText(cell.q) || '<em>Media clue</em>'}</div></div>
+        <div class="hp-btns">${o.revealed ? `<button class="btn primary" data-act="close">Back to the board <span class="kbd">Space</span></button>` : `<button class="btn primary" data-act="reveal">Reveal answer <span class="kbd">Space</span></button><button class="btn" data-act="close">Back to the board <span class="kbd">Esc</span></button>`}</div>
+        <div class="hp-row"><span class="hp-lbl">${icon('timer', 16)}Timer</span>${[5, 10, 15, 30].map(s => `<button class="btn sm" data-act="timer" data-s="${s}">${s}s</button>`).join('')}${RT.timer ? '<button class="btn sm ghost" data-act="stopTimer">Stop</button>' : ''}</div>`;
+      const items = [...cell.qm.map((m, i) => ['q', i, m]), ...(o.revealed ? cell.am.map((m, i) => ['a', i, m]) : [])].filter(x => PLAYABLE.includes(kindOf(x[2])));
+      if (items.length) h += `<div class="hp-media">${items.map(([s, i, m]) => `<div class="hp-mrow"><span>${esc(KIND_LABEL[kindOf(m)])}${s === 'a' ? ' with the answer' : ''}</span>${[['play', 'Play'], ['pause', 'Pause'], ['restart', 'Restart']].map(([a, t]) => `<button class="btn sm icon" data-act="media" data-side="${s}" data-i="${i}" data-a="${a}" title="${t}" aria-label="${t}">${icon(a, 16)}</button>`).join('')}</div>`).join('')}</div>`;
+      h += `<button class="btn sm ghost" data-act="keep">Close and keep this tile on the board</button>`;
+    }
+  }
+  h += `</section>`;
+  if (S.buzzers && o && o.phase === 'clue') {
+    const b = RT.buzz;
+    h += `<section class="hp-sec"><div class="hp-h3row"><h3>${icon('bolt', 16)}Buzzers</h3><span class="tag${b.armed ? ' ok' : ''}">${b.armed ? 'Open' : 'Locked'}</span></div>
+      ${b.order.length ? `<ol class="buzz-list">${b.order.map((x, i) => `<li>${esc(x.name)}${i ? `<span>+${((x.t - b.order[0].t) / 1000).toFixed(2)}s</span>` : ''}</li>`).join('')}</ol>` : '<p class="hp-muted">Nobody has buzzed yet.</p>'}
+      <div class="hp-btns"><button class="btn sm" data-act="buzzToggle">${b.armed ? 'Lock buzzers' : 'Open buzzers'}</button><button class="btn sm ghost" data-act="buzzReset">Clear and reopen</button></div></section>`;
+  }
+  const v = o && o.phase === 'clue' ? openValue() : 0, fp = RT.buzz.order[0] && RT.buzz.order[0].pid;
+  h += `<section class="hp-sec"><div class="hp-h3row"><h3>Scores</h3><button class="btn sm ghost" data-act="undo"${L.history.length ? '' : ' disabled'}>${icon('undo', 16)}Undo</button></div>
+    ${L.players.length ? '' : `<p class="hp-muted">${S.autoAdd ? 'People who join with the invite link show up here. ' : ''}You can also add players or teams by hand.</p>`}
+    <div class="plist">${L.players.map((p, i) => `<div class="prow${RT.selPlayer === i ? ' sel' : ''}${p.pid && p.pid === fp ? ' buzzed' : ''}">
+      <span class="pn">${i + 1}</span>
+      <input class="pname" data-input="pname" data-i="${i}" value="${esc(p.name)}" maxlength="28" aria-label="Name of player ${i + 1}">
+      <input class="pscore" type="number" step="100" data-input="pscore" data-i="${i}" value="${p.score}" aria-label="Score of player ${i + 1}">
+      <span class="pbtns">${v ? `<button class="btn sm ok" data-act="award" data-i="${i}" data-s="1" title="Correct">${icon('check', 14)}${fmtNum(v)}</button><button class="btn sm bad" data-act="award" data-i="${i}" data-s="-1" title="Wrong">${icon('minus', 14)}${fmtNum(v)}</button>` : `<button class="btn sm icon ghost" data-act="rmPlayer" data-i="${i}" title="Remove" aria-label="Remove ${esc(p.name)}">${icon('x', 16)}</button>`}</span>
+    </div>`).join('')}</div>
+    <div class="hp-btns"><button class="btn sm" data-act="addPlayer">${icon('plus', 16)}Add player or team</button></div></section>
+  <section class="hp-sec"><h3>Settings</h3>
+    ${tgl('buzzers', 'Buzzers for people who joined')}${tgl('autoAdd', 'Add people to scores when they join')}${tgl('showScores', 'Show scores on screen')}${tgl('sfx', 'Sound effects')}${tgl('autoplay', 'Play media when a clue opens')}
+    <label class="tgl"><span>Sound on this page</span><input type="checkbox" data-hostsound${RT.hostSound ? ' checked' : ''}><i></i></label>
+    <div class="hp-btns"><button class="btn sm ghost" data-act="resetBoard">Reset board</button><button class="btn sm ghost" data-act="resetScores">Reset scores</button><button class="btn sm ghost" data-act="newCode">New room code</button></div>
+    <p class="hp-muted small">Keys: arrows pick a tile, Enter opens it, Space reveals, Esc closes. Press 1 to 9 to pick a player, then up or down to add or take away the clue\u2019s points.</p>
+  </section>`;
+  pane.innerHTML = h;
+}
+
+function bindPanel(pane) {
+  pane.addEventListener('click', e => {
+    const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
+    const d = b.dataset, i = +d.i;
+    switch (d.act) {
+      case 'copyInvite': copyText(joinUrl()).then(() => flashMsg('Invite link copied')); break;
+      case 'openDisplay': { const w = window.open(location.pathname + '?display=1', 'amx-trivia-display'); if (!w) flashMsg('The browser blocked the new tab. Allow pop-ups for this site.'); break; }
+      case 'showBoard': case 'backToBoard': G.live.phase = 'board'; commit(); break;
+      case 'intro': G.live.phase = 'intro'; commit(); break;
+      case 'final': hostFinal(); break;
+      case 'ddShow': hostShowDDClue(); break;
+      case 'reveal': hostReveal(); break;
+      case 'close': hostClose(false); break;
+      case 'keep': hostClose(true); break;
+      case 'timer': hostTimer(+d.s); break;
+      case 'stopTimer': RT.timer = null; commit(); break;
+      case 'media': hostMedia(d.side, i, d.a); break;
+      case 'buzzToggle': RT.buzz.armed = !RT.buzz.armed; commit(); break;
+      case 'buzzReset': resetBuzz(true); commit(); break;
+      case 'award': hostAward(i, +d.s); break;
+      case 'undo': hostUndo(); break;
+      case 'addPlayer': { const p = addPlayer(); commit(); if (p) { const n = $$('#hpanel .pname').pop(); if (n) { n.focus(); n.select(); } } return; }
+      case 'rmPlayer': { const p = G.live.players[i]; if (p && confirm(`Remove ${p.name} from the scores?`)) { G.live.players.splice(i, 1); RT.selPlayer = -1; commit(); } break; }
+      case 'resetBoard': if (confirm('Put every clue back on the board?')) { G.cats.forEach(c => c.cells.forEach(x => { x.played = false; })); G.live.open = null; RT.timer = null; resetBuzz(false); commit(); } break;
+      case 'resetScores': if (confirm('Set every score back to 0?')) { G.live.players.forEach(p => { p.score = 0; }); G.live.history = []; commit(); } break;
+      case 'newCode': if (confirm('Make a new room code? People who already joined will need the new invite link.')) newRoomCode(); break;
+    }
+    if (b.isConnected) b.blur();
+  });
+  pane.addEventListener('input', e => {
+    const t = e.target, p = G.live.players[+t.dataset.i];
+    if (t.dataset.input === 'pname' && p) { p.name = t.value.slice(0, 28); saveSoon(); broadcastSoon(); }
+    else if (t.dataset.input === 'pscore' && p) { const v = parseInt(t.value, 10); if (!isNaN(v)) { p.score = v; saveSoon(); broadcastSoon(); } }
+    else if (t.dataset.input === 'wager' && G.live.open) { G.live.open.wager = t.value === '' ? null : +t.value; saveSoon(); }
+  });
+  pane.addEventListener('change', e => {
+    const t = e.target;
+    if (t.dataset.setting) {
+      G.settings[t.dataset.setting] = t.checked;
+      if (t.dataset.setting === 'buzzers') { const o = G.live.open; resetBuzz(t.checked && o && o.phase === 'clue' && !o.revealed); }
+      t.blur(); commit();
+    } else if (t.hasAttribute('data-hostsound')) { RT.hostSound = t.checked; updateHostAudio(); t.blur(); }
+  });
+  pane.addEventListener('focusout', () => setTimeout(() => { if (RT.panelDirty) renderHostPanel(); }, 0));
+  pane.addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.dataset.input) e.target.blur(); });
+}
+
+document.addEventListener('keydown', e => {
+  if (UI.mode !== 'host' || !G || $('.modal-bg') || UI.menu) return;
+  const t = e.target, tag = t.tagName;
+  if ((tag === 'INPUT' && !['checkbox', 'radio', 'button'].includes(t.type)) || tag === 'TEXTAREA' || tag === 'SELECT' || t.isContentEditable) return;
+  if (e.ctrlKey || e.metaKey) return;
+  const L = G.live, o = L.open, k = e.key;
+  if (k === ' ' || k === 'Spacebar') {
+    e.preventDefault();
+    if (L.phase === 'intro') { L.phase = 'board'; commit(); }
+    else if (!o) { if (RT.sel && L.phase === 'board') hostOpenTile(RT.sel.c, RT.sel.r); }
+    else if (o.phase === 'dd') hostShowDDClue();
+    else if (!o.revealed) hostReveal();
+    else hostClose(false);
+  } else if (k === 'Enter') {
+    if (!o && L.phase === 'board' && RT.sel) { e.preventDefault(); hostOpenTile(RT.sel.c, RT.sel.r); }
+  } else if (k === 'Escape') {
+    if (RT.selPlayer >= 0) { RT.selPlayer = -1; renderHostPanel(); } else if (o) hostClose(false);
+  } else if (/^[1-9]$/.test(k) && !e.altKey) {
+    const i = +k - 1; if (L.players[i]) { RT.selPlayer = RT.selPlayer === i ? -1 : i; renderHostPanel(); }
+  } else if (k === 'ArrowUp' || k === 'ArrowDown') {
+    e.preventDefault();
+    if (RT.selPlayer >= 0 && L.players[RT.selPlayer]) hostAward(RT.selPlayer, k === 'ArrowUp' ? 1 : -1);
+    else if (!o && L.phase === 'board') moveSel(0, k === 'ArrowUp' ? -1 : 1);
+  } else if ((k === 'ArrowLeft' || k === 'ArrowRight') && !o && L.phase === 'board') {
+    e.preventDefault(); moveSel(k === 'ArrowLeft' ? -1 : 1, 0);
+  } else if (e.altKey && (e.code === 'KeyA' || k === 'a' || k === 'A')) {
+    e.preventDefault(); G.settings.autoplay = !G.settings.autoplay; commit(); flashMsg(G.settings.autoplay ? 'Media plays when a clue opens' : 'Media waits for you to press play');
+  }
+});
+
+/* ---------- connections (host side) ---------- */
+function setNet(status, note) { Net.status = status; Net.note = note || ''; renderHostPanel(); broadcast(); }
+function startLocal() {
+  if (Net.bc || !('BroadcastChannel' in window)) return;
+  Net.bc = new BroadcastChannel(BC_NAME);
+  Net.bc.onmessage = e => onScreenMsg(e.data, { local: true });
+}
+async function startRemote() {
+  if (Net.peer || Net.starting) return;
+  Net.starting = true;
+  setNet('connecting', '');
+  try { await loadPeerJS(); }
+  catch (e) { Net.starting = false; setNet('error', 'Invite links aren\u2019t available (the connection library didn\u2019t load). You can still screen-share the display tab.'); return; }
+  Net.starting = false;
+  let tries = 0;
+  const go = () => {
+    const peer = new window.Peer(PEER_PREFIX + Net.code, { debug: 1 });
+    Net.peer = peer;
+    peer.on('open', () => { if (Net.peer === peer) { tries = 0; setNet('online', ''); } });
+    peer.on('connection', conn => { if (Net.peer === peer) setupConn(conn); });
+    peer.on('disconnected', () => {
+      if (Net.peer !== peer) return;
+      setNet('connecting', 'Reconnecting\u2026');
+      setTimeout(() => { if (Net.peer === peer && !peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }, 2000);
+    });
+    peer.on('error', err => {
+      if (Net.peer !== peer) return;
+      const t = err && err.type;
+      if (t === 'unavailable-id') {
+        try { peer.destroy(); } catch (e) {}
+        Net.peer = null;
+        if (++tries <= 6) { setNet('connecting', 'Room code busy, trying again\u2026'); setTimeout(go, 2500); }
+        else setNet('error', 'This room code is open in another tab. Close it or make a new room code.');
+      } else if (t === 'browser-incompatible') setNet('error', 'This browser can\u2019t host invite links. Use Chrome or Edge.');
+      else if (['network', 'server-error', 'socket-error', 'socket-closed'].includes(t)) {
+        setNet('connecting', 'Connection dropped, trying again\u2026');
+        setTimeout(() => { if (Net.peer === peer && !peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }, 3000);
+      }
+    });
+  };
+  go();
+}
+function setupConn(conn) {
+  const md = conn.metadata || {};
+  const rec = { conn, name: String(md.name || 'Guest').slice(0, 28), pid: String(md.pid || '').slice(0, 40) };
+  conn.on('open', () => {
+    Net.conns.set(conn.connectionId, rec);
+    syncTo(m => safeSend(conn, m));
+    onScreenMsg({ t: 'hello', name: rec.name, pid: rec.pid }, { rec });
+  });
+  conn.on('data', d => onScreenMsg(d, { rec }));
+  const gone = () => { if (Net.conns.delete(conn.connectionId)) renderHostPanel(); };
+  conn.on('close', gone);
+  conn.on('error', gone);
+}
+function newRoomCode() {
+  if (Net.peer) { try { Net.peer.destroy(); } catch (e) {} Net.peer = null; }
+  Net.conns.clear();
+  Net.code = randCode(); lsSet('tn.room', Net.code);
+  startRemote();
+  renderHostPanel();
+}
+function onScreenMsg(m, from) {
+  if (!m || typeof m !== 'object') return;
+  if (from.local) {
+    const id = String(m.id || 'display');
+    if (m.t === 'hello') {
+      const had = Net.locals.size; Net.locals.set(id, Date.now());
+      if (!had) { RT.hostSound = false; updateHostAudio(); }
+      syncTo(x => { try { Net.bc.postMessage(x); } catch (e) {} });
+      renderHostPanel();
+    } else if (m.t === 'ping') Net.locals.set(id, Date.now());
+    else if (m.t === 'bye') {
+      Net.locals.delete(id);
+      if (!Net.locals.size) { RT.hostSound = true; updateHostAudio(); }
+      renderHostPanel();
+    }
+    return;
+  }
+  const rec = from.rec; if (!rec) return;
+  if (m.t === 'hello') {
+    rec.name = String(m.name || rec.name || 'Guest').trim().slice(0, 28) || 'Guest';
+    rec.pid = String(m.pid || rec.pid || '').slice(0, 40);
+    if (UI.mode === 'host' && G && G.settings.autoAdd && rec.pid) {
+      const L = G.live, nm = rec.name.toLowerCase();
+      const p = L.players.find(x => x.pid === rec.pid) || L.players.find(x => !x.pid && x.name.trim().toLowerCase() === nm);
+      if (p) { if (!p.pid) { p.pid = rec.pid; commit(); } else renderHostPanel(); }
+      else if (addPlayer(rec.name, rec.pid)) commit();
+      else renderHostPanel();
+    } else renderHostPanel();
+  } else if (m.t === 'buzz') {
+    if (UI.mode !== 'host' || !G || !G.settings.buzzers) return;
+    const o = G.live.open, pid = rec.pid;
+    if (!o || o.phase !== 'clue' || !pid || !RT.buzz.armed || RT.buzz.out.has(pid) || RT.buzz.order.some(b => b.pid === pid)) return;
+    const pl = G.live.players.find(p => p.pid === pid);
+    RT.buzz.order.push({ pid, name: (pl && pl.name) || rec.name || 'Player', t: Date.now() });
+    broadcast(); renderHostPanel();
+  }
+}
+
+/* ---------- display tab (same computer, for screen sharing) ---------- */
+function bootDisplay() {
+  document.title = 'Display \u2013 Trivia Night';
+  document.body.className = 'is-screen';
+  $('#app').innerHTML = `<div class="viewer"><div class="screen-host" id="scr"></div>
+    <div class="chrome"><button class="pill" id="fsBtn" title="Full screen">${icon('full', 16)}Full screen</button></div>
+    <div class="cover" id="cover"><button class="btn primary big" id="startBtn">Start the display</button><p>Click once so videos and sounds can play. Then screen-share this tab, or drag it to the screen everyone watches. Answers never show here until you reveal them.</p></div></div>`;
+  const scr = createScreen($('#scr'), { waitText: 'Waiting for the host tab' });
+  $('#fsBtn').onclick = toggleFullscreen;
+  idleCursor();
+  if (!('BroadcastChannel' in window)) { scr.setWait('This browser can\u2019t run the display tab. Use Chrome, Edge or Firefox.'); return; }
+  const id = uid(), bc = new BroadcastChannel(BC_NAME);
+  bc.onmessage = e => { const m = e.data; if (m && ['state', 'clue', 'answer', 'media', 'fx'].includes(m.t)) scr.handle(m); };
+  const hello = () => bc.postMessage({ t: 'hello', id });
+  hello();
+  setInterval(() => bc.postMessage({ t: 'ping', id }), 3000);
+  addEventListener('pagehide', () => { try { bc.postMessage({ t: 'bye', id }); } catch (e) {} });
+  $('#startBtn').onclick = () => { SFX.unlock(); $('#cover').remove(); hello(); };
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => scr.refit());
+}
+
+/* ---------- player page (joined with the invite link) ---------- */
+function bootJoin(raw) {
+  const code = String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
+  document.title = 'Join \u2013 Trivia Night';
+  $('#app').innerHTML = `<div class="join-screen"><form class="join-card" id="jf">
+    <div class="jc-brand">Trivia Night</div><h1>Join the game</h1>
+    <p class="hint">Room <span class="room">${esc(code)}</span></p>
+    <label class="field"><span>Your name</span><input class="txt" id="jn" maxlength="28" required autocomplete="nickname" placeholder="Name for the scoreboard" value="${esc(lsGet('tn.name', ''))}"></label>
+    <button class="btn primary big wide" type="submit">Join</button>
+    <p class="hint small">You\u2019ll see the board here while the host runs the game.</p>
+  </form></div>`;
+  $('#jf').onsubmit = e => {
+    e.preventDefault();
+    const name = $('#jn').value.trim().slice(0, 28); if (!name) return;
+    lsSet('tn.name', name); SFX.unlock(); startPlayer(code, name);
+  };
+  setTimeout(() => $('#jn').focus(), 50);
+}
+function startPlayer(code, name) {
+  let pid = lsGet('tn.pid', null); if (!pid) { pid = uid(); lsSet('tn.pid', pid); }
+  document.title = 'Trivia Night';
+  document.body.className = 'is-screen is-player';
+  $('#app').innerHTML = `<div class="viewer"><div class="screen-host" id="scr"></div>
+    <div class="pbar hidden" id="pbar"><button class="buzzbtn" id="buzz" disabled>Buzz</button><span class="pbar-note" id="bnote"></span></div>
+    <div class="chrome"><span class="pill" id="pst"><i class="dot"></i><span>Connecting</span></span><button class="pill" id="muteBtn" title="Mute" aria-label="Mute">${icon('vol', 16)}</button><button class="pill" id="fsBtn" title="Full screen" aria-label="Full screen">${icon('full', 16)}</button></div></div>`;
+  const pbar = $('#pbar'), buzz = $('#buzz'), bnote = $('#bnote'), pst = $('#pst');
+  let muted = !!lsGet('tn.mute', false), conn = null, last = 0, retryT = 0, S = null;
+  const scr = createScreen($('#scr'), { waitText: 'Connecting to the host', muted, onState: st => { S = st; updateBuzz(); } });
+  const setSt = (kind, text) => { pst.className = 'pill ' + kind; $('span', pst).textContent = text; if (!S) scr.setWait(text); };
+  const setMuteIcon = () => { $('#muteBtn').innerHTML = icon(muted ? 'mute' : 'vol', 16); };
+  setMuteIcon();
+  $('#muteBtn').onclick = () => { muted = !muted; lsSet('tn.mute', muted); scr.setMuted(muted); setMuteIcon(); };
+  $('#fsBtn').onclick = toggleFullscreen;
+  idleCursor();
+
+  function updateBuzz() {
+    const on = !!(S && S.buzz && S.buzz.on);
+    pbar.classList.toggle('hidden', !on);
+    if (!on) return;
+    const o = S.open, inClue = S.phase === 'board' && o && o.phase === 'clue';
+    const idx = S.buzz.order.findIndex(b => b.pid === pid), isOut = (S.buzz.out || []).includes(pid);
+    buzz.disabled = !(inClue && S.buzz.armed && idx < 0 && !isOut && !o.revealed);
+    buzz.classList.toggle('first', idx === 0);
+    bnote.textContent = idx === 0 ? 'You buzzed first' : idx > 0 ? `You\u2019re number ${idx + 1}` : isOut && inClue && !o.revealed ? 'You already answered this one' : !inClue ? 'Wait for a clue' : o.revealed ? 'Answer revealed' : S.buzz.armed ? 'Press Space or tap Buzz' : 'Buzzers are locked';
+  }
+  const doBuzz = () => { if (buzz.disabled) return; safeSend(conn, { t: 'buzz', pid }); buzz.disabled = true; bnote.textContent = 'Buzzed'; };
+  buzz.onclick = doBuzz;
+  addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat && !/INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); doBuzz(); } });
+
+  setSt('', 'Connecting');
+  loadPeerJS().then(() => {
+    const peer = new window.Peer({ debug: 1 });
+    const retry = ms => { if (retryT) return; retryT = setTimeout(() => { retryT = 0; connect(); }, ms); };
+    function connect() {
+      if (peer.destroyed) return;
+      if (peer.disconnected) { try { peer.reconnect(); } catch (e) {} retry(2500); return; }
+      if (conn) { try { conn.close(); } catch (e) {} }
+      const c = peer.connect(PEER_PREFIX + code, { reliable: true, metadata: { name, pid } });
+      conn = c;
+      const to = setTimeout(() => { if (conn === c && !c.open) { try { c.close(); } catch (e) {} retry(1500); } }, 15000);
+      c.on('open', () => { clearTimeout(to); last = Date.now(); setSt('ok', 'Live'); safeSend(c, { t: 'hello', name, pid }); });
+      c.on('data', d => { last = Date.now(); scr.handle(d); });
+      c.on('close', () => { if (conn === c) { setSt('', 'Reconnecting'); retry(2500); } });
+      c.on('error', () => { if (conn === c) retry(2500); });
+    }
+    peer.on('open', connect);
+    peer.on('error', err => {
+      const t = err && err.type;
+      if (t === 'peer-unavailable') { setSt('', 'Waiting for the host to start'); retry(4000); }
+      else if (t === 'browser-incompatible') setSt('bad', 'This browser can\u2019t join. Try Chrome, Edge, Firefox or Safari.');
+      else { setSt('', 'Reconnecting'); retry(4000); }
+    });
+    peer.on('disconnected', () => setTimeout(() => { if (!peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }, 2000));
+    setInterval(() => { if (conn && conn.open && Date.now() - last > 20000) { try { conn.close(); } catch (e) {} setSt('', 'Reconnecting'); retry(500); } }, 4000);
+  }).catch(() => setSt('bad', 'Couldn\u2019t connect. Check your internet and reload the page.'));
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => scr.refit());
+}
+
+/* ---------- start ---------- */
+async function boot() {
+  const qs = new URLSearchParams(location.search);
+  if (qs.get('join')) return bootJoin(qs.get('join'));
+  if (qs.has('display')) return bootDisplay();
+  await loadAll();
+  document.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
+  addEventListener('pagehide', () => { if (G) persist(G).catch(() => {}); });
+  if (lsGet('tn.mode', 'edit') === 'host' && G.cats.some(c => c.cells.some(cellFilled))) enterHost({ silent: true });
+  else renderEditor();
+}
+boot().catch(err => {
+  console.error(err);
+  $('#app').innerHTML = `<div class="boot">Something went wrong while loading: ${esc(err && err.message || err)}</div>`;
+});
+})();
+
+</script>
+</body>
+</html>
