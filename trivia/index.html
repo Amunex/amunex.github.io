@@ -619,6 +619,15 @@ button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 .gi-main span{font-size:14px;color:var(--ink-2)}
 @media (max-width:760px){.home-actions{grid-template-columns:1fr}.brand.big{font-size:60px}.home{padding-top:36px}}
 
+/* player buzzer pops up with the question */
+.pv .buzzbtn{height:76px;min-width:330px;font-size:40px}
+.buzzbtn.pop{animation:buzzPop .55s cubic-bezier(.2,.9,.3,1.4) both}
+.buzzbtn.go.pop{animation:buzzPop .55s cubic-bezier(.2,.9,.3,1.4) both,buzzGlow .7s ease-in-out .55s infinite alternate}
+@keyframes buzzPop{0%{transform:translateY(60px) scale(.4);opacity:0}100%{transform:none;opacity:1}}
+#retryBtn{cursor:pointer;border-color:rgba(255,199,44,.6);color:#ffe08a}
+@media (max-width:900px){.pv .buzzbtn{height:70px;min-width:min(330px,88vw);font-size:36px}}
+@media (prefers-reduced-motion:reduce){.buzzbtn.pop{animation:none!important}}
+
 </style>
 </head>
 <body>
@@ -1746,7 +1755,10 @@ async function addFromHash() {
     if (!window.DecompressionStream) throw new Error('old browser');
     const text = await new Response(new Blob([b64urlToBytes(m[1])]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
     const obj = JSON.parse(text), g = normalizeGame(obj);
-    if (games.some(x => x.id === g.id)) { G = await loadGame(g.id) || G; lsSet('tn.current', G.id); flashMsg(`\u201c${g.title}\u201d is already in your games`); return true; }
+    if (games.some(x => x.id === g.id)) {
+      const v = await choose('Update this game?', `You already have \u201c${g.title}\u201d. Replace it with the version from this link? Your copy\u2019s edits and scores will be replaced.`, [['keep', 'Keep mine'], ['replace', 'Replace it', 'primary']]);
+      if (v !== 'replace') { G = await loadGame(g.id) || G; lsSet('tn.current', G.id); return true; }
+    }
     g.live = freshLive(); g.cats.forEach(c => c.cells.forEach(x => { x.played = false; }));
     await persist(g); G = g; lsSet('tn.current', g.id);
     flashMsg(`Added \u201c${g.title}\u201d to your games`);
@@ -2176,7 +2188,7 @@ function pubState() {
     show: !!G.settings.showScores, sfx: !!G.settings.sfx, autoplay: !!G.settings.autoplay,
     buzz: { on: !!G.settings.buzzers, armed: !!b.armed, opened: !!b.openedAt, order: b.order.map(x => ({ pid: x.pid, name: x.name, ms: x.ms })), out: Array.from(b.out), early: b.early.map(x => ({ pid: x.pid, name: x.name })) },
     timer: RT.timer ? { id: RT.timer.id, dur: RT.timer.dur, left: Math.max(0, RT.timer.end - Date.now()) } : null,
-    join: Net.code && Net.status === 'online' && !IS_FILE ? { url: joinUrl().replace(/^https?:\/\//, ''), code: Net.code } : null,
+    join: Net.code && (Net.status === 'online' || relayOn()) && !IS_FILE ? { url: joinUrl().replace(/^https?:\/\//, ''), code: Net.code } : null,
     paused: false
   };
 }
@@ -2189,7 +2201,7 @@ function sendAll(m) {
   if (Net.bc) { try { Net.bc.postMessage(m); } catch (e) {} }
   sendRemote(m);
 }
-function sendRemote(m) { for (const r of Net.conns.values()) safeSend(r.conn, m); }
+function sendRemote(m) { for (const r of Net.conns.values()) safeSend(r.conn, m); relayBroadcast(m); }
 function safeSend(conn, m) { try { if (conn && conn.open) conn.send(m); } catch (e) {} }
 
 function broadcast() {
@@ -2372,7 +2384,7 @@ setInterval(() => {
   }
 }, 200);
 setInterval(() => {
-  if (!G || (!Net.conns.size && !Net.bc)) return;
+  if (!G || (!Net.conns.size && !Net.bc && !Relay.list.length)) return;
   const m = UI.mode === 'host' ? { t: 'state', s: pubState() } : (RT.lastPub ? { t: 'state', s: Object.assign({}, RT.lastPub, { paused: true, open: null, timer: null }) } : null);
   if (!m) return;
   sendRemote(m);
@@ -2444,6 +2456,7 @@ function renderHost() {
   if (!Net.code) { Net.code = lsGet('tn.room', null) || randCode(); lsSet('tn.room', Net.code); }
   startLocal();
   startRemote();
+  startRelayHost();
   broadcast();
   renderHostPanel();
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => { if (Host.screen) Host.screen.refit(); });
@@ -2527,7 +2540,7 @@ function renderHostPanel() {
   if (ae && pane.contains(ae) && (ae.tagName === 'TEXTAREA' || (ae.tagName === 'INPUT' && !['checkbox', 'radio', 'button'].includes(ae.type)))) { RT.panelDirty = true; return; }
   RT.panelDirty = false;
   const L = G.live, o = L.open, S = G.settings;
-  const viewers = Array.from(Net.conns.values()), on = Net.status === 'online';
+  const viewers = allRecs(), on = Net.status === 'online' || relayOn();
   const badge = on ? '<span class="onair"><i></i>On air</span>' : Net.status === 'connecting' ? '<span class="onair off wait"><i></i>Connecting</span>' : `<span class="onair off"><i></i>${Net.status === 'error' ? 'Offline' : 'Not live'}</span>`;
   let h = '';
   if (o) h += clueCard(o);
@@ -2535,7 +2548,7 @@ function renderHostPanel() {
     <div class="hp-live">${badge}<span class="hp-viewers">${viewers.length === 0 ? 'Nobody joined yet' : viewers.length === 1 ? '1 person joined' : viewers.length + ' people joined'}${Net.locals.size ? '<br>Display tab open' : ''}</span></div>
     <div class="hp-code"><span>Room</span><b>${esc(Net.code || '')}</b></div>
     ${IS_FILE ? '<p class="hp-note">This page was opened as a file. Invite links work once it\u2019s on your website.</p>' : ''}
-    ${Net.note ? `<p class="hp-note">${esc(Net.note)}</p>` : ''}
+    ${Net.note && !relayOn() ? `<p class="hp-note">${esc(Net.note)}</p>` : ''}${relayOn() ? '<p class="hp-muted small">Backup route is on, for anyone whose network blocks direct connections.</p>' : ''}
     <div class="hp-btns"><button class="btn sm" data-act="copyInvite"${on && !IS_FILE ? '' : ' disabled'}>${icon('copy', 16)}Copy invite link</button><button class="btn sm" data-act="openDisplay">${icon('tv', 16)}Open display tab</button><button class="btn sm ghost" data-act="testPlayer"${on ? '' : ' disabled'} title="Opens a pretend player in a new tab so you can try the buzzers yourself">${icon('plus', 16)}Test player</button></div>
     ${viewers.length ? `<details class="hp-who"><summary>Who\u2019s here</summary><ul>${viewers.map(v => `<li>${esc(v.name || 'Guest')}</li>`).join('')}</ul></details>` : ''}
   </section>`;
@@ -2662,6 +2675,101 @@ document.addEventListener('keydown', e => {
   }
 });
 
+/* ---------- backup route: a public relay (MQTT over secure WebSocket) ----------
+   Direct browser-to-browser links (WebRTC) fail on some networks: strict routers, mobile data, VPNs,
+   school or office Wi-Fi, in-app browsers. The relay goes through ordinary secure web traffic instead.
+   The host listens on every relay; a player uses the first one that reaches the host. */
+const MQTT_SRC = ['https://cdnjs.cloudflare.com/ajax/libs/mqtt/5.15.1/mqtt.min.js', 'https://cdn.jsdelivr.net/npm/mqtt@5.15.1/dist/mqtt.min.js'];
+const RELAYS = [
+  { id: 'r1', url: 'wss://public.cloud.shiftr.io:443', opts: { username: 'public', password: 'public' } },
+  { id: 'r2', url: 'wss://broker.emqx.io:8084/mqtt', opts: {} },
+  { id: 'r3', url: 'wss://broker.hivemq.com:8884/mqtt', opts: {} }
+];
+const RELAY_CHUNK = 24000;
+let mqttLoading = null;
+function loadMqtt() {
+  if (window.mqtt) return Promise.resolve();
+  if (!mqttLoading) {
+    mqttLoading = (async () => {
+      for (const src of MQTT_SRC) { try { await loadScript(src); if (window.mqtt) return; } catch (e) {} }
+      throw new Error('relay library did not load');
+    })();
+    mqttLoading.catch(() => { mqttLoading = null; });
+  }
+  return mqttLoading;
+}
+const relayTopic = (code, part) => `amx-trivia/${code}/${part}`;
+function relayConnect(r, onMsg, onState) {
+  const rel = { id: r.id, c: null, ok: false, parts: new Map() };
+  try { rel.c = window.mqtt.connect(r.url, Object.assign({ clientId: 'amx' + uid(), connectTimeout: 9000, reconnectPeriod: 5000, keepalive: 30, clean: true }, r.opts)); }
+  catch (e) { return rel; }
+  rel.c.on('connect', () => { rel.ok = true; if (onState) onState(rel, true); });
+  rel.c.on('close', () => { if (rel.ok) { rel.ok = false; if (onState) onState(rel, false); } });
+  rel.c.on('error', () => {});
+  rel.c.on('message', (topic, buf) => { const m = relayDecode(rel, buf); if (m) onMsg(rel, topic, m); });
+  return rel;
+}
+function relayEnd(rel) { try { if (rel && rel.c) rel.c.end(true); } catch (e) {} if (rel) rel.ok = false; }
+function relaySend(rel, topic, obj) {
+  if (!rel || !rel.ok) return;
+  try {
+    const s = JSON.stringify(obj);
+    if (s.length <= RELAY_CHUNK) { rel.c.publish(topic, s); return; }
+    const id = uid(), n = Math.ceil(s.length / RELAY_CHUNK);
+    for (let i = 0; i < n; i++) rel.c.publish(topic, JSON.stringify({ k: 'part', id, i, n, d: s.slice(i * RELAY_CHUNK, (i + 1) * RELAY_CHUNK) }));
+  } catch (e) {}
+}
+function relayDecode(rel, buf) {
+  let o;
+  try { o = JSON.parse(typeof buf === 'string' ? buf : new TextDecoder().decode(buf)); } catch (e) { return null; }
+  if (!o || typeof o !== 'object') return null;
+  if (o.k !== 'part') return o;
+  const now = Date.now();
+  for (const [k, v] of rel.parts) if (now - v.t > 30000) rel.parts.delete(k);
+  let p = rel.parts.get(o.id);
+  if (!p) { p = { n: +o.n || 0, got: 0, arr: [], t: now }; rel.parts.set(o.id, p); }
+  if (p.arr[o.i] === undefined) { p.arr[o.i] = String(o.d || ''); p.got++; }
+  if (p.got < p.n) return null;
+  rel.parts.delete(o.id);
+  try { return JSON.parse(p.arr.join('')); } catch (e) { return null; }
+}
+
+/* host side */
+const Relay = { list: [], players: new Map(), started: false, code: null };
+const relayOn = () => Relay.list.some(r => r.ok);
+const allRecs = () => [...Net.conns.values(), ...Relay.players.values()];
+async function startRelayHost() {
+  if (Relay.started || !Net.code) return;
+  Relay.started = true; Relay.code = Net.code;
+  try { await loadMqtt(); } catch (e) { Relay.started = false; renderHostPanel(); return; }
+  if (Relay.code !== Net.code) { Relay.started = false; return; }
+  for (const r of RELAYS) Relay.list.push(relayConnect(r, onRelayHostMsg, (rel, ok) => {
+    if (ok) rel.c.subscribe(relayTopic(Relay.code, 'p'));
+    renderHostPanel(); broadcastSoon();
+  }));
+}
+function stopRelayHost() { Relay.list.forEach(relayEnd); Relay.list = []; Relay.players.clear(); Relay.started = false; }
+function relayBroadcast(m) { if (!Relay.list.length) return; const t = relayTopic(Relay.code, 'h'); for (const r of Relay.list) relaySend(r, t, m); }
+function onRelayHostMsg(rel, topic, env) {
+  if (topic !== relayTopic(Relay.code, 'p') || !env || !env.from || !env.m || typeof env.m !== 'object') return;
+  const pid = String(env.from).slice(0, 40);
+  let rec = Relay.players.get(pid);
+  if (!rec) { rec = { relay: true, pid, name: 'Guest', test: false, last: 0 }; Relay.players.set(pid, rec); }
+  const isNew = !rec.last;
+  rec.rel = rel; rec.last = Date.now();
+  if (env.name) rec.name = String(env.name).slice(0, 28);
+  rec.test = rec.test || !!env.test;
+  const m = env.m;
+  if (m.t === 'hello') syncTo(x => relaySend(rel, relayTopic(Relay.code, 'u/' + pid), x), true);
+  if (m.t === 'ping') { if (isNew) renderHostPanel(); return; }
+  onScreenMsg(m, { rec });
+}
+setInterval(() => {
+  const now = Date.now(); let changed = false;
+  for (const [k, r] of Relay.players) if (now - r.last > 25000) { Relay.players.delete(k); changed = true; }
+  if (changed) renderHostPanel();
+}, 5000);
+
 /* ---------- connections (host side) ---------- */
 function setNet(status, note) { Net.status = status; Net.note = note || ''; renderHostPanel(); broadcast(); }
 function startLocal() {
@@ -2721,7 +2829,9 @@ function newRoomCode() {
   if (Net.peer) { try { Net.peer.destroy(); } catch (e) {} Net.peer = null; }
   Net.conns.clear();
   Net.code = randCode(); lsSet('tn.room', Net.code);
+  stopRelayHost();
   startRemote();
+  startRelayHost();
   renderHostPanel();
 }
 function onScreenMsg(m, from) {
@@ -2748,7 +2858,7 @@ function onScreenMsg(m, from) {
     if (UI.mode === 'host' && G && G.settings.autoAdd && rec.pid) {
       rec.test = rec.test || !!m.test;
       const L = G.live, nm = rec.name.toLowerCase();
-      const online = pid => Array.from(Net.conns.values()).some(r => r !== rec && r.pid === pid);
+      const online = pid => allRecs().some(r => r !== rec && r.pid === pid);
       const p = L.players.find(x => x.pid === rec.pid) || L.players.find(x => x.name.trim().toLowerCase() === nm && (!x.pid || !online(x.pid)));
       if (p) { if (p.pid !== rec.pid) { p.pid = rec.pid; commit(); } else renderHostPanel(); }
       else if (addPlayer(rec.name, rec.pid, rec.test)) commit();
@@ -2813,7 +2923,7 @@ function startPlayer(code, name, test) {
   <div class="pv-main">
     <div class="screen-host" id="scr"></div>
     <div class="pbar">
-      <div class="pb-side"><span class="pill" id="pst"><i class="dot"></i><span>Connecting</span></span></div>
+      <div class="pb-side"><span class="pill" id="pst"><i class="dot"></i><span>Connecting</span></span><button class="pill hidden" id="retryBtn" onclick="location.reload()">Retry</button></div>
       <div class="pb-center"><button class="buzzbtn idle" id="buzz" disabled>Buzz</button><div class="pbar-note" id="bnote"></div></div>
       <div class="pb-side right"><button class="pill" id="chatBtn">${icon('chat', 16)}Chat<b class="unread hidden" id="unread"></b></button><button class="pill" id="muteBtn" title="Mute" aria-label="Mute"></button><button class="pill" id="fsBtn" title="Full screen" aria-label="Full screen">${icon('full', 16)}</button></div>
     </div>
@@ -2825,9 +2935,9 @@ function startPlayer(code, name, test) {
   </aside>
 </div>`;
   const buzz = $('#buzz'), bnote = $('#bnote'), pst = $('#pst'), chat = $('#chat'), chatLog = $('#chatLog'), unreadEl = $('#unread');
-  let muted = !!lsGet('tn.mute', false), conn = null, last = 0, retryT = 0, S = null, unread = 0, buzzedKey = null;
+  let muted = !!lsGet('tn.mute', false), conn = null, last = 0, retryT = 0, S = null, unread = 0, buzzedKey = null, sendToHost = () => {}, buzzShown = false, popUntil = 0;
   let chatOpen = lsGet('tn.chatOpen', innerWidth >= 1000);
-  const scr = createScreen($('#scr'), { waitText: 'Connecting to the host', muted, onState: st => { S = st; update(); }, onTile: (c, r) => safeSend(conn, { t: 'pick', c, r }) });
+  const scr = createScreen($('#scr'), { waitText: 'Connecting to the host', muted, onState: st => { S = st; update(); }, onTile: (c, r) => sendToHost({ t: 'pick', c, r }) });
   const setSt = (kind, text) => { pst.className = 'pill ' + kind; $('span', pst).textContent = text; if (!S) scr.setWait(text); };
   const setMuteIcon = () => { $('#muteBtn').innerHTML = icon(muted ? 'mute' : 'vol', 16); };
   const showChat = v => {
@@ -2840,7 +2950,7 @@ function startPlayer(code, name, test) {
   $('#fsBtn').onclick = toggleFullscreen;
   $('#chatBtn').onclick = () => showChat(!chatOpen);
   $('#chatClose').onclick = () => showChat(false);
-  $('#chatForm').onsubmit = e => { e.preventDefault(); const i = $('#chatIn'), t = i.value.trim(); if (t) { safeSend(conn, { t: 'chat', text: t.slice(0, 300) }); i.value = ''; } };
+  $('#chatForm').onsubmit = e => { e.preventDefault(); const i = $('#chatIn'), t = i.value.trim(); if (t) { sendToHost({ t: 'chat', text: t.slice(0, 300) }); i.value = ''; } };
 
   function addMsg(m, quiet) {
     const d = document.createElement('div');
@@ -2876,51 +2986,97 @@ function startPlayer(code, name, test) {
     else if (!b.armed) { label = 'Wait'; cls = 'wait'; enabled = true; note = b.opened ? 'Buzzers are locked' : 'Wait for the host to open buzzers. Buzzing early locks you out.'; }
     else { label = 'Buzz!'; cls = 'go'; enabled = true; note = 'Buzz now! (Space)'; }
     if (inClue && buzzedKey === o.key + ':' + (b.opened ? 1 : 0) && idx < 0 && !out) { enabled = false; note = 'Buzzed\u2026'; }
-    buzz.textContent = label; buzz.className = 'buzzbtn ' + cls; buzz.disabled = !enabled;
-    buzz.classList.toggle('hidden', !b.on);
+    const showBuzz = !!b.on && inClue;
+    if (showBuzz && !buzzShown) popUntil = Date.now() + 600;
+    buzzShown = showBuzz;
+    buzz.textContent = label; buzz.disabled = !enabled;
+    buzz.className = 'buzzbtn ' + cls + (showBuzz ? '' : ' hidden') + (Date.now() < popUntil ? ' pop' : '');
     bnote.textContent = note;
   }
   const doBuzz = () => {
     if (buzz.disabled || !S || !S.open) return;
-    safeSend(conn, { t: 'buzz', pid });
+    sendToHost({ t: 'buzz', pid });
     buzzedKey = S.open.key + ':' + (S.buzz && S.buzz.opened ? 1 : 0);
     buzz.disabled = true; bnote.textContent = 'Buzzed\u2026';
   };
   buzz.onclick = doBuzz;
   addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat && !/INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); doBuzz(); } });
 
+  /* connect: direct link first, then the backup relay if that doesn't come through */
+  let via = null, relayActive = null, relayStarted = false, gaveUp = false, directRetry = () => {};
+  const relays = [], t0 = Date.now(), forceRelay = new URLSearchParams(location.search).get('via') === 'relay';
+  const env = m => ({ from: pid, name, test: !!test, m });
+  sendToHost = m => {
+    if (via === 'relay' && relayActive) relaySend(relayActive, relayTopic(code, 'p'), env(m));
+    else if (via === 'direct') safeSend(conn, m);
+    else { safeSend(conn, m); relays.forEach(r => relaySend(r, relayTopic(code, 'p'), env(m))); }
+  };
+  function fromHost(src, d) {
+    if (!d || typeof d !== 'object') return;
+    if (!via) {
+      via = src === 'direct' ? 'direct' : 'relay';
+      if (via === 'relay') { relayActive = src; relays.forEach(r => { if (r !== src) relayEnd(r); }); }
+      gaveUp = false; $('#retryBtn').classList.add('hidden');
+      setSt('ok', via === 'direct' ? 'Live' : 'Live (backup route)');
+    } else if (via === 'direct' ? src !== 'direct' : src !== relayActive) return;
+    last = Date.now();
+    if (d.t === 'chat' && d.m) addMsg(d.m);
+    else if (d.t === 'chatlog' && Array.isArray(d.list)) { chatLog.innerHTML = ''; d.list.forEach(m => addMsg(m, true)); chatLog.scrollTop = chatLog.scrollHeight; }
+    else scr.handle(d);
+  }
+  async function startRelay() {
+    if (relayStarted) return;
+    relayStarted = true;
+    if (!via) setSt('', 'Trying another route');
+    try { await loadMqtt(); } catch (e) { relayStarted = false; return; }
+    for (const r of RELAYS) relays.push(relayConnect(r, (rel, topic, m) => fromHost(rel, m), (rel, ok) => {
+      if (!ok) return;
+      rel.c.subscribe([relayTopic(code, 'h'), relayTopic(code, 'u/' + pid)]);
+      relaySend(rel, relayTopic(code, 'p'), env({ t: 'hello', name, pid, test: !!test }));
+    }));
+  }
+  function restartRelay() { relays.forEach(relayEnd); relays.length = 0; relayStarted = false; startRelay(); }
   setSt('', 'Connecting');
-  loadPeerJS().then(() => {
+  if (!forceRelay) loadPeerJS().then(() => {
     const peer = new window.Peer({ debug: 1 });
     const retry = ms => { if (retryT) return; retryT = setTimeout(() => { retryT = 0; connect(); }, ms); };
+    directRetry = retry;
     function connect() {
       if (peer.destroyed) return;
       if (peer.disconnected) { try { peer.reconnect(); } catch (e) {} retry(2500); return; }
       if (conn) { try { conn.close(); } catch (e) {} }
       const c = peer.connect(PEER_PREFIX + code, { reliable: true, metadata: { name, pid, test: !!test } });
       conn = c;
-      const to = setTimeout(() => { if (conn === c && !c.open) { try { c.close(); } catch (e) {} retry(1500); } }, 15000);
-      c.on('open', () => { clearTimeout(to); last = Date.now(); setSt('ok', 'Live'); safeSend(c, { t: 'hello', name, pid, test: !!test }); });
-      c.on('data', d => {
-        last = Date.now();
-        if (!d || typeof d !== 'object') return;
-        if (d.t === 'chat' && d.m) addMsg(d.m);
-        else if (d.t === 'chatlog' && Array.isArray(d.list)) { chatLog.innerHTML = ''; d.list.forEach(m => addMsg(m, true)); chatLog.scrollTop = chatLog.scrollHeight; }
-        else scr.handle(d);
-      });
-      c.on('close', () => { if (conn === c) { setSt('', 'Reconnecting'); retry(2500); } });
+      const to = setTimeout(() => { if (conn === c && !c.open) { try { c.close(); } catch (e) {} retry(1500); } }, 12000);
+      c.on('open', () => { clearTimeout(to); safeSend(c, { t: 'hello', name, pid, test: !!test }); });
+      c.on('data', d => fromHost('direct', d));
+      c.on('close', () => { if (conn === c) { if (via === 'direct') { via = null; setSt('', 'Reconnecting'); } retry(2500); } });
       c.on('error', () => { if (conn === c) retry(2500); });
     }
     peer.on('open', connect);
     peer.on('error', err => {
       const t = err && err.type;
-      if (t === 'peer-unavailable') { setSt('', 'Waiting for the host to start'); retry(4000); }
-      else if (t === 'browser-incompatible') setSt('bad', 'This browser can\u2019t join. Try Chrome, Edge, Firefox or Safari.');
-      else { setSt('', 'Reconnecting'); retry(4000); }
+      if (t === 'peer-unavailable') { if (!via) setSt('', relayStarted ? 'Trying another route' : 'Waiting for the host'); retry(4000); }
+      else if (t === 'browser-incompatible') startRelay();
+      else { retry(4000); startRelay(); }
     });
     peer.on('disconnected', () => setTimeout(() => { if (!peer.destroyed && peer.disconnected) { try { peer.reconnect(); } catch (e) {} } }, 2000));
-    setInterval(() => { if (conn && conn.open && Date.now() - last > 20000) { try { conn.close(); } catch (e) {} setSt('', 'Reconnecting'); retry(500); } }, 4000);
-  }).catch(() => setSt('bad', 'Couldn\u2019t connect. Check your internet and reload the page.'));
+  }).catch(() => startRelay());
+  loadMqtt().catch(() => {});
+  setTimeout(() => { if (!via) startRelay(); }, forceRelay ? 0 : 5000);
+  setInterval(() => {
+    if (via === 'relay' && relayActive) relaySend(relayActive, relayTopic(code, 'p'), env({ t: 'ping' }));
+    if (via && Date.now() - last > 22000) {
+      via = null; relayActive = null; setSt('', 'Reconnecting');
+      if (conn && conn.open) { try { conn.close(); } catch (e) {} }
+      directRetry(500); restartRelay();
+    }
+    if (!via && !gaveUp && Date.now() - t0 > 25000) {
+      gaveUp = true; setSt('bad', 'Can\u2019t reach the host');
+      scr.setWait('Can\u2019t reach the host yet. Check with the host that they pressed Host and that your link matches theirs. Turning off a VPN or switching networks can help. Still trying\u2026');
+      $('#retryBtn').classList.remove('hidden');
+    }
+  }, 4000);
   if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => scr.refit());
 }
 
