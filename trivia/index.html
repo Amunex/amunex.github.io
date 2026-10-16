@@ -583,6 +583,19 @@ select,.game-pick{font-size:15px}
 .ec-img{position:absolute;right:10px;bottom:10px;width:58px;height:40px;border-radius:4px;background:#000 center/cover no-repeat;box-shadow:0 0 0 2px rgba(0,0,0,.4)}
 .ecell:has(.ec-img) .ec-a{padding-right:64px}
 
+/* YouTube, sound only: cover the player until the answer is revealed */
+.mbox.ytaudio{position:relative}
+.ytcover{position:absolute;inset:0;z-index:2;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:26px;background:radial-gradient(ellipse at 50% 45%,#1d3bff,#071399 70%);border-radius:6px;transition:opacity .5s}
+.ytcover .ic{color:var(--gold);filter:drop-shadow(6px 6px 0 #000)}
+.ytcover span{font:700 46px/1 var(--f-cond);text-transform:uppercase;text-shadow:3px 3px 0 #000}
+.eq{display:flex;align-items:flex-end;gap:12px;height:90px}
+.eq i{width:22px;height:100%;border-radius:4px;background:var(--gold);box-shadow:3px 3px 0 #000;transform-origin:50% 100%;animation:eqb 1s ease-in-out infinite alternate}
+.eq i:nth-child(2){animation-delay:-.3s}.eq i:nth-child(3){animation-delay:-.7s}.eq i:nth-child(4){animation-delay:-.15s}.eq i:nth-child(5){animation-delay:-.5s}.eq i:nth-child(6){animation-delay:-.85s}.eq i:nth-child(7){animation-delay:-.4s}
+@keyframes eqb{from{transform:scaleY(.15)}to{transform:scaleY(1)}}
+.clue.revealed .ytcover{opacity:0;pointer-events:none}
+@media (prefers-reduced-motion:reduce){.eq i{animation:none}}
+.mbox.ytaudio iframe{box-shadow:none}
+
 </style>
 </head>
 <body>
@@ -839,10 +852,10 @@ function cellValue(g, c, r) {
   return +g.rows[r] || 0;
 }
 
-const KINDS = ['auto', 'image', 'video', 'audio', 'youtube', 'vimeo', 'drive', 'spotify', 'embed', 'link'];
-const KIND_LABEL = { auto: 'Auto', image: 'Image', video: 'Video file', audio: 'Audio file', youtube: 'YouTube', vimeo: 'Vimeo', drive: 'Google Drive', spotify: 'Spotify', embed: 'Web embed', link: 'Link' };
-const KIND_ICON = { image: 'image', video: 'film', youtube: 'film', vimeo: 'film', drive: 'film', audio: 'music', spotify: 'music', embed: 'tv', link: 'link' };
-const PLAYABLE = ['video', 'audio', 'youtube', 'vimeo'];
+const KINDS = ['auto', 'image', 'video', 'audio', 'youtube', 'ytaudio', 'vimeo', 'drive', 'spotify', 'embed', 'link'];
+const KIND_LABEL = { auto: 'Auto', image: 'Image', video: 'Video file', audio: 'Audio file', youtube: 'YouTube', ytaudio: 'YouTube, sound only', vimeo: 'Vimeo', drive: 'Google Drive', spotify: 'Spotify', embed: 'Web embed', link: 'Link' };
+const KIND_ICON = { image: 'image', video: 'film', youtube: 'film', ytaudio: 'music', vimeo: 'film', drive: 'film', audio: 'music', spotify: 'music', embed: 'tv', link: 'link' };
+const PLAYABLE = ['video', 'audio', 'youtube', 'ytaudio', 'vimeo'];
 
 function normMedia(x, trustKind) {
   if (!x) return null;
@@ -851,7 +864,7 @@ function normMedia(x, trustKind) {
   const src = String(x.src || x.url || x.href || '').trim();
   if (!src) return null;
   let kind = String(x.kind || x.type || 'auto').toLowerCase();
-  if (!trustKind) kind = (kind === 'link' || kind === 'embed') ? kind : 'auto';
+  if (!trustKind) kind = ['link', 'embed', 'ytaudio'].includes(kind) ? kind : 'auto';
   if (!KINDS.includes(kind)) kind = 'auto';
   const m = { src, kind };
   if (x.name) m.name = String(x.name).slice(0, 120);
@@ -1269,6 +1282,7 @@ function createScreen(container, opts = {}) {
     const wasHidden = el.clue.classList.contains('hidden');
     el.clue.classList.remove('hidden');
     el.clue.classList.toggle('jester', !!o.jester);
+    el.clue.classList.toggle('revealed', !!o.revealed);
     el.cat.textContent = o.jester ? 'Jester round' : (S.cats[o.c] || '');
     el.val.textContent = (o.dd ? 'Wager ' : '') + (S.prefix || '') + fmtNum(o.value);
     const qk = o.key + (c ? '+' : '-');
@@ -1330,6 +1344,7 @@ function createScreen(container, opts = {}) {
     if (k === 'video') return `${box()}<video ${A} src="${esc(src)}" playsinline preload="auto" controls></video></div>`;
     if (k === 'audio') return `${box()}<div class="aud">${icon('music', 150)}<audio ${A} src="${esc(src)}" preload="auto" controls></audio></div></div>`;
     if (k === 'youtube') { const y = ytInfo(m.src); if (y) return `${box()}<iframe ${A} data-kind="youtube" data-start="${y.start}" src="${esc(ytEmbed(y, auto, self.muted))}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe></div>`; }
+    if (k === 'ytaudio') { const y = ytInfo(m.src); if (y) return `${box('ytaudio')}<iframe ${A} data-kind="youtube" data-start="${y.start}" src="${esc(ytEmbed(y, auto, self.muted))}" allow="autoplay; encrypted-media; picture-in-picture; fullscreen"></iframe><div class="ytcover">${icon('music', 140)}<div class="eq"><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div><span>Listen</span></div></div>`; }
     if (k === 'vimeo') { const v = vimeoInfo(m.src); if (v) return `${box()}<iframe ${A} data-kind="vimeo" src="${esc(vimeoEmbed(v, auto, self.muted))}" allow="autoplay; fullscreen; picture-in-picture"></iframe></div>`; }
     if (k === 'drive') { const id = driveId(m.src); if (id) return `${box()}<iframe ${A} data-kind="drive" src="https://drive.google.com/file/d/${encodeURIComponent(id)}/preview" allow="autoplay; fullscreen"></iframe></div>`; }
     if (k === 'spotify') { const s = spotifyEmbed(m.src); if (s) return `${box('spotify')}<iframe ${A} data-kind="spotify" src="${esc(s)}" allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"></iframe></div>`; }
@@ -1594,7 +1609,7 @@ function renderEditor() {
 function cellPreview(c, r) {
   const g = G, cell = g.cats[c].cells[r], f = cellFilled(cell);
   const kinds = [...new Set([...cell.qm, ...cell.am].map(kindOf))];
-  const pic = cell.qm.find(m => kindOf(m) === 'image' && (m.thumb || safeSrc(m.src))), yt = !pic && cell.qm.map(m => kindOf(m) === 'youtube' && ytInfo(m.src)).find(Boolean);
+  const pic = cell.qm.find(m => kindOf(m) === 'image' && (m.thumb || safeSrc(m.src))), yt = !pic && cell.qm.map(m => ['youtube', 'ytaudio'].includes(kindOf(m)) && ytInfo(m.src)).find(Boolean);
   const thumb = pic ? (pic.thumb || directSrc(pic.src)) : yt ? `https://i.ytimg.com/vi/${encodeURIComponent(yt.id)}/default.jpg` : '';
   const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + (cell.jester ? `<span class="badge jester" title="Jester mini-game">${icon('jester', 13)}Jester</span>` : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
   return `<button class="ecell${f ? '' : ' empty'}" data-act="edit" data-c="${c}" data-r="${r}" aria-label="Edit clue">
@@ -1889,7 +1904,7 @@ const cssUrl = src => String(src).replace(/['"\\\n\r()]/g, ch => encodeURICompon
 function mediaThumb(m) {
   const k = kindOf(m);
   if (k === 'image' && (m.thumb || safeSrc(m.src))) return `<div class="mthumb" style="background-image:url('${cssUrl(m.thumb || directSrc(m.src))}')"></div>`;
-  if (k === 'youtube') { const y = ytInfo(m.src); if (y) return `<div class="mthumb" style="background-image:url('https://i.ytimg.com/vi/${encodeURIComponent(y.id)}/mqdefault.jpg')"></div>`; }
+  if (k === 'youtube' || k === 'ytaudio') { const y = ytInfo(m.src); if (y) return `<div class="mthumb" style="background-image:url('https://i.ytimg.com/vi/${encodeURIComponent(y.id)}/mqdefault.jpg')"></div>`; }
   return `<div class="mthumb">${icon(KIND_ICON[k] || 'link', 20)}</div>`;
 }
 function srcLabel(m) {
