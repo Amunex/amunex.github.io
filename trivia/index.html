@@ -472,7 +472,8 @@ select,.game-pick{font-size:15px}
 .hc-log,.chat-log{flex:1;min-height:0;overflow-y:auto;display:flex;flex-direction:column;gap:7px;padding:6px 20px 8px}
 .cmsg{font-size:15px;line-height:1.38;overflow-wrap:anywhere}
 .cmsg b{margin-right:7px;color:#9fb0ff}
-.cmsg.host b{color:var(--gold)}
+.cmsg.from-host b{color:var(--gold)}
+.hc-log,.chat-log{overflow-x:hidden}
 .cmsg.me b{color:#7ee2a8}
 .cmsg a{color:#ffe08a}
 .hc-form,.chat-form{display:flex;gap:6px;padding:8px 12px 12px}
@@ -1611,7 +1612,6 @@ function renderEditor() {
   <button class="btn sm" data-act="newGame">${icon('plus', 16)}New game</button>
   <button class="btn sm icon ghost" data-act="more" title="More" aria-label="More options">${icon('dots', 18)}</button>
   <div class="grow"></div>
-  <button class="btn sm ghost" data-act="ai">Write with AI</button>
   <button class="btn sm ghost" data-act="import">Import</button>
   <button class="btn sm ghost" data-act="export">Export</button>
   <button class="btn primary" data-act="host">${icon('play', 16)}Host this game</button>
@@ -1702,7 +1702,6 @@ function editAct(a, d, btn) {
     case 'newGame': addGame(newGame(6, 5, 'Untitled game')).then(() => { const t = $('#titleIn'); if (t) { t.focus(); t.select(); } }); break;
     case 'import': openImport(); break;
     case 'export': exportGame(); break;
-    case 'ai': openAI(); break;
     case 'renumber': { const step = +G.rows[0] || 100; G.rows = G.rows.map((_, i) => step * (i + 1)); afterStructure(); break; }
     case 'host': enterHost(); break;
     case 'home': saveSoon.flush(); renderHome(); break;
@@ -1902,7 +1901,7 @@ function openImport() {
   const { bg, close } = openModal(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="Import a game">
   <div class="modal-head"><b class="mh-plain">Import a game</b><div class="grow"></div><button class="btn sm icon ghost" data-m="close" title="Close" aria-label="Close">${icon('x')}</button></div>
   <div class="modal-body stack">
-    <p class="hint">Paste the reply from \u201cWrite with AI\u201d or a game you exported. You can also choose a .json file.</p>
+    <p class="hint">Paste a game you exported, or choose a .json file.</p>
     <textarea class="txt mono tall" id="impText" spellcheck="false" placeholder='{ "title": "Game night", "categories": [ ... ] }'></textarea>
     <div class="imp-row"><label class="btn sm">${icon('upload', 16)}Choose file<input type="file" hidden id="impFile" accept=".json,application/json,text/plain"></label><span class="mnote" id="impMsg"></span></div>
   </div>
@@ -1914,47 +1913,6 @@ function openImport() {
     catch (err) { msg.textContent = err.message || String(err); }
   };
   setTimeout(() => ta.focus(), 0);
-}
-function aiPrompt() {
-  const nC = G.cats.length, nR = G.rows.length, rows = G.rows;
-  return `Write a Jeopardy-style trivia board for my team's game night.
-
-Who's playing: my video editing team (add details here)
-Categories: (list the ones you want, or write "pick fun ones")
-Board size: ${nC} categories with ${nR} clues each, worth ${rows.join(', ')} points.
-
-Rules:
-- Each "clue" is the statement shown on screen. Each "answer" is short, for the host to check.
-- Difficulty goes up with the points.
-- Only use facts you're sure are correct.
-- Mark exactly one clue with "dailyDouble": true.
-- Only add "media" when you have a real, working link (a YouTube video, or a direct image, audio or video file URL). Otherwise leave it out.
-
-Reply with only the JSON, no other text, in this shape:
-{
-  "title": "Game title",
-  "categories": [
-    {
-      "name": "Category name",
-      "clues": [
-        { "points": ${rows[0] ?? 100}, "clue": "...", "answer": "..." },
-        { "points": ${rows[1] ?? 200}, "clue": "...", "answer": "...", "media": "https://..." }
-      ]
-    }
-  ]
-}`;
-}
-function openAI() {
-  const { bg, close } = openModal(`<div class="modal narrow" role="dialog" aria-modal="true" aria-label="Write the questions with AI">
-  <div class="modal-head"><b class="mh-plain">Write the questions with AI</b><div class="grow"></div><button class="btn sm icon ghost" data-m="close" title="Close" aria-label="Close">${icon('x')}</button></div>
-  <div class="modal-body stack">
-    <p class="hint">Fill in who\u2019s playing and the topics, copy this prompt into Claude, then paste its reply into Import. The prompt matches this board\u2019s size.</p>
-    <textarea class="txt mono tall" id="aiText" spellcheck="false"></textarea>
-  </div>
-  <div class="modal-foot"><a class="btn ghost" href="https://claude.ai/new" target="_blank" rel="noopener">${icon('ext', 16)}Open Claude</a><div class="grow"></div><button class="btn" id="aiCopy">${icon('copy', 16)}Copy prompt</button><button class="btn primary" id="aiImp">Import the reply</button></div></div>`);
-  $('#aiText', bg).value = aiPrompt();
-  $('#aiCopy', bg).onclick = () => copyText($('#aiText', bg).value).then(() => flashMsg('Prompt copied'));
-  $('#aiImp', bg).onclick = () => { close(); openImport(); };
 }
 
 /* ---------- clue editor ---------- */
@@ -2441,7 +2399,7 @@ function renderHost() {
     <section class="hp-chat${RT.chatMin ? ' min' : ''}" id="hpChat">
       <div class="hc-head">${icon('chat', 16)}<b>Chat</b><span id="hcInfo"></span><button class="btn sm ghost" id="hcToggle">${RT.chatMin ? 'Show' : 'Hide'}</button></div>
       <div class="hc-log" id="hcLog" aria-live="polite"></div>
-      <form class="hc-form" id="hcForm"><input class="txt" id="hcIn" maxlength="300" placeholder="Message everyone" autocomplete="off"><button class="btn sm" type="submit">Send</button></form>
+      <form class="hc-form" id="hcForm"><input class="txt" id="hcIn" maxlength="300" placeholder="Message everyone (Esc to leave chat)" autocomplete="off"><button class="btn sm" type="submit">Send</button></form>
     </section>
   </aside>
 </div>`;
@@ -2449,7 +2407,8 @@ function renderHost() {
   $('#exitHost').onclick = () => exitHost();
   $('#homeBtn').onclick = () => exitHost('home');
   bindPanel($('#hpanel'));
-  $('#hcForm').onsubmit = e => { e.preventDefault(); const i = $('#hcIn'); hostSay(i.value); i.value = ''; i.blur(); if (RT.panelDirty) renderHostPanel(); };
+  $('#hcForm').onsubmit = e => { e.preventDefault(); const i = $('#hcIn'); hostSay(i.value); i.value = ''; i.focus(); };
+  $('#hcIn').onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); e.target.blur(); } };
   $('#hcToggle').onclick = () => { RT.chatMin = !RT.chatMin; $('#hpChat').classList.toggle('min', RT.chatMin); $('#hcToggle').textContent = RT.chatMin ? 'Show' : 'Hide'; };
   renderHostChat();
   RT.lastSent = { clue: null, ans: null };
@@ -2470,7 +2429,7 @@ function renderHostChat() {
 function appendHostChat(m) {
   const log = $('#hcLog'); if (!log || UI.mode !== 'host') return;
   const stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 40;
-  const d = document.createElement('div'); d.className = 'cmsg' + (m.host ? ' host' : '') + (m.sys ? ' sys' : '');
+  const d = document.createElement('div'); d.className = 'cmsg' + (m.host ? ' from-host' : '') + (m.sys ? ' sys' : '');
   d.innerHTML = m.sys ? `<span>${esc(m.text)}</span>` : `<b>${esc(m.name || 'Guest')}</b><span>${richText(m.text)}</span>`;
   log.appendChild(d);
   while (log.children.length > 150) log.firstChild.remove();
@@ -2954,7 +2913,7 @@ function startPlayer(code, name, test) {
 
   function addMsg(m, quiet) {
     const d = document.createElement('div');
-    d.className = 'cmsg' + (m.host ? ' host' : '') + (m.sys ? ' sys' : '') + (m.pid && m.pid === pid ? ' me' : '');
+    d.className = 'cmsg' + (m.host ? ' from-host' : '') + (m.sys ? ' sys' : '') + (m.pid && m.pid === pid ? ' me' : '');
     d.innerHTML = m.sys ? `<span>${esc(m.text)}</span>` : `<b>${esc(m.name || 'Guest')}</b><span>${richText(m.text)}</span>`;
     const stick = chatLog.scrollTop + chatLog.clientHeight >= chatLog.scrollHeight - 40;
     chatLog.appendChild(d);
