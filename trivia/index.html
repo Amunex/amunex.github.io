@@ -1204,6 +1204,7 @@ function createScreen(container, opts = {}) {
     } else if (m.t === 'clue') { self.clue = m.c; if (self.S) render(); }
     else if (m.t === 'answer') { self.ans = m.a; if (self.S) render(); }
     else if (m.t === 'media') media(m);
+    else if (m.t === 'pre') preload(m.urls);
     else if (m.t === 'fx') fx(m);
   }
 
@@ -1418,12 +1419,16 @@ function createScreen(container, opts = {}) {
     nodes.forEach(n => {
       $$('video,audio', n).forEach(v => { v.muted = self.muted; if (auto) playEl(v); });
       $$('iframe[data-kind]', n).forEach(f => f.addEventListener('load', () => {
-        if (f.dataset.kind === 'youtube') postTo(f, { event: 'listening', id: 1, channel: 'widget' });
-        setTimeout(() => {
-          f._ready = true;
-          if (f._muteChanged) iframeCmd(f, self.muted ? 'mute' : 'unmute');
-          const a = f._pending; f._pending = null; if (a) iframeCmd(f, a);
-        }, 700);
+        if (f.dataset.kind === 'youtube') {
+          let tries = 0; clearInterval(f._hs);
+          const ping = () => postTo(f, { event: 'listening', id: 1, channel: 'widget' });
+          ping();
+          f._hs = setInterval(() => {
+            if (f._ready || !f.isConnected) { clearInterval(f._hs); return; }
+            if (++tries > 40) { clearInterval(f._hs); ytReady(f); return; }
+            ping();
+          }, 250);
+        } else setTimeout(() => { f._ready = true; ytFlush(f); }, 700);
       }));
     });
   }
@@ -1440,15 +1445,44 @@ function createScreen(container, opts = {}) {
     b.onclick = () => { SFX.unlock(); b.remove(); $$('video,audio', el.media).forEach(v => { v.muted = self.muted; playEl(v); }); };
     container.appendChild(b);
   }
+  function ytFlush(f) {
+    if (f._muteChanged) { f._muteChanged = false; iframeCmd(f, self.muted ? 'mute' : 'unmute'); }
+    const a = f._pending; f._pending = null; if (a) iframeCmd(f, a);
+  }
+  function ytReady(f) { if (f._ready) return; f._ready = true; clearInterval(f._hs); ytFlush(f); }
+  addEventListener('message', e => {
+    if (!/^https:\/\/www\.youtube(-nocookie)?\.com$/.test(e.origin)) return;
+    const f = $$('iframe[data-kind="youtube"]', container).find(x => x.contentWindow === e.source); if (!f) return;
+    let d = e.data; if (typeof d === 'string') { try { d = JSON.parse(d); } catch (err) { return; } }
+    if (!d || typeof d !== 'object') return;
+    const st = d.info && typeof d.info === 'object' && typeof d.info.playerState === 'number' ? d.info.playerState : (d.event === 'onStateChange' && typeof d.info === 'number' ? d.info : null);
+    if (st !== null) f._state = st;
+    ytReady(f);
+  });
+  /* warm the cache so pictures and sounds show up right away */
+  const preHeld = new Map();
+  function preload(urls) {
+    (urls || []).forEach(u => {
+      if (typeof u !== 'string' || preHeld.has(u) || !/^https?:\/\//.test(u) || preHeld.size > 400) return;
+      if (/\.(m4a|mp3|ogg|oga|wav|aac|opus|flac)(\?|$)/i.test(u)) { const a = new Audio(); a.preload = 'auto'; a.src = u; preHeld.set(u, a); }
+      else { const i = new Image(); i.decoding = 'async'; i.src = u; preHeld.set(u, i); }
+    });
+  }
   function postTo(f, o) { try { if (f.contentWindow) f.contentWindow.postMessage(JSON.stringify(o), '*'); } catch (e) {} }
   function iframeCmd(f, action) {
     const k = f.dataset.kind;
     if (k === 'youtube') {
       const cmd = (func, args) => postTo(f, { event: 'command', func, args: args || [], id: 1, channel: 'widget' });
-      if (action === 'pause') cmd('pauseVideo');
+      if (action === 'pause') { clearTimeout(f._rt); cmd('pauseVideo'); }
       else if (action === 'mute') cmd('mute');
       else if (action === 'unmute') cmd('unMute');
-      else { if (action === 'restart') cmd('seekTo', [+f.dataset.start || 0, true]); cmd('playVideo'); }
+      else {
+        if (action === 'restart') cmd('seekTo', [+f.dataset.start || 0, true]);
+        cmd('playVideo');
+        clearTimeout(f._rt); let n = 0;
+        const again = () => { if (!f.isConnected || f._state === 1 || f._state === 3 || ++n > 6) return; cmd('playVideo'); f._rt = setTimeout(again, 800); };
+        f._rt = setTimeout(again, 800);
+      }
     } else if (k === 'vimeo') {
       if (action === 'pause') postTo(f, { method: 'pause' });
       else if (action === 'mute') postTo(f, { method: 'setVolume', value: 0 });
@@ -1921,7 +1955,7 @@ function parseGameText(text) {
   let obj;
   try { obj = JSON.parse(t.slice(a, b + 1)); } catch (e) { throw new Error('The JSON has a typo: ' + e.message); }
   const g = normalizeGame(obj);
-  g.id = uid(); g.created = Date.now(); g.live = freshLive();
+  g.srcId = g.id; g.id = uid(); g.created = Date.now(); g.live = freshLive();
   g.cats.forEach(c => c.cells.forEach(x => { x.played = false; }));
   return g;
 }
@@ -1937,7 +1971,17 @@ function openImport() {
   const ta = $('#impText', bg), msg = $('#impMsg', bg);
   $('#impFile', bg).onchange = async e => { const f = e.target.files[0]; if (f) { ta.value = await f.text(); msg.textContent = ''; } };
   $('#impGo', bg).onclick = async () => {
-    try { const g = parseGameText(ta.value); close(); await addGame(g); flashMsg(`Imported \u201c${g.title}\u201d`); }
+    try {
+      const g = parseGameText(ta.value), same = g.srcId && games.some(x => x.id === g.srcId);
+      close();
+      if (same) {
+        const v = await choose('Replace your current copy?', `You already have \u201c${g.title}\u201d. Replace it with this file, or keep both?`, [['both', 'Keep both'], ['replace', 'Replace it', 'primary']]);
+        if (!v) return;
+        if (v === 'replace') g.id = g.srcId;
+      } else if (g.srcId) g.id = g.srcId;
+      delete g.srcId;
+      await addGame(g); flashMsg(`Imported \u201c${g.title}\u201d`);
+    }
     catch (err) { msg.textContent = err.message || String(err); }
   };
   setTimeout(() => ta.focus(), 0);
@@ -2224,7 +2268,9 @@ function pubState() {
 }
 const mediaOut = list => list.filter(m => safeSrc(m.src)).map(m => { const o = { src: m.src, kind: m.kind || 'auto' }; if (m.zoom) o.zoom = m.zoom; return o; });
 function clueMsg() { const o = G.live.open, cell = G.cats[o.c].cells[o.r]; return { key: o.key, q: cell.q, qm: mediaOut(cell.qm) }; }
-function answerMsg() { const o = G.live.open, cell = G.cats[o.c].cells[o.r]; return { key: o.key, a: cell.a, am: mediaOut(cell.am) }; }
+function answerMsg() { const o = G.live.open, cell = G.cats[o.c].cells[o.r]; return { key: o.key, a: o.jester ? '' : cell.a, am: mediaOut(cell.am) }; }
+const mediaUrls = list => (list || []).filter(m => /^https?:\/\//.test(m.src) && ['image', 'audio'].includes(kindOf(m))).map(m => directSrc(m.src));
+const preQ = () => G ? G.cats.flatMap(c => c.cells.filter(x => cellFilled(x) && !x.played).flatMap(x => mediaUrls(x.qm))) : [];
 
 function sendAll(m) {
   if (Host.screen) Host.screen.handle(m);
@@ -2249,6 +2295,7 @@ const broadcastSoon = debounce(() => broadcast(), 150);
 function syncTo(send, withChat) {
   if (!G) return;
   if (withChat) send({ t: 'chatlog', list: G.live.chat.slice(-60) });
+  if (UI.mode === 'host') send({ t: 'pre', urls: preQ() });
   if (UI.mode !== 'host') { if (RT.lastPub) send({ t: 'state', s: Object.assign({}, RT.lastPub, { paused: true, open: null, timer: null }) }); return; }
   const o = G.live.open;
   if (o && o.phase === 'clue') send({ t: 'clue', c: clueMsg() });
@@ -2269,6 +2316,7 @@ function hostOpenTile(c, r) {
   RT.timer = null; resetBuzz(false);
   RT.sel = { c, r }; RT.lastValue = cellValue(G, c, r);
   if (Host.screen) Host.screen.setSel(null);
+  const pre = mediaUrls(cell.am); if (pre.length) RT.outbox.push({ t: 'pre', urls: pre });
   commit();
 }
 function hostShowDDClue() {
@@ -2282,6 +2330,7 @@ function hostReveal() {
   const o = G.live.open; if (!o) return;
   if (o.phase === 'dd') return hostShowDDClue();
   if (o.phase === 'jester') return hostShowJester();
+  if (o.jester) return hostClose(false);
   if (o.revealed) return;
   o.revealed = true; o.quiet = false; RT.buzz.armed = false;
   commit();
@@ -2445,6 +2494,7 @@ async function enterHost(opts = {}) {
   }
   resetBuzz(false); RT.timer = null; RT.lastSent = { clue: null, ans: null };
   renderHost();
+  setTimeout(() => { if (UI.mode === 'host' && G) sendAll({ t: 'pre', urls: preQ() }); }, 1200);
 }
 function exitHost(to) {
   RT.timer = null;
@@ -2555,7 +2605,7 @@ function clueCard(o) {
     if (b.early.length) h += `<p class="hp-note">Too early, locked out: ${b.early.map(e => esc(e.name)).join(', ')}</p>`;
     if (wrong.length) h += `<p class="hp-muted small">Already answered: ${wrong.map(esc).join(', ')}</p>`;
   }
-  h += `<div class="hp-btns">${o.revealed ? `<button class="btn primary" data-act="close">Back to the board <span class="kbd">Space</span></button>` : `<button class="btn primary" data-act="reveal">${b.order.length || o.dd ? 'Reveal answer' : 'Nobody got it: reveal'} <span class="kbd">Space</span></button><button class="btn" data-act="close">Back to the board <span class="kbd">Esc</span></button>`}</div>
+  h += `<div class="hp-btns">${o.jester ? `<button class="btn primary" data-act="close">Done, back to the board <span class="kbd">Space</span></button>` : o.revealed ? `<button class="btn primary" data-act="close">Back to the board <span class="kbd">Space</span></button>` : `<button class="btn primary" data-act="reveal">${b.order.length || o.dd ? 'Reveal answer' : 'Nobody got it: reveal'} <span class="kbd">Space</span></button><button class="btn" data-act="close">Back to the board <span class="kbd">Esc</span></button>`}</div>
     <div class="hp-row"><span class="hp-lbl">${icon('timer', 16)}Timer</span>${[5, 10, 15, 30].map(s => `<button class="btn sm" data-act="timer" data-s="${s}">${s}s</button>`).join('')}${RT.timer ? '<button class="btn sm ghost" data-act="stopTimer">Stop</button>' : ''}</div>`;
   const items = [...cell.qm.map((m, i) => ['q', i, m]), ...(o.revealed ? cell.am.map((m, i) => ['a', i, m]) : [])].filter(x => PLAYABLE.includes(kindOf(x[2])));
   if (items.length) h += `<div class="hp-media">${items.map(([s, i, m]) => `<div class="hp-mrow"><span>${esc(KIND_LABEL[kindOf(m)])}${s === 'a' ? ' with the answer' : ''}</span>${[['play', 'Play'], ['pause', 'Pause'], ['restart', 'Restart']].map(([a, t]) => `<button class="btn sm icon" data-act="media" data-side="${s}" data-i="${i}" data-a="${a}" title="${t}" aria-label="${t}">${icon(a, 16)}</button>`).join('')}</div>`).join('')}</div>`;
@@ -2918,7 +2968,7 @@ function bootDisplay() {
   idleCursor();
   if (!('BroadcastChannel' in window)) { scr.setWait('This browser can\u2019t run the display tab. Use Chrome, Edge or Firefox.'); return; }
   const id = uid(), bc = new BroadcastChannel(BC_NAME);
-  bc.onmessage = e => { const m = e.data; if (m && ['state', 'clue', 'answer', 'media', 'fx'].includes(m.t)) scr.handle(m); };
+  bc.onmessage = e => { const m = e.data; if (m && ['state', 'clue', 'answer', 'media', 'fx', 'pre'].includes(m.t)) scr.handle(m); };
   const hello = () => bc.postMessage({ t: 'hello', id });
   hello();
   setInterval(() => bc.postMessage({ t: 'ping', id }), 3000);
