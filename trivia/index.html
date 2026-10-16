@@ -572,6 +572,17 @@ select,.game-pick{font-size:15px}
 .clue.jester .ch-cat{color:var(--gold)}
 @media (prefers-reduced-motion:reduce){.jest-bg,.jest.go .jest-hat,.jest.go .jest-word span{animation:none!important}}
 
+/* uploads: drop zone, bigger previews */
+.dropzone{display:flex;align-items:center;gap:14px;padding:14px 16px;border:2px dashed #3a4486;border-radius:10px;background:rgba(10,31,212,.08);color:var(--ink-2);font-size:14px;line-height:1.35;cursor:pointer;transition:border-color .12s,background-color .12s,color .12s}
+.dropzone:hover,.side.drag .dropzone{border-color:var(--gold);background:rgba(255,199,44,.08);color:var(--ink)}
+.dropzone .ic{color:var(--gold)}
+.dropzone b{display:block;margin-bottom:2px;color:var(--ink);font-size:15px}
+.mitem{grid-template-columns:96px minmax(0,1fr) auto auto}
+.mthumb{width:96px;height:64px;border-radius:6px}
+.ecell{padding-right:12px}
+.ec-img{position:absolute;right:10px;bottom:10px;width:58px;height:40px;border-radius:4px;background:#000 center/cover no-repeat;box-shadow:0 0 0 2px rgba(0,0,0,.4)}
+.ecell:has(.ec-img) .ec-a{padding-right:64px}
+
 </style>
 </head>
 <body>
@@ -844,6 +855,7 @@ function normMedia(x, trustKind) {
   if (!KINDS.includes(kind)) kind = 'auto';
   const m = { src, kind };
   if (x.name) m.name = String(x.name).slice(0, 120);
+  if (typeof x.thumb === 'string' && x.thumb.startsWith('data:image/') && x.thumb.length < 60000) m.thumb = x.thumb;
   return m;
 }
 const mediaArr = (v, trust) => (Array.isArray(v) ? v : (v ? [v] : [])).map(x => normMedia(x, trust)).filter(Boolean);
@@ -1582,10 +1594,13 @@ function renderEditor() {
 function cellPreview(c, r) {
   const g = G, cell = g.cats[c].cells[r], f = cellFilled(cell);
   const kinds = [...new Set([...cell.qm, ...cell.am].map(kindOf))];
+  const pic = cell.qm.find(m => kindOf(m) === 'image' && (m.thumb || safeSrc(m.src))), yt = !pic && cell.qm.map(m => kindOf(m) === 'youtube' && ytInfo(m.src)).find(Boolean);
+  const thumb = pic ? (pic.thumb || directSrc(pic.src)) : yt ? `https://i.ytimg.com/vi/${encodeURIComponent(yt.id)}/default.jpg` : '';
   const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + (cell.jester ? `<span class="badge jester" title="Jester mini-game">${icon('jester', 13)}Jester</span>` : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
   return `<button class="ecell${f ? '' : ' empty'}" data-act="edit" data-c="${c}" data-r="${r}" aria-label="Edit clue">
     <span class="ec-top"><span class="ec-pts">${esc((g.settings.prefix || '') + fmtNum(cellValue(g, c, r)))}${cell.pts !== null ? '<sup>*</sup>' : ''}</span><span class="badges">${badges}</span></span>
     <span class="ec-q">${f ? esc(snippet(cell.q) || 'Media clue') : 'Add a clue'}</span>
+    ${thumb ? `<span class="ec-img" style="background-image:url('${cssUrl(thumb)}')"></span>` : ''}
     ${f ? `<span class="ec-a${cell.a.trim() ? '' : ' warn'}">${cell.a.trim() ? esc(snippet(cell.a, 60)) : 'No answer yet'}</span>` : ''}
   </button>`;
 }
@@ -1829,29 +1844,39 @@ function openAI() {
 /* ---------- clue editor ---------- */
 const YT_EXAMPLE = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=45';
 const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
-async function shrinkImage(f, max = 1600, q = 0.86) {
+const IMG_MAX = 1440;
+const loadImg = url => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
+function drawTo(img, max, q, keepAlpha) {
+  const s = Math.min(1, max / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
+  const cv = document.createElement('canvas');
+  cv.width = Math.max(1, Math.round((img.naturalWidth || max) * s)); cv.height = Math.max(1, Math.round((img.naturalHeight || max) * s));
+  cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
+  let out = cv.toDataURL('image/webp', q);
+  if (!out.startsWith('data:image/webp')) out = keepAlpha ? cv.toDataURL('image/png') : cv.toDataURL('image/jpeg', q);
+  return out;
+}
+async function imageToMedia(f, note) {
   const url = URL.createObjectURL(f);
   try {
-    const img = await new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
-    const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
-    if (s === 1 && f.size < 450e3) return await readURL(f);
-    const cv = document.createElement('canvas');
-    cv.width = Math.max(1, Math.round(img.naturalWidth * s)); cv.height = Math.max(1, Math.round(img.naturalHeight * s));
-    cv.getContext('2d').drawImage(img, 0, 0, cv.width, cv.height);
-    let out = cv.toDataURL('image/webp', q);
-    if (!out.startsWith('data:image/webp')) out = cv.toDataURL('image/jpeg', q);
-    return out;
+    let img;
+    try { img = await loadImg(url); }
+    catch (e) { note(`Couldn\u2019t open ${f.name}. Save it as a JPG or PNG and try again.`); return null; }
+    const type = f.type || '', alpha = /png|gif|svg|webp/.test(type), big = Math.max(img.naturalWidth, img.naturalHeight);
+    const thumb = drawTo(img, 160, 0.72, alpha);
+    let src;
+    if (type === 'image/gif' || type === 'image/svg+xml') {
+      if (f.size > 6e6) { note(`${f.name} is ${fmtBytes(f.size)}. Animated GIFs can\u2019t be shrunk, so keep them under 6 MB.`); return null; }
+      src = await readURL(f);
+    } else if (big <= IMG_MAX && f.size < 300e3) src = await readURL(f);
+    else src = drawTo(img, IMG_MAX, 0.82, alpha);
+    const after = src.length * 0.75;
+    note(after < f.size * 0.9 ? `${f.name} shrunk from ${fmtBytes(f.size)} to ${fmtBytes(after)}.` : `${f.name} added (${fmtBytes(after)}).`);
+    return { src, kind: 'image', name: f.name, thumb };
   } finally { URL.revokeObjectURL(url); }
 }
 async function fileToMedia(f, note) {
   const type = f.type || '';
-  if (type.startsWith('image/')) {
-    if (type === 'image/gif' || type === 'image/svg+xml') {
-      if (f.size > 6e6) { note(`${f.name} is ${fmtBytes(f.size)}. Images over 6 MB are too big; paste a link to it instead.`); return null; }
-      return { src: await readURL(f), kind: 'image', name: f.name };
-    }
-    return { src: await shrinkImage(f), kind: 'image', name: f.name };
-  }
+  if (type.startsWith('image/') || /\.(png|jpe?g|gif|webp|avif|bmp|svg)$/i.test(f.name)) return imageToMedia(f, note);
   if (type.startsWith('audio/') || type.startsWith('video/')) {
     if (f.size > 30e6) { note(`${f.name} is ${fmtBytes(f.size)}. Files over 30 MB are too big to send to players. Upload it to YouTube (unlisted) or Google Drive and paste the link.`); return null; }
     if (f.size > 8e6) note(`${f.name} is ${fmtBytes(f.size)}. It works, but people who joined get it when the clue opens, so it can take a moment. YouTube or Drive links start faster.`);
@@ -1860,9 +1885,10 @@ async function fileToMedia(f, note) {
   note(`${f.name} isn\u2019t an image, audio or video file.`);
   return null;
 }
+const cssUrl = src => String(src).replace(/['"\\\n\r()]/g, ch => encodeURIComponent(ch));
 function mediaThumb(m) {
   const k = kindOf(m);
-  if (k === 'image' && safeSrc(m.src)) return `<div class="mthumb" style="background-image:url('${String(directSrc(m.src)).replace(/['"\\\n\r()]/g, ch => encodeURIComponent(ch))}')"></div>`;
+  if (k === 'image' && (m.thumb || safeSrc(m.src))) return `<div class="mthumb" style="background-image:url('${cssUrl(m.thumb || directSrc(m.src))}')"></div>`;
   if (k === 'youtube') { const y = ytInfo(m.src); if (y) return `<div class="mthumb" style="background-image:url('https://i.ytimg.com/vi/${encodeURIComponent(y.id)}/mqdefault.jpg')"></div>`; }
   return `<div class="mthumb">${icon(KIND_ICON[k] || 'link', 20)}</div>`;
 }
@@ -1882,7 +1908,8 @@ function openCellEditor(c, r) {
       <h4>${title}</h4><p class="hint">${hint}</p>
       <textarea class="txt" data-f="${s}" placeholder="${ph}">${esc(cell[s])}</textarea>
       <div class="mlist" data-list="${s}"></div>
-      <div class="madd"><input class="txt" data-url="${s}" placeholder="Paste a YouTube, Drive, image, audio or video link"><button class="btn sm" data-m="add" data-side="${s}">Add</button><label class="btn sm" title="Upload a file">${icon('upload', 16)}Upload<input type="file" hidden multiple accept="image/*,audio/*,video/*" data-file="${s}"></label></div>
+      <label class="dropzone">${icon('image', 26)}<span><b>Add a picture or file</b>Drop it here, paste it with Ctrl+V, or click to choose. Big pictures shrink automatically.</span><input type="file" hidden multiple accept="image/*,audio/*,video/*" data-file="${s}"></label>
+      <div class="madd"><input class="txt" data-url="${s}" placeholder="Or paste a YouTube, Drive, image, audio or video link"><button class="btn sm" data-m="add" data-side="${s}">Add</button></div>
     </div>`;
   bg.innerHTML = `<div class="modal" role="dialog" aria-modal="true" aria-label="Edit clue">
   <div class="modal-head">
@@ -1903,7 +1930,6 @@ function openCellEditor(c, r) {
       <label class="pts-over">Points for this clue<input class="txt" type="number" step="100" data-f="pts" placeholder="${esc(G.rows[r])}" value="${cell.pts === null ? '' : esc(cell.pts)}"></label>
     </div>
     <div class="tipbox">
-      <p class="hint">You can paste a copied image straight into this window, or drop files on either side.</p>
       <p class="hint">To start a YouTube video at a certain second, add <b>&amp;t=45</b> to the end of the link (or <b>?t=45</b> on a youtu.be link). This example starts at 0:45:</p>
       <div class="example"><code>${YT_EXAMPLE}</code><button class="btn sm" data-m="copyEx">${icon('copy', 16)}Copy</button><button class="btn sm" data-m="addEx">${icon('plus', 16)}Add to this clue</button></div>
     </div>
