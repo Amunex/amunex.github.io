@@ -541,6 +541,14 @@ select,.game-pick{font-size:15px}
 }
 @media (prefers-reduced-motion:reduce){.buzzbtn.go,.buzz-pill.open{animation:none!important}}
 
+/* buzz order badges and game-event chat lines */
+.sc-ord{flex:none;margin-bottom:-2px;padding:3px 14px;border-radius:999px;background:#fff;color:#0a1fd4;font:700 21px/1.1 var(--f-cond);text-transform:uppercase;box-shadow:2px 2px 0 #000}
+.sc-ord.first{background:var(--gold);color:#1b1400}
+.sc:has(.sc-ord){gap:4px}
+.ord{display:inline-block;padding:2px 5px;border-radius:4px;background:#2a3262;color:#fff;font:700 11px/1.2 var(--f-ui)}
+.ord.first{background:var(--gold);color:#1b1400}
+.cmsg.sys{font-size:14px;font-style:italic;color:#c7cff8}
+
 </style>
 </head>
 <body>
@@ -582,6 +590,9 @@ const slug = s => String(s || '').toLowerCase().normalize('NFKD').replace(/[\u03
 const fmtBytes = b => b >= 1e6 ? (b / 1e6).toFixed(1) + ' MB' : Math.max(1, Math.round(b / 1e3)) + ' KB';
 const safeSrc = s => /^(https?:\/\/|data:(image|audio|video)\/)/i.test(String(s || '').trim());
 const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
+const ordinal = n => n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] || 'th'));
+const ssGet = k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
+const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} };
 
 function richText(s) {
   const str = String(s || ''); let out = '', last = 0, m;
@@ -831,12 +842,12 @@ function fixLive(g) {
   const L = g.live = Object.assign(freshLive(), g.live && typeof g.live === 'object' ? g.live : {});
   if (!['intro', 'board', 'final'].includes(L.phase)) L.phase = 'intro';
   L.players = (Array.isArray(L.players) ? L.players : []).filter(p => p && typeof p === 'object').slice(0, MAX_PLAYERS)
-    .map(p => ({ id: String(p.id || uid()), name: String(p.name || 'Player').slice(0, 28), score: Math.round(+p.score || 0), pid: p.pid ? String(p.pid) : null }));
+    .map(p => ({ id: String(p.id || uid()), name: String(p.name || 'Player').slice(0, 28), score: Math.round(+p.score || 0), pid: p.pid ? String(p.pid) : null, test: !!p.test }));
   L.history = Array.isArray(L.history) ? L.history.slice(-200) : [];
   L.seq = +L.seq || 0;
   if (!L.players.some(p => p.id === L.picker)) L.picker = null;
   L.chat = (Array.isArray(L.chat) ? L.chat : []).filter(m => m && typeof m.text === 'string').slice(-100)
-    .map(m => ({ id: String(m.id || uid()), name: String(m.name || '').slice(0, 28), text: m.text.slice(0, 300), t: +m.t || 0, host: !!m.host, pid: m.pid ? String(m.pid) : null }));
+    .map(m => ({ id: String(m.id || uid()), name: String(m.name || '').slice(0, 28), text: m.text.slice(0, 300), t: +m.t || 0, host: !!m.host, sys: !!m.sys, pid: m.pid ? String(m.pid) : null }));
   const o = L.open;
   if (o && !(o && g.cats[o.c] && cellFilled(g.cats[o.c].cells[o.r]))) L.open = null;
   return L;
@@ -1147,12 +1158,13 @@ function createScreen(container, opts = {}) {
 
   function renderScores(show) {
     const S = self.S, first = S.buzz && S.buzz.order && S.buzz.order[0], fp = first ? first.pid : '';
-    const k = JSON.stringify([show, S.players, fp, S.prefix, S.picker]);
+    const ord = new Map(((S.buzz && S.buzz.order) || []).map((x, i) => [x.pid, i + 1]));
+    const k = JSON.stringify([show, S.players, fp, S.prefix, S.picker, Array.from(ord)]);
     if (k === keys.scores) return;
     keys.scores = k;
     if (!show) { el.scores.innerHTML = ''; return; }
     const n = S.players.length, ns = n > 8 ? 25 : n > 5 ? 31 : 38, ps = n > 8 ? 42 : n > 5 ? 52 : 64;
-    el.scores.innerHTML = S.players.map(p => `<div class="sc${p.pid && p.pid === fp ? ' buzzed' : ''}${p.id === S.picker ? ' picker' : ''}" data-id="${esc(p.id)}">${p.id === S.picker ? '<span class="sc-tag">Picks</span>' : ''}<div class="nm" style="font-size:${ns}px">${esc(p.name || 'Player')}</div><div class="pt${p.score < 0 ? ' neg' : ''}" style="font-size:${ps}px">${esc(fmtScore(p.score, S.prefix))}</div></div>`).join('');
+    el.scores.innerHTML = S.players.map(p => `<div class="sc${p.pid && p.pid === fp ? ' buzzed' : ''}${p.id === S.picker ? ' picker' : ''}" data-id="${esc(p.id)}">${p.id === S.picker ? '<span class="sc-tag">Picks</span>' : ''}${p.pid && ord.get(p.pid) ? `<span class="sc-ord${ord.get(p.pid) === 1 ? ' first' : ''}">${ordinal(ord.get(p.pid))}</span>` : ''}<div class="nm" style="font-size:${ns}px">${esc(p.name || 'Player')}</div><div class="pt${p.score < 0 ? ' neg' : ''}" style="font-size:${ps}px">${esc(fmtScore(p.score, S.prefix))}</div></div>`).join('');
   }
 
   function renderIntro() {
@@ -2073,11 +2085,13 @@ function hostBuzz(pid, fallbackName) {
     if (b.openedAt) return; /* locked again after opening: ignore, no penalty */
     b.out.add(pid); b.early.push({ pid, name });
     RT.outbox.push({ t: 'fx', sound: 'early', toast: `${name} buzzed too early`, tone: 'bad' });
+    sysChat(`${name} buzzed too early and is locked out of this clue`);
     broadcast(); renderHostPanel();
     return;
   }
   const now = Date.now();
   b.order.push({ pid, name, t: now, ms: now - b.openedAt });
+  sysChat(`${name} buzzed ${ordinal(b.order.length)} (${((now - b.openedAt) / 1000).toFixed(2)}s)`);
   broadcast(); renderHostPanel();
 }
 function hostAward(i, sign) {
@@ -2088,6 +2102,7 @@ function hostAward(i, sign) {
   L.history.push({ id: p.id, d }); if (L.history.length > 200) L.history.shift();
   RT.outbox.push({ t: 'fx', sound: sign > 0 ? 'correct' : 'wrong', toast: `${p.name} ${d >= 0 ? '+' : '\u2212'}${G.settings.prefix || ''}${Math.abs(d).toLocaleString('en-US')}`, tone: sign > 0 ? 'ok' : 'bad', flash: p.id });
   if (sign > 0) L.picker = p.id;
+  if (o && o.phase === 'clue') sysChat(`${p.name} got it ${sign > 0 ? 'right' : 'wrong'} (${d >= 0 ? '+' : '\u2212'}${Math.abs(d).toLocaleString('en-US')})`);
   if (o && o.phase === 'clue') {
     if (sign > 0) { if (!o.revealed) { o.revealed = true; o.quiet = true; } RT.buzz.armed = false; }
     if (sign < 0 && p.pid) {
@@ -2104,9 +2119,9 @@ function hostUndo() {
   const p = L.players.find(x => x.id === h.id); if (p) p.score -= h.d;
   commit();
 }
-function addPlayer(name, pid) {
+function addPlayer(name, pid, test) {
   const L = G.live; if (L.players.length >= MAX_PLAYERS) { flashMsg(`Up to ${MAX_PLAYERS} players or teams`); return null; }
-  const p = { id: uid(), name: String(name || `Player ${L.players.length + 1}`).slice(0, 28), score: 0, pid: pid || null };
+  const p = { id: uid(), name: String(name || `Player ${L.players.length + 1}`).slice(0, 28), score: 0, pid: pid || null, test: !!test };
   L.players.push(p); return p;
 }
 function setPicker(id, announce) {
@@ -2141,6 +2156,7 @@ function chatPush(m) {
   appendHostChat(m);
   saveSoon();
 }
+function sysChat(text) { if (G) chatPush({ id: uid(), name: '', text, t: Date.now(), host: false, sys: true, pid: null }); }
 function hostSay(text) {
   const t = String(text || '').trim().slice(0, 300); if (!t || !G) return;
   chatPush({ id: uid(), name: 'Host', text: t, t: Date.now(), host: true, pid: null });
@@ -2256,12 +2272,12 @@ function renderHostChat() {
 function appendHostChat(m) {
   const log = $('#hcLog'); if (!log || UI.mode !== 'host') return;
   const stick = log.scrollTop + log.clientHeight >= log.scrollHeight - 40;
-  const d = document.createElement('div'); d.className = 'cmsg' + (m.host ? ' host' : '');
-  d.innerHTML = `<b>${esc(m.name || 'Guest')}</b><span>${richText(m.text)}</span>`;
+  const d = document.createElement('div'); d.className = 'cmsg' + (m.host ? ' host' : '') + (m.sys ? ' sys' : '');
+  d.innerHTML = m.sys ? `<span>${esc(m.text)}</span>` : `<b>${esc(m.name || 'Guest')}</b><span>${richText(m.text)}</span>`;
   log.appendChild(d);
   while (log.children.length > 150) log.firstChild.remove();
   if (stick) log.scrollTop = log.scrollHeight;
-  if (RT.chatMin && !m.host) { const info = $('#hcInfo'); if (info) info.textContent = 'New messages'; }
+  if (RT.chatMin && !m.host && !m.sys) { const info = $('#hcInfo'); if (info) info.textContent = 'New messages'; }
 }
 
 const tgl = (k, label) => `<label class="tgl"><span>${label}</span><input type="checkbox" data-setting="${k}"${G.settings[k] ? ' checked' : ''}><i></i></label>`;
@@ -2296,7 +2312,7 @@ function clueCard(o) {
       const i = playerByPid(first.pid), v = openValue();
       h += `<div class="judge"><div class="jg-who">${icon('bolt', 18)}<b>${esc(first.name)}</b> buzzed first<span>${(first.ms / 1000).toFixed(2)}s</span></div>
         ${i >= 0 ? `<div class="jg-btns"><button class="btn ok" data-act="award" data-i="${i}" data-s="1">${icon('check', 16)}Right +${fmtNum(v)}<span class="kbd">Y</span></button><button class="btn bad" data-act="award" data-i="${i}" data-s="-1">${icon('minus', 16)}Wrong \u2212${fmtNum(v)}<span class="kbd">N</span></button></div>` : `<p class="hp-muted">${esc(first.name)} isn\u2019t on the scoreboard. <button class="btn sm" data-act="addBuzzer">Add them</button></p>`}
-        ${b.order.length > 1 ? `<div class="jg-next">Next in line: ${b.order.slice(1).map(x => esc(x.name)).join(', ')}</div>` : ''}</div>`;
+        ${b.order.length > 1 ? `<div class="jg-next">Next in line: ${b.order.slice(1).map((x, k) => `${ordinal(k + 2)} ${esc(x.name)} (${(x.ms / 1000).toFixed(2)}s)`).join(', ')}</div>` : ''}</div>`;
     } else if (b.armed) {
       h += `<div class="bz-state">Buzzers are open. Waiting for someone to buzz\u2026</div><button class="btn wide" data-act="buzz">Lock buzzers <span class="kbd">B</span></button>`;
     } else {
@@ -2331,7 +2347,7 @@ function renderHostPanel() {
     <div class="hp-code"><span>Room</span><b>${esc(Net.code || '')}</b></div>
     ${IS_FILE ? '<p class="hp-note">This page was opened as a file. Invite links work once it\u2019s on your website.</p>' : ''}
     ${Net.note ? `<p class="hp-note">${esc(Net.note)}</p>` : ''}
-    <div class="hp-btns"><button class="btn sm" data-act="copyInvite"${on && !IS_FILE ? '' : ' disabled'}>${icon('copy', 16)}Copy invite link</button><button class="btn sm" data-act="openDisplay">${icon('tv', 16)}Open display tab</button></div>
+    <div class="hp-btns"><button class="btn sm" data-act="copyInvite"${on && !IS_FILE ? '' : ' disabled'}>${icon('copy', 16)}Copy invite link</button><button class="btn sm" data-act="openDisplay">${icon('tv', 16)}Open display tab</button><button class="btn sm ghost" data-act="testPlayer"${on ? '' : ' disabled'} title="Opens a pretend player in a new tab so you can try the buzzers yourself">${icon('plus', 16)}Test player</button></div>
     ${viewers.length ? `<details class="hp-who"><summary>Who\u2019s here</summary><ul>${viewers.map(v => `<li>${esc(v.name || 'Guest')}</li>`).join('')}</ul></details>` : ''}
   </section>`;
   if (!o) {
@@ -2348,13 +2364,13 @@ function renderHostPanel() {
   const v = o && o.phase === 'clue' ? openValue() : 0, fp = RT.buzz.order[0] && RT.buzz.order[0].pid;
   h += `<section class="hp-sec"><div class="hp-h3row"><h3>Scores</h3><button class="btn sm ghost" data-act="undo"${L.history.length ? '' : ' disabled'}>${icon('undo', 16)}Undo</button></div>
     ${L.players.length ? '' : `<p class="hp-muted">${S.autoAdd ? 'People who join with the invite link show up here. ' : ''}You can also add players or teams by hand.</p>`}
-    <div class="plist">${L.players.map((p, i) => `<div class="prow${RT.selPlayer === i ? ' sel' : ''}${p.pid && p.pid === fp ? ' buzzed' : ''}${p.id === L.picker ? ' picks' : ''}">
-      <span class="pn">${i + 1}</span>
+    <div class="plist">${L.players.map((p, i) => { const ord = p.pid ? RT.buzz.order.findIndex(x => x.pid === p.pid) + 1 : 0; return `<div class="prow${RT.selPlayer === i ? ' sel' : ''}${p.pid && p.pid === fp ? ' buzzed' : ''}${p.id === L.picker ? ' picks' : ''}">
+      <span class="pn">${ord ? `<span class="ord${ord === 1 ? ' first' : ''}">${ordinal(ord)}</span>` : i + 1}</span>
       <input class="pname" data-input="pname" data-i="${i}" value="${esc(p.name)}" maxlength="28" aria-label="Name of player ${i + 1}">
       <input class="pscore" type="number" step="100" data-input="pscore" data-i="${i}" value="${p.score}" aria-label="Score of player ${i + 1}">
       <span class="pbtns">${v ? `<button class="btn sm ok" data-act="award" data-i="${i}" data-s="1" title="Right">${icon('check', 14)}${fmtNum(v)}</button><button class="btn sm bad" data-act="award" data-i="${i}" data-s="-1" title="Wrong">${icon('minus', 14)}${fmtNum(v)}</button>` : `<button class="btn sm icon ghost" data-act="rmPlayer" data-i="${i}" title="Remove" aria-label="Remove ${esc(p.name)}">${icon('x', 16)}</button>`}</span>
-    </div>`).join('')}</div>
-    <div class="hp-btns"><button class="btn sm" data-act="addPlayer">${icon('plus', 16)}Add player or team</button></div></section>
+    </div>`; }).join('')}</div>
+    <div class="hp-btns"><button class="btn sm" data-act="addPlayer">${icon('plus', 16)}Add player or team</button>${L.players.some(p => p.test) ? '<button class="btn sm ghost" data-act="rmTests">Remove test players</button>' : ''}</div></section>
   <section class="hp-sec"><h3>Settings</h3>
     ${tgl('buzzers', 'Buzzers for people who joined')}${tgl('pickOnScreen', 'Picker can tap a tile on their screen')}${tgl('chat', 'Chat for people who joined')}${tgl('autoAdd', 'Add people to scores when they join')}${tgl('showScores', 'Show scores on screen')}${tgl('sfx', 'Sound effects')}${tgl('autoplay', 'Play media when a clue opens')}
     <label class="tgl"><span>Sound on this page</span><input type="checkbox" data-hostsound${RT.hostSound ? ' checked' : ''}><i></i></label>
@@ -2387,6 +2403,13 @@ function bindPanel(pane) {
       case 'award': hostAward(i, +d.s); break;
       case 'undo': hostUndo(); break;
       case 'randomPick': hostRandomPicker(); break;
+      case 'testPlayer': {
+        const used = new Set(G.live.players.map(p => p.name)); let n = 1; while (used.has('Test player ' + n)) n++;
+        const w = window.open(joinUrl() + '&name=' + encodeURIComponent('Test player ' + n) + '&test=1', '_blank');
+        if (!w) flashMsg('The browser blocked the new tab. Allow pop-ups for this site.');
+        break;
+      }
+      case 'rmTests': { const L = G.live; L.players = L.players.filter(p => !p.test); if (!L.players.some(p => p.id === L.picker)) L.picker = null; RT.selPlayer = -1; commit(); break; }
       case 'addPlayer': { const p = addPlayer(); commit(); if (p) { const n = $$('#hpanel .pname').pop(); if (n) { n.focus(); n.select(); } } return; }
       case 'rmPlayer': { const p = G.live.players[i]; if (p && confirm(`Remove ${p.name} from the scores?`)) { G.live.players.splice(i, 1); if (G.live.picker === p.id) G.live.picker = null; RT.selPlayer = -1; commit(); } break; }
       case 'resetBoard': if (confirm('Put every clue back on the board?')) { G.cats.forEach(c => c.cells.forEach(x => { x.played = false; })); G.live.open = null; RT.timer = null; resetBuzz(false); commit(); } break;
@@ -2492,11 +2515,11 @@ async function startRemote() {
 }
 function setupConn(conn) {
   const md = conn.metadata || {};
-  const rec = { conn, name: String(md.name || 'Guest').slice(0, 28), pid: String(md.pid || '').slice(0, 40) };
+  const rec = { conn, name: String(md.name || 'Guest').slice(0, 28), pid: String(md.pid || '').slice(0, 40), test: !!md.test };
   conn.on('open', () => {
     Net.conns.set(conn.connectionId, rec);
     syncTo(m => safeSend(conn, m), true);
-    onScreenMsg({ t: 'hello', name: rec.name, pid: rec.pid }, { rec });
+    onScreenMsg({ t: 'hello', name: rec.name, pid: rec.pid, test: rec.test }, { rec });
   });
   conn.on('data', d => onScreenMsg(d, { rec }));
   const gone = () => { if (Net.conns.delete(conn.connectionId)) renderHostPanel(); };
@@ -2532,10 +2555,12 @@ function onScreenMsg(m, from) {
     rec.name = String(m.name || rec.name || 'Guest').trim().slice(0, 28) || 'Guest';
     rec.pid = String(m.pid || rec.pid || '').slice(0, 40);
     if (UI.mode === 'host' && G && G.settings.autoAdd && rec.pid) {
+      rec.test = rec.test || !!m.test;
       const L = G.live, nm = rec.name.toLowerCase();
-      const p = L.players.find(x => x.pid === rec.pid) || L.players.find(x => !x.pid && x.name.trim().toLowerCase() === nm);
-      if (p) { if (!p.pid) { p.pid = rec.pid; commit(); } else renderHostPanel(); }
-      else if (addPlayer(rec.name, rec.pid)) commit();
+      const online = pid => Array.from(Net.conns.values()).some(r => r !== rec && r.pid === pid);
+      const p = L.players.find(x => x.pid === rec.pid) || L.players.find(x => x.name.trim().toLowerCase() === nm && (!x.pid || !online(x.pid)));
+      if (p) { if (p.pid !== rec.pid) { p.pid = rec.pid; commit(); } else renderHostPanel(); }
+      else if (addPlayer(rec.name, rec.pid, rec.test)) commit();
       else renderHostPanel();
     } else renderHostPanel();
   } else if (m.t === 'buzz') hostBuzz(rec.pid, rec.name);
@@ -2571,7 +2596,7 @@ function bootDisplay() {
 }
 
 /* ---------- player page (joined with the invite link) ---------- */
-function bootJoin(raw) {
+function bootJoin(raw, autoName, test) {
   const code = String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
   document.title = 'Join \u2013 Trivia Night';
   $('#app').innerHTML = `<div class="join-screen"><form class="join-card" id="jf">
@@ -2584,12 +2609,13 @@ function bootJoin(raw) {
   $('#jf').onsubmit = e => {
     e.preventDefault();
     const name = $('#jn').value.trim().slice(0, 28); if (!name) return;
-    lsSet('tn.name', name); SFX.unlock(); startPlayer(code, name);
+    lsSet('tn.name', name); SFX.unlock(); startPlayer(code, name, false);
   };
-  setTimeout(() => $('#jn').focus(), 50);
+  setTimeout(() => { const n = $('#jn'); if (n) n.focus(); }, 50);
+  if (autoName && autoName.trim()) startPlayer(code, autoName.trim().slice(0, 28), !!test);
 }
-function startPlayer(code, name) {
-  let pid = lsGet('tn.pid', null); if (!pid) { pid = uid(); lsSet('tn.pid', pid); }
+function startPlayer(code, name, test) {
+  let pid = ssGet('tn.pid'); if (!pid) { pid = uid(); ssSet('tn.pid', pid); }
   document.title = 'Trivia Night';
   document.body.className = 'is-screen is-player';
   $('#app').innerHTML = `<div class="viewer pv">
@@ -2627,13 +2653,13 @@ function startPlayer(code, name) {
 
   function addMsg(m, quiet) {
     const d = document.createElement('div');
-    d.className = 'cmsg' + (m.host ? ' host' : '') + (m.pid && m.pid === pid ? ' me' : '');
-    d.innerHTML = `<b>${esc(m.name || 'Guest')}</b><span>${richText(m.text)}</span>`;
+    d.className = 'cmsg' + (m.host ? ' host' : '') + (m.sys ? ' sys' : '') + (m.pid && m.pid === pid ? ' me' : '');
+    d.innerHTML = m.sys ? `<span>${esc(m.text)}</span>` : `<b>${esc(m.name || 'Guest')}</b><span>${richText(m.text)}</span>`;
     const stick = chatLog.scrollTop + chatLog.clientHeight >= chatLog.scrollHeight - 40;
     chatLog.appendChild(d);
     while (chatLog.children.length > 150) chatLog.firstChild.remove();
     if (stick || (m.pid && m.pid === pid)) chatLog.scrollTop = chatLog.scrollHeight;
-    if (!quiet && !chatOpen) { unread++; unreadEl.textContent = unread > 9 ? '9+' : String(unread); unreadEl.classList.remove('hidden'); }
+    if (!quiet && !chatOpen && !m.sys) { unread++; unreadEl.textContent = unread > 9 ? '9+' : String(unread); unreadEl.classList.remove('hidden'); }
   }
 
   function update() {
@@ -2679,10 +2705,10 @@ function startPlayer(code, name) {
       if (peer.destroyed) return;
       if (peer.disconnected) { try { peer.reconnect(); } catch (e) {} retry(2500); return; }
       if (conn) { try { conn.close(); } catch (e) {} }
-      const c = peer.connect(PEER_PREFIX + code, { reliable: true, metadata: { name, pid } });
+      const c = peer.connect(PEER_PREFIX + code, { reliable: true, metadata: { name, pid, test: !!test } });
       conn = c;
       const to = setTimeout(() => { if (conn === c && !c.open) { try { c.close(); } catch (e) {} retry(1500); } }, 15000);
-      c.on('open', () => { clearTimeout(to); last = Date.now(); setSt('ok', 'Live'); safeSend(c, { t: 'hello', name, pid }); });
+      c.on('open', () => { clearTimeout(to); last = Date.now(); setSt('ok', 'Live'); safeSend(c, { t: 'hello', name, pid, test: !!test }); });
       c.on('data', d => {
         last = Date.now();
         if (!d || typeof d !== 'object') return;
@@ -2709,7 +2735,7 @@ function startPlayer(code, name) {
 /* ---------- start ---------- */
 async function boot() {
   const qs = new URLSearchParams(location.search);
-  if (qs.get('join')) return bootJoin(qs.get('join'));
+  if (qs.get('join')) return bootJoin(qs.get('join'), qs.get('name'), qs.has('test'));
   if (qs.has('display')) return bootDisplay();
   await loadAll();
   document.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
