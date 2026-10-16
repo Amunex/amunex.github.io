@@ -549,6 +549,29 @@ select,.game-pick{font-size:15px}
 .ord.first{background:var(--gold);color:#1b1400}
 .cmsg.sys{font-size:14px;font-style:italic;color:#c7cff8}
 
+/* Jester: surprise mini-game tile */
+.badge.jester{gap:3px;padding:0 6px;background:#7a22e0;color:#fff}
+.jest{display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden;transform-origin:0 0;background:#2b0a63}
+.jest.zoom{transition:transform .42s cubic-bezier(.2,.75,.2,1)}
+.interactive .jest{cursor:pointer}
+.jest-bg{position:absolute;inset:-200px;background:conic-gradient(from 45deg,#7a22e0 25%,#3a0d86 0 50%,#7a22e0 0 75%,#3a0d86 0) 0 0/200px 200px;animation:jestScroll 6s linear infinite}
+.jest-bg:after{content:"";position:absolute;inset:0;background:radial-gradient(circle at 50% 50%,rgba(20,0,50,.15) 0,rgba(10,0,30,.7) 75%)}
+@keyframes jestScroll{to{transform:translate(200px,200px)}}
+.jest-hat{position:relative;color:var(--gold);filter:drop-shadow(10px 10px 0 #000);transform-origin:50% 90%}
+.jest.go .jest-hat{animation:hatDrop .9s cubic-bezier(.2,.9,.3,1.35) both,hatSwing 1.4s ease-in-out .9s infinite alternate}
+@keyframes hatDrop{0%{transform:translateY(-760px) rotate(-35deg)}100%{transform:none}}
+@keyframes hatSwing{from{transform:rotate(-9deg)}to{transform:rotate(9deg)}}
+.jest-word{position:relative;display:flex;margin:6px 0 0;font:400 230px/1 var(--f-num);color:#fff;text-shadow:10px 10px 0 #000}
+.jest-word span{display:inline-block}
+.jest-word span:nth-child(odd){color:var(--gold)}
+.jest.go .jest-word span{animation:letterIn .5s cubic-bezier(.2,.9,.3,1.5) both,letterBob .9s ease-in-out infinite alternate;animation-delay:calc(var(--i) * 70ms + 350ms),calc(var(--i) * 90ms + 950ms)}
+@keyframes letterIn{from{transform:translateY(180px) scale(.3);opacity:0}to{transform:none;opacity:1}}
+@keyframes letterBob{to{transform:translateY(-20px)}}
+.jest-sub{position:relative;margin-top:26px;font:700 56px/1 var(--f-cond);text-transform:uppercase;color:#ead9ff;text-shadow:3px 3px 0 #000}
+.clue.jester{background:radial-gradient(ellipse 75% 65% at 50% 40%,rgba(170,90,255,.45),transparent 72%),conic-gradient(from 45deg,rgba(255,255,255,.05) 25%,transparent 0 50%,rgba(255,255,255,.05) 0 75%,transparent 0) 0 0/160px 160px,linear-gradient(#6a1cc9,#2b0a63)}
+.clue.jester .ch-cat{color:var(--gold)}
+@media (prefers-reduced-motion:reduce){.jest-bg,.jest.go .jest-hat,.jest.go .jest-word span{animation:none!important}}
+
 </style>
 </head>
 <body>
@@ -693,6 +716,7 @@ const ICONS = {
   bolt: 'M13 2 4 14h7l-1 8 9-12h-7z',
   timer: 'M9 1h6v2H9zm3 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm-1 2h2v5.4l3.3 1.9-1 1.7-4.3-2.4z',
   undo: 'M8 7V4L3 9l5 5v-3h6a4 4 0 0 1 0 8h-3v2h3a6 6 0 0 0 0-12z',
+  jester: 'M3 18h18v2H3zM4 17 2.5 7.5a1.6 1.6 0 1 1 1.9-.2L8 12l3.2-8.1a1.7 1.7 0 1 1 1.6 0L16 12l3.6-4.7a1.6 1.6 0 1 1 1.9.2L20 17z',
   dice: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2.5 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm9 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-4.5-4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z',
   chat: 'M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-5 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h2v1.8L9.3 15H19V6z',
   trophy: 'M7 3h10v2h3v3a4 4 0 0 1-4 4h-.4A5 5 0 0 1 13 14.9V18h3v2H8v-2h3v-3.1A5 5 0 0 1 8.4 12H8a4 4 0 0 1-4-4V5h3zm0 4H6v1a2 2 0 0 0 1 1.7zm10 0v2.7A2 2 0 0 0 18 8V7z'
@@ -776,6 +800,7 @@ const SFX = (() => {
     buzz() { tone(1046, 0, 0.12, 'square', 0.3); tone(1568, 0.1, 0.16, 'square', 0.25); },
     tick() { tone(1400, 0, 0.04, 'square', 0.12); },
     go() { tone(880, 0, 0.12, 'square', 0.3); tone(1320, 0.12, 0.22, 'square', 0.3); },
+    jester() { tone(196, 0, 0.4, 'sine', 0.5, 880); [1568, 1976, 2349, 1976, 2637, 3136].forEach((f, i) => tone(f, 0.32 + i * 0.07, 0.13, 'triangle', 0.24)); tone(330, 0.85, 0.35, 'square', 0.14, 165); },
     early() { tone(150, 0, 0.4, 'square', 0.32, 90); },
     fill() { for (let i = 0; i < 16; i++) tone(600 + Math.random() * 900, i * 0.06, 0.08, 'triangle', 0.22); },
     win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, i === 5 ? 0.9 : 0.22, 'triangle', 0.5)); }
@@ -784,7 +809,7 @@ const SFX = (() => {
 })();
 
 /* ---------- game model ---------- */
-const emptyCell = () => ({ q: '', a: '', qm: [], am: [], dd: false, pts: null, played: false });
+const emptyCell = () => ({ q: '', a: '', qm: [], am: [], dd: false, jester: false, pts: null, played: false });
 const freshLive = () => ({ phase: 'intro', players: [], open: null, seq: 0, history: [], picker: null, chat: [] });
 const defaultSettings = () => ({ prefix: '', sfx: true, showScores: true, buzzers: true, autoAdd: true, autoplay: true, pickOnScreen: true, chat: true, v: 2 });
 
@@ -832,6 +857,8 @@ function normCell(x, trust) {
     : mediaArr([x.media, x.clueMedia, x.image, x.video, x.audio, x.youtube, x.link].flat().filter(Boolean), trust);
   c.am = mediaArr(x.am ?? x.answerMedia ?? x.answer_media, trust);
   c.dd = !!(x.dd ?? x.dailyDouble ?? x.daily_double);
+  c.jester = !!(x.jester ?? x.isJester);
+  if (c.jester) c.dd = false;
   const p = x.pts;
   c.pts = (p === null || p === undefined || p === '' || isNaN(+p)) ? null : +p;
   c.played = !!x.played;
@@ -1035,6 +1062,7 @@ function createScreen(container, opts = {}) {
     </div>
     <div class="ov dd hidden"><div class="rays"></div><h1>Daily<br>Double</h1><div class="ddcat"></div></div>
     <div class="ov final hidden"></div>
+    <div class="ov jest hidden"><div class="jest-bg"></div><div class="jest-hat">${icon('jester', 300)}</div><h1 class="jest-word">${'JESTER!'.split('').map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join('')}</h1><div class="jest-sub">Surprise mini-game</div></div>
     <div class="ov spin hidden"><div class="sp-title">Who goes first?</div><div class="sp-box"><div class="sp-name"></div></div><div class="sp-sub"></div></div>
     <div class="ov waiting">${BEAMS}${BULBS}<div class="w-title"></div><div class="w-sub"></div></div>
     <div class="paused hidden">The host is editing the game</div>
@@ -1048,7 +1076,7 @@ function createScreen(container, opts = {}) {
     area: q('.board-area'), board: q('.board'), cats: q('.cats'), tiles: q('.tiles'), intro: q('.intro'), clue: q('.clue'),
     dd: q('.dd'), final: q('.final'), waiting: q('.waiting'), paused: q('.paused'), timer: q('.timer'), bar: q('.timer i'),
     cat: q('.ch-cat'), mid: q('.ch-mid'), time: q('.ch-time'), val: q('.ch-val'), text: q('.clue-text'), textIn: q('.clue-text > div'),
-    media: q('.clue-media'), spin: q('.spin'), spName: q('.sp-name'), spSub: q('.sp-sub'), ans: q('.clue-ans'), ansIn: q('.clue-ans > div'), scores: q('.scores'), toasts: q('.toasts'), confetti: q('.confetti')
+    media: q('.clue-media'), jest: q('.jest'), spin: q('.spin'), spName: q('.sp-name'), spSub: q('.sp-sub'), ans: q('.clue-ans'), ansIn: q('.clue-ans > div'), scores: q('.scores'), toasts: q('.toasts'), confetti: q('.confetti')
   };
   $('.w-title', el.waiting).textContent = opts.waitTitle || 'Trivia Night';
   $('.w-sub', el.waiting).textContent = opts.waitText || 'Waiting for the host';
@@ -1070,7 +1098,7 @@ function createScreen(container, opts = {}) {
     if (opts.interactive || (self.pickable && !t.classList.contains('done'))) opts.onTile(+t.dataset.c, +t.dataset.r);
   });
   if (opts.interactive) {
-    [['clue', el.clue], ['dd', el.dd], ['intro', el.intro]].forEach(([k, node]) => node.addEventListener('click', e => {
+    [['clue', el.clue], ['dd', el.dd], ['jest', el.jest], ['intro', el.intro]].forEach(([k, node]) => node.addEventListener('click', e => {
       if (e.target.closest('.mbox, a')) return;
       if (opts.onStage) opts.onStage(k);
     }));
@@ -1098,8 +1126,8 @@ function createScreen(container, opts = {}) {
     const out = [], o = S.phase === 'board' ? S.open : null, po = p.open;
     if (p.phase === 'intro' && S.phase === 'board') out.push('fill');
     if (o) {
-      if (!po || po.key !== o.key) out.push(o.phase === 'dd' ? 'dd' : 'open');
-      else if (po.phase === 'dd' && o.phase === 'clue') out.push('open');
+      if (!po || po.key !== o.key) out.push(o.phase === 'dd' ? 'dd' : o.phase === 'jester' ? 'jester' : 'open');
+      else if ((po.phase === 'dd' || po.phase === 'jester') && o.phase === 'clue') out.push('open');
       if (o.revealed && !o.quiet && !(po && po.key === o.key && po.revealed)) out.push('reveal');
     }
     if (o && o.phase === 'clue' && !o.revealed && S.buzz && S.buzz.armed && !(p.buzz && p.buzz.armed && po && po.key === o.key)) out.push('go');
@@ -1124,6 +1152,8 @@ function createScreen(container, opts = {}) {
     const o = S.phase === 'board' ? S.open : null;
     if (o && o.phase === 'dd') renderDD(o);
     else { el.dd.classList.add('hidden'); if (!o) keys.dd = null; }
+    if (o && o.phase === 'jester') renderJester(o);
+    else { el.jest.classList.add('hidden'); el.jest.classList.remove('go'); if (!o) keys.jest = null; }
     if (o && o.phase === 'clue') renderClue(o); else hideClue();
     if (opts.onState) opts.onState(S);
   }
@@ -1201,6 +1231,15 @@ function createScreen(container, opts = {}) {
     ov._zt = setTimeout(() => ov.classList.remove('zoom'), 480);
   }
 
+  function renderJester(o) {
+    el.jest.classList.remove('hidden');
+    if (keys.jest === o.key) return;
+    keys.jest = o.key;
+    el.jest.classList.remove('go'); void el.jest.offsetWidth; el.jest.classList.add('go');
+    zoomFrom(el.jest, o.c, o.r);
+    keys.zoomed = o.key;
+    if (self.primed) confetti();
+  }
   function renderDD(o) {
     el.dd.classList.remove('hidden');
     if (keys.dd === o.key) return;
@@ -1217,7 +1256,8 @@ function createScreen(container, opts = {}) {
     const a = o.revealed && self.ans && self.ans.key === o.key ? self.ans : null;
     const wasHidden = el.clue.classList.contains('hidden');
     el.clue.classList.remove('hidden');
-    el.cat.textContent = S.cats[o.c] || '';
+    el.clue.classList.toggle('jester', !!o.jester);
+    el.cat.textContent = o.jester ? 'Jester round' : (S.cats[o.c] || '');
     el.val.textContent = (o.dd ? 'Wager ' : '') + (S.prefix || '') + fmtNum(o.value);
     const qk = o.key + (c ? '+' : '-');
     if (keys.q !== qk) {
@@ -1542,7 +1582,7 @@ function renderEditor() {
 function cellPreview(c, r) {
   const g = G, cell = g.cats[c].cells[r], f = cellFilled(cell);
   const kinds = [...new Set([...cell.qm, ...cell.am].map(kindOf))];
-  const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
+  const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + (cell.jester ? `<span class="badge jester" title="Jester mini-game">${icon('jester', 13)}Jester</span>` : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
   return `<button class="ecell${f ? '' : ' empty'}" data-act="edit" data-c="${c}" data-r="${r}" aria-label="Edit clue">
     <span class="ec-top"><span class="ec-pts">${esc((g.settings.prefix || '') + fmtNum(cellValue(g, c, r)))}${cell.pts !== null ? '<sup>*</sup>' : ''}</span><span class="badges">${badges}</span></span>
     <span class="ec-q">${f ? esc(snippet(cell.q) || 'Media clue') : 'Add a clue'}</span>
@@ -1859,6 +1899,7 @@ function openCellEditor(c, r) {
     </div>
     <div class="opts">
       <label class="chk"><input type="checkbox" data-f="dd"${cell.dd ? ' checked' : ''}><span>Daily Double<em>only the player who picks it answers, and they bet points before seeing the clue</em></span></label>
+      <label class="chk"><input type="checkbox" data-f="jester"${cell.jester ? ' checked' : ''}><span>Jester<em>a surprise mini-game that has nothing to do with the category</em></span></label>
       <label class="pts-over">Points for this clue<input class="txt" type="number" step="100" data-f="pts" placeholder="${esc(G.rows[r])}" value="${cell.pts === null ? '' : esc(cell.pts)}"></label>
     </div>
     <div class="tipbox">
@@ -1919,7 +1960,8 @@ function openCellEditor(c, r) {
   };
   bg.onchange = e => {
     const t = e.target;
-    if (t.dataset.f === 'dd') { cell.dd = t.checked; saveSoon(); }
+    if (t.dataset.f === 'dd') { cell.dd = t.checked; if (t.checked) { cell.jester = false; $('[data-f="jester"]', bg).checked = false; } saveSoon(); setHints(); }
+    else if (t.dataset.f === 'jester') { cell.jester = t.checked; if (t.checked) { cell.dd = false; $('[data-f="dd"]', bg).checked = false; } saveSoon(); setHints(); }
     else if (t.dataset.kind) { const s = t.dataset.kind[0], m = list(s)[+t.dataset.kind.slice(1)]; if (m) { m.kind = t.value; saveSoon(); renderList(s); } }
     else if (t.dataset.file) { addFiles(t.dataset.file, t.files).then(() => { t.value = ''; }); }
   };
@@ -1946,6 +1988,15 @@ function openCellEditor(c, r) {
     if (files && files.length) addFiles(s, files);
     else if (e.dataTransfer) { const txt = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain'); if (txt) addText(s, txt.split(/\r?\n/).find(l => l && !l.startsWith('#'))); }
   };
+  function setHints() {
+    const j = !!cell.jester;
+    $('.side[data-side="q"] h4', bg).textContent = j ? 'Mini-game' : 'Clue';
+    $('.side[data-side="q"] .hint', bg).textContent = j ? 'Describe the mini-game. Everyone sees it right after the Jester animation.' : 'Everyone sees this when the tile opens.';
+    $('.side[data-side="a"] h4', bg).textContent = j ? 'Notes' : 'Answer';
+    $('.side[data-side="a"] .hint', bg).textContent = j ? 'Only you see this, like how to pick the winner. Optional.' : 'Only you see this until you reveal it.';
+    $('[data-f="q"]', bg).placeholder = j ? 'Everyone has 20 seconds to type as many Pok\u00e9mon as they can in the chat. Most correct names wins.' : 'This Pok\u00e9mon is No. 025 in the National Pok\u00e9dex.';
+  }
+  setHints();
   renderList('q'); renderList('a');
   setTimeout(() => { const t = $('[data-f="q"]', bg); if (t) { t.focus(); t.setSelectionRange(t.value.length, t.value.length); } }, 0);
 }
@@ -1989,7 +2040,7 @@ function pubState() {
     vals: G.cats.map((c, ci) => c.cells.map((_, ri) => cellValue(G, ci, ri))),
     empty: G.cats.map(c => c.cells.map(x => !cellFilled(x))),
     done: G.cats.flatMap((c, ci) => c.cells.map((x, ri) => x.played ? ci + ',' + ri : null)).filter(Boolean),
-    open: o ? { key: o.key, c: o.c, r: o.r, phase: o.phase, revealed: !!o.revealed, quiet: !!o.quiet, dd: !!o.dd, value: openValue() } : null,
+    open: o ? { key: o.key, c: o.c, r: o.r, phase: o.phase, revealed: !!o.revealed, quiet: !!o.quiet, dd: !!o.dd, jester: !!o.jester, value: openValue() } : null,
     players: L.players.map(p => ({ id: p.id, name: p.name, score: p.score, pid: p.pid || null })),
     picker: L.picker || null, pick: !!G.settings.pickOnScreen, chat: !!G.settings.chat,
     show: !!G.settings.showScores, sfx: !!G.settings.sfx, autoplay: !!G.settings.autoplay,
@@ -2041,7 +2092,7 @@ function hostOpenTile(c, r) {
   if (cell.played && !confirm('This clue was already played. Open it again?')) return;
   L.phase = 'board';
   L.seq = (+L.seq || 0) + 1;
-  L.open = { c, r, key: `${c}-${r}-${L.seq}`, phase: cell.dd ? 'dd' : 'clue', revealed: false, quiet: false, dd: !!cell.dd, wager: null };
+  L.open = { c, r, key: `${c}-${r}-${L.seq}`, phase: cell.dd ? 'dd' : cell.jester ? 'jester' : 'clue', revealed: false, quiet: false, dd: !!cell.dd, jester: !!cell.jester, wager: null };
   cell.played = true;
   RT.timer = null; resetBuzz(false);
   RT.sel = { c, r }; RT.lastValue = cellValue(G, c, r);
@@ -2054,9 +2105,11 @@ function hostShowDDClue() {
   o.wager = +o.wager; o.phase = 'clue'; RT.lastValue = o.wager;
   commit();
 }
+function hostShowJester() { const o = G.live.open; if (!o || o.phase !== 'jester') return; o.phase = 'clue'; commit(); }
 function hostReveal() {
   const o = G.live.open; if (!o) return;
   if (o.phase === 'dd') return hostShowDDClue();
+  if (o.phase === 'jester') return hostShowJester();
   if (o.revealed) return;
   o.revealed = true; o.quiet = false; RT.buzz.armed = false;
   commit();
@@ -2177,6 +2230,7 @@ function hostStage(kind) {
   const L = G.live, o = L.open;
   if (kind === 'intro') { L.phase = 'board'; commit(); }
   else if (kind === 'dd') hostShowDDClue();
+  else if (kind === 'jest') hostShowJester();
   else if (kind === 'clue' && o) { if (!o.revealed) hostReveal(); else hostClose(false); }
 }
 
@@ -2293,9 +2347,13 @@ function turnBox() {
 function clueCard(o) {
   const L = G.live, S = G.settings, pre = S.prefix || '', cell = G.cats[o.c].cells[o.r], b = RT.buzz;
   const picker = L.players.find(x => x.id === L.picker);
-  let h = `<section class="hp-sec hp-clue"><div class="hp-cluehead"><b>${esc(G.cats[o.c].name || 'Category ' + (o.c + 1))}</b><span>${o.dd ? 'Daily Double' : esc(pre + fmtNum(openValue()))}</span></div>
-    <div class="read"><div class="rd-label">${o.phase === 'dd' ? 'The clue (hidden until they bet)' : 'Read this out loud'}</div><div class="rd-q">${richText(cell.q) || '<em>Media clue</em>'}</div></div>
-    <div class="answer-box"><div class="ab-label">Answer</div><div class="ab-ans">${cell.a.trim() ? richText(cell.a) : '<em>No answer written</em>'}</div>${cell.am.length ? `<div class="ab-extra">${plural(cell.am.length, 'media item')} with the answer</div>` : ''}</div>`;
+  let h = `<section class="hp-sec hp-clue"><div class="hp-cluehead"><b>${o.jester ? 'Jester round' : esc(G.cats[o.c].name || 'Category ' + (o.c + 1))}</b><span>${o.dd ? 'Daily Double' : esc(pre + fmtNum(openValue()))}</span></div>
+    <div class="read"><div class="rd-label">${o.phase === 'dd' ? 'The clue (hidden until they bet)' : o.phase === 'jester' ? 'The mini-game (hidden until you show it)' : 'Read this out loud'}</div><div class="rd-q">${richText(cell.q) || '<em>Media clue</em>'}</div></div>
+    <div class="answer-box"><div class="ab-label">${o.jester ? 'Notes' : 'Answer'}</div><div class="ab-ans">${cell.a.trim() ? richText(cell.a) : `<em>${o.jester ? 'No notes' : 'No answer written'}</em>`}</div>${cell.am.length ? `<div class="ab-extra">${plural(cell.am.length, 'media item')} with the answer</div>` : ''}</div>`;
+  if (o.phase === 'jester') {
+    h += `<p class="hp-muted">Everyone is watching the Jester animation. Show the mini-game when you\u2019re ready. Give points to whoever wins with the green buttons under Scores.</p><button class="btn primary wide" data-act="jesterShow">Show the mini-game <span class="kbd">Space</span></button>`;
+    return h + '</section>';
+  }
   if (o.phase === 'dd') {
     h += `<p class="hp-muted">Only ${picker ? esc(picker.name) : 'the player who picked it'} answers. Ask how many points they bet: up to their score, or the top value on the board if that\u2019s higher.</p>
       <label class="field"><span>Their bet</span><input class="txt" type="number" step="100" data-input="wager" value="${esc(o.wager === null ? cellValue(G, o.c, o.r) : o.wager)}"></label>
@@ -2391,6 +2449,7 @@ function bindPanel(pane) {
       case 'intro': G.live.phase = 'intro'; commit(); break;
       case 'final': hostFinal(); break;
       case 'ddShow': hostShowDDClue(); break;
+      case 'jesterShow': hostShowJester(); break;
       case 'reveal': hostReveal(); break;
       case 'close': hostClose(false); break;
       case 'keep': hostClose(true); break;
@@ -2449,6 +2508,7 @@ document.addEventListener('keydown', e => {
     if (L.phase === 'intro') { L.phase = 'board'; commit(); }
     else if (!o) { if (RT.sel && L.phase === 'board') hostOpenTile(RT.sel.c, RT.sel.r); }
     else if (o.phase === 'dd') hostShowDDClue();
+    else if (o.phase === 'jester') hostShowJester();
     else if (!o.revealed) hostReveal();
     else hostClose(false);
   } else if (k === 'Enter') {
@@ -2674,7 +2734,8 @@ function startPlayer(code, name, test) {
     const order = b.order || [], idx = order.findIndex(x => x.pid === pid);
     const early = (b.early || []).some(x => x.pid === pid), out = (b.out || []).includes(pid);
     let label = 'Buzz', cls = 'idle', enabled = false, note;
-    if (o && o.dd && !o.revealed) note = picker && me && picker.id === me.id ? 'Daily Double! Only you answer this one.' : `Daily Double: only ${picker ? picker.name : 'the picker'} answers`;
+    if (o && o.phase === 'jester') note = 'Jester! A surprise mini-game is coming.';
+    else if (o && o.dd && !o.revealed) note = picker && me && picker.id === me.id ? 'Daily Double! Only you answer this one.' : `Daily Double: only ${picker ? picker.name : 'the picker'} answers`;
     else if (!inClue) note = myPick ? 'Your pick! Tap a tile on the board.' : picker && S.phase === 'board' && !o ? `${picker.name} is picking` : 'Wait for the next clue';
     else if (!b.on) note = 'Answer out loud when the host asks';
     else if (early) { label = 'Locked'; cls = 'out'; note = 'Too early! You\u2019re locked out of this one.'; }
