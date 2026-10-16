@@ -664,6 +664,19 @@ button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 .hp-load .hl-bar i{display:block;height:100%;background:var(--gold);transition:width .3s}
 .hp-load.done{background:rgba(46,204,113,.14);border-color:rgba(46,204,113,.6)}
 
+/* clue intro: category and points, then the question word by word, then the picture or sound */
+.clue-text .w,.clue-ans .w{display:inline-block}
+.clue.intro .ch-cat{animation:chIn .45s cubic-bezier(.2,.8,.2,1) both}
+.clue.intro .ch-right{animation:chIn .45s cubic-bezier(.2,.8,.2,1) .12s both}
+.clue.intro .clue-text .w{animation:wIn .38s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--wbase,.3s) + var(--i) * var(--wstep,.05s))}
+.clue.intro .clue-media .mbox[data-side="q"]{animation:mIn .5s cubic-bezier(.2,.8,.2,1) both;animation-delay:var(--mdelay,1s)}
+.clue-media .mbox[data-side="a"]{animation:mIn .6s cubic-bezier(.2,.8,.2,1) both}
+.clue-ans.anim .w{animation:wIn .45s cubic-bezier(.2,.8,.2,1) both;animation-delay:calc(var(--i) * .045s)}
+@keyframes chIn{from{opacity:0;transform:translateY(-16px)}}
+@keyframes wIn{from{opacity:0;transform:translateY(.45em) scale(.96);filter:blur(6px)}}
+@keyframes mIn{from{opacity:0;transform:translateY(26px) scale(.97)}}
+@media (prefers-reduced-motion:reduce){.clue.intro .ch-cat,.clue.intro .ch-right,.clue.intro .clue-text .w,.clue.intro .clue-media .mbox,.clue-media .mbox,.clue-ans.anim .w{animation:none}}
+
 </style>
 </head>
 <body>
@@ -1365,12 +1378,19 @@ function createScreen(container, opts = {}) {
       el.textIn.innerHTML = c ? richText(c.q) : '';
       el.media.innerHTML = c ? c.qm.map((m, i) => mediaHTML(m, 'q' + i, 'q')).join('') : '';
       initMedia(Array.from(el.media.children), o.key, 'q');
+      if (c) {
+        const n = wordWrap(el.textIn), step = Math.min(0.045, 1.1 / Math.max(1, n)), base = wasHidden ? 0.3 : 0.1;
+        el.clue.style.setProperty('--wbase', base + 's'); el.clue.style.setProperty('--wstep', step.toFixed(3) + 's');
+        el.clue.style.setProperty('--mdelay', (c.q.trim() ? base + n * step + 0.1 : base).toFixed(2) + 's');
+        el.clue.classList.remove('intro'); void el.clue.offsetWidth; el.clue.classList.add('intro');
+      }
     }
     const ak = a ? o.key : '';
     if (keys.a !== ak) {
       keys.a = ak; keys.layout = null;
       $$('.mbox[data-side="a"]', el.media).forEach(n => n.remove());
       el.ansIn.innerHTML = a ? richText(a.a) : '';
+      if (a) { wordWrap(el.ansIn); el.ans.classList.remove('anim'); void el.ans.offsetWidth; el.ans.classList.add('anim'); }
       if (a && a.am.length) {
         const tmp = document.createElement('div');
         tmp.innerHTML = a.am.map((m, i) => mediaHTML(m, 'a' + i, 'a')).join('');
@@ -1383,6 +1403,23 @@ function createScreen(container, opts = {}) {
     if (wasHidden && keys.zoomed !== o.key) { keys.zoomed = o.key; zoomFrom(el.clue, o.c, o.r); }
     renderTimer();
     renderBuzz();
+  }
+
+  /* wrap each word in a span so it can animate in */
+  function wordWrap(node) {
+    let i = 0;
+    const walk = n => Array.from(n.childNodes).forEach(ch => {
+      if (ch.nodeType === 3) {
+        const frag = document.createDocumentFragment();
+        ch.textContent.split(/(\s+)/).forEach(p => {
+          if (!p) return;
+          if (/^\s+$/.test(p)) frag.appendChild(document.createTextNode(p));
+          else { const s = document.createElement('span'); s.className = 'w'; s.style.setProperty('--i', i++); s.textContent = p; frag.appendChild(s); }
+        });
+        n.replaceChild(frag, ch);
+      } else if (ch.nodeType === 1 && ch.tagName !== 'BR') walk(ch);
+    });
+    walk(node); return i;
   }
 
   function hideClue() {
@@ -2374,15 +2411,17 @@ function hostOpenTile(c, r) {
   RT.sel = { c, r }; RT.lastValue = cellValue(G, c, r);
   if (Host.screen) Host.screen.setSel(null);
   const pre = mediaUrls(cell.am); if (pre.length) RT.outbox.push({ t: 'pre', urls: pre });
+  if (L.open.phase === 'clue') logClue(c, r);
   commit();
 }
 function hostShowDDClue() {
   const o = G.live.open; if (!o || o.phase !== 'dd') return;
   if (o.wager === null || o.wager === '' || isNaN(+o.wager)) o.wager = cellValue(G, o.c, o.r);
   o.wager = +o.wager; o.phase = 'clue'; RT.lastValue = o.wager;
+  logClue(o.c, o.r, 'dd');
   commit();
 }
-function hostShowJester() { const o = G.live.open; if (!o || o.phase !== 'jester') return; o.phase = 'clue'; commit(); }
+function hostShowJester() { const o = G.live.open; if (!o || o.phase !== 'jester') return; o.phase = 'clue'; logClue(o.c, o.r, 'jester'); commit(); }
 function hostReveal() {
   const o = G.live.open; if (!o) return;
   if (o.phase === 'dd') return hostShowDDClue();
@@ -2390,6 +2429,7 @@ function hostReveal() {
   if (o.jester) return hostClose(false);
   if (o.revealed) return;
   o.revealed = true; o.quiet = false; RT.buzz.armed = false;
+  { const cell = G.cats[o.c].cells[o.r]; if (cell.a.trim()) sysChat(`Answer: ${cell.a.trim().replace(/\s+/g, ' ')}`); }
   commit();
 }
 function hostClose(keepTile) {
@@ -2486,6 +2526,13 @@ function chatPush(m) {
   sendRemote({ t: 'chat', m });
   appendHostChat(m);
   saveSoon();
+}
+function logClue(c, r, kind) {
+  const cat = G.cats[c], cell = cat && cat.cells[r]; if (!cell) return;
+  const q = cell.q.trim().replace(/\s+/g, ' ') || 'Picture or sound clue';
+  if (kind === 'jester') { sysChat(`Jester round: ${q}`); return; }
+  const val = (G.settings.prefix || '') + fmtNum(kind === 'dd' ? (G.live.open && G.live.open.wager) || cellValue(G, c, r) : cellValue(G, c, r));
+  sysChat(`${kind === 'dd' ? 'Daily Double' : 'New question'} (${cat.name || 'Category ' + (c + 1)}, ${kind === 'dd' ? 'bet ' : ''}${val}): ${q}`);
 }
 function sysChat(text) { if (G) chatPush({ id: uid(), name: '', text, t: Date.now(), host: false, sys: true, pid: null }); }
 function hostSay(text) {
