@@ -685,6 +685,41 @@ button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 /* host: buzzer button that's always on screen */
 .host-top #buzzTop{margin-right:6px}
 
+/* jukebox */
+.jb-player{position:fixed;left:-10000px;top:0;width:320px;height:180px;overflow:hidden;opacity:0;pointer-events:none}
+.jb-player iframe{width:320px;height:180px;border:0}
+.jb{position:fixed;right:16px;bottom:16px;z-index:70;display:flex;flex-direction:column;gap:10px;width:min(380px,calc(100vw - 32px));max-height:min(74vh,640px);overflow:auto;padding:14px 16px;border-radius:14px;background:#0b0f26;border:1px solid var(--wire);box-shadow:0 20px 60px rgba(0,0,0,.6);color:var(--ink)}
+.jb.hidden{display:none}
+.is-player .jb{bottom:118px}
+.jb-head{display:flex;align-items:center;gap:8px;font-size:17px}
+.jb-head .ic{color:var(--gold)}
+.jb-now{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:10px;background:rgba(255,255,255,.05)}
+.jb-now b{display:block;font-size:15px;line-height:1.25}
+.jb-now small,.jq-t small{display:block;margin-top:2px;font-size:12.5px;color:var(--ink-2)}
+.jb-eq{display:flex;align-items:flex-end;gap:3px;flex:none;width:20px;height:20px}
+.jb-eq i{flex:1;height:30%;border-radius:2px;background:var(--gold)}
+.jb-eq.on i{animation:jbEq .9s ease-in-out infinite alternate}
+.jb-eq.on i:nth-child(2){animation-delay:.2s}
+.jb-eq.on i:nth-child(3){animation-delay:.4s}
+@keyframes jbEq{from{height:20%}to{height:100%}}
+.jb-ctl{display:flex;flex-wrap:wrap;gap:6px}
+.jb-vol{display:flex;align-items:center;gap:10px;font-size:13.5px;color:var(--ink-2)}
+.jb-vol span{min-width:122px}
+.jb-vol input[type=range]{flex:1;min-width:0;accent-color:var(--gold)}
+.jb-add{display:flex;gap:8px}
+.jb-add .txt{flex:1;min-width:0;height:36px}
+.jb-msg{min-height:16px;font-size:13px;color:var(--ink-2)}
+.jb-q{display:flex;flex-direction:column;gap:4px;margin:0;padding:0;list-style:none}
+.jb-q li{display:flex;align-items:center;gap:8px;padding:7px 8px;border-radius:8px;background:rgba(255,255,255,.03)}
+.jb-q li.cur{background:rgba(243,195,0,.12);box-shadow:inset 0 0 0 1px rgba(243,195,0,.5)}
+.jb-q li.bad{opacity:.55}
+.jb-q li.empty{font-size:13.5px;color:var(--ink-2)}
+.jq-n{flex:none;width:22px;text-align:center;font-size:13px;color:var(--ink-2)}
+.jq-t{flex:1;min-width:0}
+.jq-t b{display:block;overflow:hidden;font-size:14px;white-space:nowrap;text-overflow:ellipsis}
+.pill.jb-on .ic{color:var(--gold)}
+@media (prefers-reduced-motion:reduce){.jb-eq.on i{animation:none;height:70%}}
+
 </style>
 </head>
 <body>
@@ -2392,12 +2427,15 @@ function broadcast() {
   msgs.push({ t: 'state', s: st });
   msgs.push(...RT.outbox.splice(0));
   msgs.forEach(sendAll);
+  const dk = jbDuckNow();
+  if (dk !== !!RT.jbDuck) { RT.jbDuck = dk; if (G.live.jb && G.live.jb.q.length) jbSend(); }
 }
 const broadcastSoon = debounce(() => broadcast(), 150);
 function syncTo(send, withChat) {
   if (!G) return;
   if (withChat) send({ t: 'chatlog', list: G.live.chat.slice(-60) });
   if (UI.mode === 'host') send({ t: 'pre', urls: preQ() });
+  if (UI.mode === 'host' && G.live.jb && G.live.jb.q.length) send({ t: 'jb', s: jbPub() });
   if (UI.mode !== 'host') { if (RT.lastPub) send({ t: 'state', s: Object.assign({}, RT.lastPub, { paused: true, open: null, timer: null }) }); return; }
   const o = G.live.open;
   if (o && o.phase === 'clue') send({ t: 'clue', c: clueMsg() });
@@ -2587,7 +2625,7 @@ setInterval(() => {
   for (const [k, t] of Net.locals) if (now - t > 9000) { Net.locals.delete(k); changed = true; }
   if (changed) { if (!Net.locals.size) { RT.hostSound = true; updateHostAudio(); } renderHostPanel(); }
 }, 3000);
-function updateHostAudio() { if (Host.screen) Host.screen.setMuted(!RT.hostSound); }
+function updateHostAudio() { if (Host.screen) Host.screen.setMuted(!RT.hostSound); JBP.setHostMuted(!RT.hostSound); }
 
 /* ---------- entering and leaving ---------- */
 async function enterHost(opts = {}) {
@@ -2604,12 +2642,17 @@ async function enterHost(opts = {}) {
       G.live = Object.assign(freshLive(), { players: G.live.players.map(p => Object.assign({}, p, { score: 0 })) });
     }
   }
-  resetBuzz(false); RT.timer = null; RT.lastSent = { clue: null, ans: null };
+  resetBuzz(false); RT.timer = null; RT.lastSent = { clue: null, ans: null }; RT.jbDuck = false;
+  if (G.live.jb) G.live.jb.playing = false;
   renderHost();
+  JBP.setHostMuted(!RT.hostSound);
+  if (G.live.jb && G.live.jb.q.length) jbSend();
   setTimeout(() => { if (UI.mode === 'host' && G) sendAll({ t: 'pre', urls: preQ() }); }, 1200);
 }
 function exitHost(to) {
   RT.timer = null;
+  jbPause();
+  if (JBUI.el && JBUI.role === 'host') { JBUI.open = false; JBUI.el.classList.add('hidden'); }
   RT.lastPub = pubState();
   const paused = { t: 'state', s: Object.assign({}, RT.lastPub, { paused: true, open: null, timer: null }) };
   if (Net.bc) { try { Net.bc.postMessage(paused); } catch (e) {} }
@@ -2625,7 +2668,7 @@ function renderHost() {
   app.onclick = app.oninput = app.onchange = app.onkeydown = null;
   app.innerHTML = `<div class="host">
   <div class="host-main">
-    <div class="host-top"><button class="btn sm ghost" id="homeBtn">Home</button><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><button class="btn sm ghost" id="buzzTop" disabled>${icon('bolt', 16)}Open buzzers <span class="kbd">B</span></button><button class="btn sm" id="resetGameBtn" title="Start this game over">Reset game</button><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
+    <div class="host-top"><button class="btn sm ghost" id="homeBtn">Home</button><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><button class="btn sm" id="jbTop" title="Music for everyone">${icon('music', 16)}Jukebox</button><button class="btn sm ghost" id="buzzTop" disabled>${icon('bolt', 16)}Open buzzers <span class="kbd">B</span></button><button class="btn sm" id="resetGameBtn" title="Start this game over">Reset game</button><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
     <div class="monitor" id="monitor"></div>
   </div>
   <aside class="hside" aria-label="Host controls">
@@ -2641,6 +2684,7 @@ function renderHost() {
   $('#exitHost').onclick = () => exitHost();
   $('#homeBtn').onclick = () => exitHost('home');
   $('#buzzTop').onclick = e => { hostToggleBuzzers(); e.currentTarget.blur(); };
+  $('#jbTop').onclick = e => { openJukebox('host'); e.currentTarget.blur(); };
   $('#resetGameBtn').onclick = async () => {
     const v = await choose('Reset the game?', 'Every clue goes back on the board, all scores go to 0, and everyone sees the title screen again. Players stay in the game.', [['reset', 'Yes, reset the game', 'primary']]);
     if (v !== 'reset' || !G) return;
@@ -2991,6 +3035,238 @@ setInterval(() => {
   if (changed) renderHostPanel();
 }, 5000);
 
+/* ---------- jukebox: one playlist for everyone, the host runs it ---------- */
+const JBP = (() => {
+  let box = null, f = null, ready = false, queue = [], st = null, curKey = null, state = -1, ctime = 0, ytitle = '', hostMuted = false, infoFn = null, vNow = -1, fadeT = 0;
+  let localVol = Math.max(0, Math.min(100, +lsGet('tn.jbVol', 80))), localMute = !!lsGet('tn.jbMute', false);
+  if (!isFinite(localVol)) localVol = 80;
+  const post = o => { try { if (f && f.contentWindow) f.contentWindow.postMessage(JSON.stringify(o), '*'); } catch (e) {} };
+  const cmd = (func, args) => { const o = { event: 'command', func, args: args || [], id: 1, channel: 'widget' }; if (ready) post(o); else queue.push(o); };
+  function mount(vid, start, auto) {
+    if (!box) {
+      box = document.createElement('div'); box.className = 'jb-player'; box.setAttribute('aria-hidden', 'true');
+      document.body.appendChild(box); addEventListener('message', onMsg);
+    }
+    ready = false; queue = []; state = -1; ctime = start || 0; vNow = -1;
+    const p = new URLSearchParams({ enablejsapi: '1', autoplay: auto ? '1' : '0', playsinline: '1', rel: '0', controls: '0', start: String(Math.floor(start || 0)) });
+    if (/^https?:$/.test(location.protocol)) p.set('origin', location.origin);
+    box.innerHTML = `<iframe title="Jukebox" allow="autoplay; encrypted-media" src="https://www.youtube.com/embed/${encodeURIComponent(vid)}?${p}"></iframe>`;
+    f = box.firstChild;
+    let tries = 0;
+    f.addEventListener('load', () => {
+      const ping = () => post({ event: 'listening', id: 1, channel: 'widget' });
+      ping();
+      const iv = setInterval(() => {
+        if (ready || !f || !f.isConnected) { clearInterval(iv); return; }
+        if (++tries > 40) { clearInterval(iv); markReady(); return; }
+        ping();
+      }, 250);
+    });
+  }
+  function markReady() { if (ready) return; ready = true; const q = queue; queue = []; q.forEach(post); applyVol(true); }
+  function onMsg(e) {
+    if (!f || e.source !== f.contentWindow) return;
+    let d = e.data; if (typeof d === 'string') { try { d = JSON.parse(d); } catch (err) { return; } }
+    if (!d || typeof d !== 'object') return;
+    markReady();
+    if (d.event === 'onError') { if (infoFn) infoFn({ error: d.info, key: curKey }); return; }
+    const i = d.info;
+    if (d.event === 'onStateChange' && typeof i === 'number') state = i;
+    else if (i && typeof i === 'object') {
+      if (typeof i.playerState === 'number') state = i.playerState;
+      if (typeof i.currentTime === 'number') ctime = i.currentTime;
+      if (i.videoData && i.videoData.title) ytitle = i.videoData.title;
+    }
+    if (infoFn) infoFn({ state, time: ctime, title: ytitle, key: curKey });
+  }
+  const target = () => st ? Math.round((st.vol ?? 70) * localVol / 100 * (st.duck ? 0.15 : 1)) : 0;
+  function applyVol(now) {
+    const goal = target(), muted = localMute || hostMuted || goal < 1;
+    clearInterval(fadeT);
+    cmd(muted ? 'mute' : 'unMute');
+    if (muted) return;
+    if (now || vNow < 0) { vNow = goal; cmd('setVolume', [goal]); return; }
+    const from = vNow, t0 = performance.now();
+    fadeT = setInterval(() => {
+      const k = Math.min(1, (performance.now() - t0) / 700);
+      vNow = Math.round(from + (goal - from) * k); cmd('setVolume', [vNow]);
+      if (k >= 1) clearInterval(fadeT);
+    }, 70);
+  }
+  function apply(s) {
+    const prev = st; st = s;
+    const item = s && s.cur >= 0 ? s.q[s.cur] : null;
+    if (!item) { if (f) cmd('pauseVideo'); curKey = null; return; }
+    const want = Math.max(0, +s.pos || 0);
+    if (curKey !== item.id) {
+      curKey = item.id; ytitle = '';
+      if (!f) mount(item.vid, want, s.playing);
+      else { state = -1; ctime = want; cmd(s.playing ? 'loadVideoById' : 'cueVideoById', [{ videoId: item.vid, startSeconds: want }]); }
+    } else {
+      if (s.playing && state !== 1 && state !== 3) cmd('playVideo');
+      if (!s.playing && (state === 1 || state === 3)) cmd('pauseVideo');
+      if (Math.abs(ctime - want) > 4) cmd('seekTo', [want, true]);
+    }
+    applyVol(!prev || (prev.duck === s.duck && prev.vol === s.vol));
+  }
+  return {
+    apply,
+    state: () => st, time: () => ctime, playerState: () => state,
+    local: () => ({ vol: localVol, mute: localMute }),
+    setLocal(v, m) {
+      if (v !== undefined) { localVol = Math.max(0, Math.min(100, Math.round(v))); lsSet('tn.jbVol', localVol); }
+      if (m !== undefined) { localMute = !!m; lsSet('tn.jbMute', localMute); }
+      applyVol(true);
+    },
+    setHostMuted(m) { hostMuted = !!m; applyVol(true); },
+    onInfo(fn) { infoFn = fn; }
+  };
+})();
+
+/* host side: the playlist lives with the game, the host's own player is the clock */
+let jbPosAt = 0, jbStartAt = 0;
+const jbS = () => { const L = G.live; if (!L.jb || !Array.isArray(L.jb.q)) L.jb = { q: [], cur: -1, playing: false, pos: 0, vol: 70 }; return L.jb; };
+function jbCurPos() {
+  const j = jbS(); if (!j.playing) return +j.pos || 0;
+  const t = JBP.time(); if (JBP.playerState() === 1 && t > 0) return t;
+  return (+j.pos || 0) + (performance.now() - jbPosAt) / 1000;
+}
+function jbPub() {
+  const j = jbS();
+  return { q: j.q.map(x => ({ id: x.id, vid: x.vid, title: x.title, by: x.by, bad: !!x.bad })), cur: j.cur, playing: !!j.playing, pos: +jbCurPos().toFixed(1), vol: j.vol ?? 70, duck: !!RT.jbDuck };
+}
+function jbSend() { if (!G) return; const s = jbPub(); JBP.apply(s); sendAll({ t: 'jb', s }); renderJukebox(); }
+const jbSendSoon = debounce(() => jbSend(), 120);
+function jbMark() { const j = jbS(); j.pos = jbCurPos(); jbPosAt = performance.now(); }
+function jbDuckNow() {
+  const o = G && G.live.open; if (!o || o.phase !== 'clue') return false;
+  const cell = G.cats[o.c] && G.cats[o.c].cells[o.r]; if (!cell) return false;
+  const has = l => l.some(m => PLAYABLE.includes(kindOf(m)));
+  return has(cell.qm) || (o.revealed && has(cell.am));
+}
+function jbAdd(url, by) {
+  const y = ytInfo(String(url || '').trim()); if (!y) return 'That isn\u2019t a YouTube link.';
+  const j = jbS(); if (j.q.length >= 60) return 'The playlist is full. Remove a few songs first.';
+  const item = { id: uid(), vid: y.id, title: 'YouTube video', by: String(by || 'Host').trim().slice(0, 28) || 'Host' };
+  j.q.push(item);
+  if (j.cur < 0) { j.cur = j.q.length - 1; j.playing = true; j.pos = y.start || 0; jbPosAt = jbStartAt = performance.now(); }
+  jbSend(); saveSoon();
+  const log = () => sysChat(`${item.by} added a song: ${item.title}`);
+  fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + y.id))
+    .then(r => r.ok ? r.json() : null)
+    .then(d => { if (d && d.title) { item.title = String(d.title).slice(0, 120); jbSend(); saveSoon(); } log(); })
+    .catch(log);
+  return '';
+}
+function jbAddFrom(rec, url) {
+  const now = Date.now(); if (now - (rec.lastJb || 0) < 3000) return; rec.lastJb = now;
+  const pl = G && G.live.players[playerByPid(rec.pid)];
+  jbAdd(url, (pl && pl.name) || rec.name || 'Guest');
+}
+function jbPlayAt(i) { const j = jbS(); if (!j.q[i]) return; j.cur = i; j.pos = 0; j.playing = true; jbPosAt = jbStartAt = performance.now(); jbSend(); saveSoon(); }
+function jbToggle() {
+  const j = jbS();
+  if (j.cur < 0) { const i = j.q.findIndex(x => !x.bad); if (i >= 0) jbPlayAt(i); return; }
+  jbMark(); j.playing = !j.playing; jbSend(); saveSoon();
+}
+function jbSkip() {
+  const j = jbS(); let n = j.cur + 1;
+  while (j.q[n] && j.q[n].bad) n++;
+  if (j.q[n]) jbPlayAt(n);
+  else { j.cur = -1; j.playing = false; j.pos = 0; jbSend(); saveSoon(); }
+}
+function jbSeek(d) { const j = jbS(); if (j.cur < 0) return; jbMark(); j.pos = Math.max(0, j.pos + d); jbPosAt = performance.now(); jbSend(); }
+function jbRestart() { const j = jbS(); if (j.cur < 0) return; j.pos = 0; jbPosAt = performance.now(); jbSend(); }
+function jbRemove(id) {
+  const j = jbS(), i = j.q.findIndex(x => x.id === id); if (i < 0) return;
+  j.q.splice(i, 1);
+  if (i < j.cur) j.cur--;
+  else if (i === j.cur) { j.cur--; jbSkip(); return; }
+  jbSend(); saveSoon();
+}
+function jbSetVol(v) { jbS().vol = Math.max(0, Math.min(100, Math.round(+v || 0))); jbSendSoon(); saveSoon(); }
+function jbPause() { if (!G || !G.live.jb || !G.live.jb.playing) return; jbMark(); G.live.jb.playing = false; jbSend(); }
+JBP.onInfo(info => {
+  if (UI.mode !== 'host' || !G || !G.live.jb) return;
+  const j = G.live.jb, item = j.q[j.cur]; if (!item || info.key !== item.id) return;
+  if (info.error) {
+    item.bad = true;
+    sendAll({ t: 'fx', toast: 'That song can\u2019t play outside YouTube, so it was skipped', tone: 'bad' });
+    jbSkip(); return;
+  }
+  if (info.title && item.title === 'YouTube video') { item.title = info.title.slice(0, 120); jbSendSoon(); }
+  if (info.state === 0 && j.playing && performance.now() - jbStartAt > 3000) jbSkip();
+});
+setInterval(() => { if (UI.mode === 'host' && G && G.live.jb && G.live.jb.playing) jbSend(); }, 6000);
+
+/* the panel: host gets the controls, players can add songs and set their own volume */
+const JBUI = { open: false, role: null, el: null, send: null };
+function openJukebox(role) {
+  if (JBUI.el && JBUI.role === role) { JBUI.open = !JBUI.open; JBUI.el.classList.toggle('hidden', !JBUI.open); renderJukebox(); return; }
+  if (JBUI.el) JBUI.el.remove();
+  JBUI.role = role; JBUI.open = true;
+  const host = role === 'host', d = document.createElement('aside');
+  d.className = 'jb'; d.setAttribute('aria-label', 'Jukebox');
+  d.innerHTML = `<div class="jb-head">${icon('music', 18)}<b>Jukebox</b><div class="grow"></div><button class="btn sm icon ghost" data-jb="close" title="Close" aria-label="Close">${icon('x', 16)}</button></div>
+  <div class="jb-now"></div>
+  ${host ? `<div class="jb-ctl"><button class="btn sm" data-jb="restart" title="Restart the song" aria-label="Restart the song">${icon('restart', 16)}</button><button class="btn sm primary" data-jb="toggle"></button><button class="btn sm" data-jb="skip">Skip${icon('chevR', 14)}</button><button class="btn sm ghost" data-jb="back" title="Back 15 seconds">\u221215s</button><button class="btn sm ghost" data-jb="fwd" title="Forward 15 seconds">+15s</button></div>
+  <label class="jb-vol"><span>Volume for everyone</span><input type="range" min="0" max="100" data-jb="vol" aria-label="Volume for everyone"></label>` : ''}
+  <label class="jb-vol"><span>${host ? 'Your speakers' : 'Your volume'}</span><input type="range" min="0" max="100" data-jb="lvol" aria-label="Your volume"><button class="btn sm icon ghost" type="button" data-jb="mute" title="Mute" aria-label="Mute"></button></label>
+  <form class="jb-add"><input class="txt" maxlength="300" placeholder="Paste a YouTube link" aria-label="YouTube link" autocomplete="off"><button class="btn sm primary" type="submit">Add</button></form>
+  <div class="jb-msg" role="status"></div>
+  <ol class="jb-q"></ol>
+  <p class="hint small">${host ? 'Anyone can add songs. You run play, skip and the volume. It gets quieter by itself while a clue plays a sound.' : 'Add a YouTube link and it plays for everyone. The host runs play and skip.'}</p>`;
+  document.body.appendChild(d); JBUI.el = d;
+  const msg = t => { $('.jb-msg', d).textContent = t || ''; };
+  d.onclick = e => {
+    const b = e.target.closest('[data-jb]'); if (!b) return;
+    const a = b.dataset.jb;
+    if (a === 'close') { JBUI.open = false; d.classList.add('hidden'); }
+    else if (a === 'mute') { JBP.setLocal(undefined, !JBP.local().mute); renderJukebox(); }
+    else if (!host) return;
+    else if (a === 'toggle') jbToggle();
+    else if (a === 'skip') jbSkip();
+    else if (a === 'restart') jbRestart();
+    else if (a === 'back') jbSeek(-15);
+    else if (a === 'fwd') jbSeek(15);
+    else if (a === 'play') jbPlayAt(+b.dataset.i);
+    else if (a === 'del') jbRemove(b.dataset.id);
+    if (a !== 'close') b.blur();
+  };
+  d.oninput = e => {
+    const t = e.target;
+    if (t.dataset.jb === 'lvol') JBP.setLocal(+t.value);
+    else if (t.dataset.jb === 'vol' && host) jbSetVol(+t.value);
+  };
+  d.onkeydown = e => { if (e.key === 'Escape') { e.preventDefault(); e.target.blur(); } };
+  $('.jb-add', d).onsubmit = e => {
+    e.preventDefault();
+    const inp = $('.jb-add input', d), url = inp.value.trim(); if (!url) return;
+    if (!ytInfo(url)) { msg('Paste a YouTube link, like youtube.com/watch?v=\u2026'); return; }
+    if (host) { const err = jbAdd(url, 'Host'); msg(err || 'Added to the playlist.'); }
+    else if (JBUI.send) { JBUI.send({ t: 'jbAdd', url }); msg('Sent. It shows up below in a second.'); }
+    inp.value = '';
+  };
+  renderJukebox();
+}
+function renderJukebox() {
+  const d = JBUI.el;
+  const s = JBP.state() || { q: [], cur: -1, playing: false, vol: 70 };
+  const btn = $('#jbBtn'); if (btn) btn.classList.toggle('jb-on', !!(s.playing && s.cur >= 0));
+  if (!d || !JBUI.open) return;
+  const host = JBUI.role === 'host', item = s.cur >= 0 ? s.q[s.cur] : null;
+  $('.jb-now', d).innerHTML = item
+    ? `<span class="jb-eq${s.playing ? ' on' : ''}"><i></i><i></i><i></i></span><div><b>${esc(item.title)}</b><small>Added by ${esc(item.by)}${s.duck ? ' \u00b7 quieter while the clue plays' : s.playing ? '' : ' \u00b7 paused'}</small></div>`
+    : `<div><b>Nothing playing</b><small>${s.q.length ? (host ? 'Press Play to start.' : 'Waiting for the host.') : 'Add a YouTube link below.'}</small></div>`;
+  if (host) {
+    $('[data-jb="toggle"]', d).innerHTML = s.playing && item ? `${icon('pause', 16)}Pause` : `${icon('play', 16)}Play`;
+    const v = $('[data-jb="vol"]', d); if (v && document.activeElement !== v) v.value = s.vol ?? 70;
+  }
+  const L = JBP.local(), lv = $('[data-jb="lvol"]', d); if (document.activeElement !== lv) lv.value = L.vol;
+  $('[data-jb="mute"]', d).innerHTML = icon(L.mute ? 'mute' : 'vol', 16);
+  $('.jb-q', d).innerHTML = s.q.map((x, i) => `<li class="${i === s.cur ? 'cur' : ''}${x.bad ? ' bad' : ''}"><span class="jq-n">${i === s.cur ? icon('music', 14) : i + 1}</span><div class="jq-t"><b>${esc(x.title)}</b><small>${x.bad ? 'Can\u2019t play outside YouTube' : 'Added by ' + esc(x.by)}</small></div>${host ? `${i !== s.cur && !x.bad ? `<button class="btn sm icon ghost" data-jb="play" data-i="${i}" title="Play now" aria-label="Play now">${icon('play', 14)}</button>` : ''}<button class="btn sm icon ghost" data-jb="del" data-id="${esc(x.id)}" title="Remove" aria-label="Remove">${icon('x', 14)}</button>` : ''}</li>`).join('') || '<li class="empty">No songs yet.</li>';
+}
+
 /* ---------- connections (host side) ---------- */
 function setNet(status, note) { Net.status = status; Net.note = note || ''; renderHostPanel(); broadcast(); }
 function startLocal() {
@@ -3089,6 +3365,7 @@ function onScreenMsg(m, from) {
     } else renderHostPanel();
   } else if (m.t === 'buzz') hostBuzz(rec.pid, rec.name);
   else if (m.t === 'mready') { (rec.ready = rec.ready || new Set()).add(String(m.key) + ':' + m.side); readySoon(); }
+  else if (m.t === 'jbAdd' && UI.mode === 'host' && G) jbAddFrom(rec, m.url);
   else if (m.t === 'pick') hostPickRequest(rec.pid, +m.c, +m.r);
   else if (m.t === 'chat') {
     if (!G || !G.settings.chat) return;
@@ -3111,7 +3388,7 @@ function bootDisplay() {
   idleCursor();
   if (!('BroadcastChannel' in window)) { scr.setWait('This browser can\u2019t run the display tab. Use Chrome, Edge or Firefox.'); return; }
   const id = uid(), bc = new BroadcastChannel(BC_NAME);
-  bc.onmessage = e => { const m = e.data; if (m && ['state', 'clue', 'answer', 'media', 'fx', 'pre'].includes(m.t)) scr.handle(m); };
+  bc.onmessage = e => { const m = e.data; if (!m) return; if (m.t === 'jb' && m.s) { JBP.apply(m.s); return; } if (['state', 'clue', 'answer', 'media', 'fx', 'pre'].includes(m.t)) scr.handle(m); };
   const hello = () => bc.postMessage({ t: 'hello', id });
   hello();
   setInterval(() => bc.postMessage({ t: 'ping', id }), 3000);
@@ -3149,7 +3426,7 @@ function startPlayer(code, name, test) {
     <div class="pbar">
       <div class="pb-side"><span class="pill" id="pst"><i class="dot"></i><span>Connecting</span></span><button class="pill hidden" id="retryBtn" onclick="location.reload()">Retry</button></div>
       <div class="pb-center"><button class="buzzbtn idle" id="buzz" disabled>Buzz</button><div class="pbar-note" id="bnote"></div></div>
-      <div class="pb-side right"><button class="pill" id="chatBtn">${icon('chat', 16)}Chat<b class="unread hidden" id="unread"></b></button><button class="pill" id="muteBtn" title="Mute" aria-label="Mute"></button><button class="pill" id="fsBtn" title="Full screen" aria-label="Full screen">${icon('full', 16)}</button></div>
+      <div class="pb-side right"><button class="pill" id="jbBtn" title="Jukebox">${icon('music', 16)}Music</button><button class="pill" id="chatBtn">${icon('chat', 16)}Chat<b class="unread hidden" id="unread"></b></button><button class="pill" id="muteBtn" title="Mute" aria-label="Mute"></button><button class="pill" id="fsBtn" title="Full screen" aria-label="Full screen">${icon('full', 16)}</button></div>
     </div>
   </div>
   <aside class="chat" id="chat" aria-label="Chat">
@@ -3159,6 +3436,8 @@ function startPlayer(code, name, test) {
   </aside>
 </div>`;
   const buzz = $('#buzz'), bnote = $('#bnote'), pst = $('#pst'), chat = $('#chat'), chatLog = $('#chatLog'), unreadEl = $('#unread');
+  JBUI.send = m => sendToHost(m);
+  $('#jbBtn').onclick = e => { openJukebox('player'); e.currentTarget.blur(); };
   let muted = !!lsGet('tn.mute', false), conn = null, last = 0, retryT = 0, S = null, unread = 0, buzzedKey = null, sendToHost = () => {}, buzzShown = false, popUntil = 0;
   let chatOpen = lsGet('tn.chatOpen', innerWidth >= 1000);
   const scr = createScreen($('#scr'), { waitText: 'Connecting to the host', muted, onState: st => { S = st; update(); }, onTile: (c, r) => sendToHost({ t: 'pick', c, r }), onReady: (key, side) => sendToHost({ t: 'mready', key, side }) });
@@ -3244,7 +3523,8 @@ function startPlayer(code, name, test) {
       setSt('ok', via === 'direct' ? 'Live' : 'Live (backup route)');
     } else if (via === 'direct' ? src !== 'direct' : src !== relayActive) return;
     last = Date.now();
-    if (d.t === 'chat' && d.m) addMsg(d.m);
+    if (d.t === 'jb' && d.s) { JBP.apply(d.s); renderJukebox(); }
+    else if (d.t === 'chat' && d.m) addMsg(d.m);
     else if (d.t === 'chatlog' && Array.isArray(d.list)) { chatLog.innerHTML = ''; d.list.forEach(m => addMsg(m, true)); chatLog.scrollTop = chatLog.scrollHeight; }
     else scr.handle(d);
   }
