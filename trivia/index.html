@@ -629,6 +629,28 @@ button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 @media (max-width:900px){.pv .buzzbtn{height:70px;min-width:min(330px,88vw);font-size:36px}}
 @media (prefers-reduced-motion:reduce){.buzzbtn.pop{animation:none!important}}
 
+/* zoomed-in pictures */
+.zframe{position:relative;overflow:hidden;aspect-ratio:var(--ar,1.7778);width:min(100%,calc(var(--mh,600px) * var(--ar,1.7778)));max-height:100%;background:#000;box-shadow:0 0 0 4px #000}
+.zframe img,.mbox .zframe img{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;transform-origin:0 0;transform:translate(calc((0.5 - var(--zs,1) * var(--zx,.5)) * 100%),calc((0.5 - var(--zs,1) * var(--zy,.5)) * 100%)) scale(var(--zs,1));transition:transform 1.8s cubic-bezier(.25,.8,.25,1)}
+.clue.revealed .zframe img{transform:none}
+.mitem{grid-template-columns:96px minmax(0,1fr) auto auto auto}
+.zoom-ed{position:fixed;inset:0;z-index:70;display:flex;align-items:center;justify-content:center;padding:3vh 16px;background:rgba(4,6,16,.8)}
+.ze-card{width:min(1200px,100%);max-height:94vh;overflow:auto;border-radius:12px;background:var(--desk);border:1px solid var(--wire);box-shadow:0 30px 90px rgba(0,0,0,.6)}
+.ze-body{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(260px,1fr);gap:20px;padding:18px 20px}
+.ze-left{display:flex;flex-direction:column;gap:12px;min-width:0}
+.ze-stage{position:relative;max-width:100%;cursor:crosshair;touch-action:none;user-select:none;background:#000;border-radius:6px;overflow:hidden}
+.ze-stage img{display:block;width:100%;height:100%;object-fit:fill;pointer-events:none}
+.ze-rect{position:absolute;border:3px solid var(--gold);box-shadow:0 0 0 9999px rgba(0,0,0,.55);border-radius:2px;pointer-events:none}
+.ze-slider{display:flex;align-items:center;gap:12px;font-weight:600}
+.ze-slider input{flex:1;accent-color:var(--gold)}
+.ze-val{min-width:44px;font:400 22px/1 var(--f-num);color:var(--gold)}
+.ze-right{display:flex;flex-direction:column;gap:8px}
+.ze-cap{font-size:14px;font-weight:700;color:var(--ink-2)}
+.ze-prev{padding:10px;border-radius:10px;background:#000;display:flex;justify-content:center}
+.ze-prev .zframe{width:100%;box-shadow:none}
+@media (max-width:820px){.ze-body{grid-template-columns:1fr}}
+@media (prefers-reduced-motion:reduce){.zframe img{transition:none}}
+
 </style>
 </head>
 <body>
@@ -773,6 +795,7 @@ const ICONS = {
   bolt: 'M13 2 4 14h7l-1 8 9-12h-7z',
   timer: 'M9 1h6v2H9zm3 3a9 9 0 1 1 0 18 9 9 0 0 1 0-18zm0 2a7 7 0 1 0 0 14 7 7 0 0 0 0-14zm-1 2h2v5.4l3.3 1.9-1 1.7-4.3-2.4z',
   undo: 'M8 7V4L3 9l5 5v-3h6a4 4 0 0 1 0 8h-3v2h3a6 6 0 0 0 0-12z',
+  zoom: 'M10 3a7 7 0 0 1 5.6 11.2l5.1 5.1-1.4 1.4-5.1-5.1A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-1 2h2v2h2v2h-2v2H9v-2H7V9h2z',
   jester: 'M3 18h18v2H3zM4 17 2.5 7.5a1.6 1.6 0 1 1 1.9-.2L8 12l3.2-8.1a1.7 1.7 0 1 1 1.6 0L16 12l3.6-4.7a1.6 1.6 0 1 1 1.9.2L20 17z',
   dice: 'M5 3h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2zm2.5 3a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm9 9a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3zm-4.5-4.5a1.5 1.5 0 1 0 0 3 1.5 1.5 0 0 0 0-3z',
   chat: 'M4 4h16a1 1 0 0 1 1 1v11a1 1 0 0 1-1 1H9l-5 4v-4H4a1 1 0 0 1-1-1V5a1 1 0 0 1 1-1zm1 2v9h2v1.8L9.3 15H19V6z',
@@ -901,6 +924,10 @@ function normMedia(x, trustKind) {
   if (!KINDS.includes(kind)) kind = 'auto';
   const m = { src, kind };
   if (x.name) m.name = String(x.name).slice(0, 120);
+  if (x.zoom && typeof x.zoom === 'object') {
+    const zx = +x.zoom.x, zy = +x.zoom.y, zs = +x.zoom.s, ar = +x.zoom.ar;
+    if (zs >= 1 && zs <= 20 && zx >= 0 && zx <= 1 && zy >= 0 && zy <= 1) m.zoom = { x: zx, y: zy, s: zs, ar: ar > 0.1 && ar < 10 ? ar : 1.7778 };
+  }
   if (typeof x.thumb === 'string' && x.thumb.startsWith('data:image/') && x.thumb.length < 60000) m.thumb = x.thumb;
   return m;
 }
@@ -1373,6 +1400,7 @@ function createScreen(container, opts = {}) {
     if (!m || !safeSrc(m.src)) return '';
     const k = kindOf(m), src = directSrc(m.src), auto = !!(self.S && self.S.autoplay), A = `data-mk="${mk}"`;
     const box = cls => `<div class="mbox${cls ? ' ' + cls : ''}" data-side="${side}">`;
+    if (k === 'image' && m.zoom) { const z = m.zoom; return `${box('zoomed')}<div class="zframe" style="--ar:${+z.ar || 1.7778}"><img ${A} src="${esc(src)}" alt="" draggable="false" style="--zx:${+z.x};--zy:${+z.y};--zs:${+z.s}"></div></div>`; }
     if (k === 'image') return `${box()}<img ${A} src="${esc(src)}" alt="" draggable="false"></div>`;
     if (k === 'video') return `${box()}<video ${A} src="${esc(src)}" playsinline preload="auto" controls></video></div>`;
     if (k === 'audio') return `${box()}<div class="aud">${icon('music', 150)}<audio ${A} src="${esc(src)}" preload="auto" controls></audio></div></div>`;
@@ -1918,7 +1946,7 @@ function openImport() {
 /* ---------- clue editor ---------- */
 const YT_EXAMPLE = 'https://www.youtube.com/watch?v=dQw4w9WgXcQ&t=45';
 const readURL = f => new Promise((res, rej) => { const r = new FileReader(); r.onload = () => res(r.result); r.onerror = () => rej(r.error); r.readAsDataURL(f); });
-const IMG_MAX = 1440;
+const IMG_MAX = 2048;
 const loadImg = url => new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = url; });
 function drawTo(img, max, q, keepAlpha) {
   const s = Math.min(1, max / Math.max(img.naturalWidth || 1, img.naturalHeight || 1));
@@ -1942,7 +1970,7 @@ async function imageToMedia(f, note) {
       if (f.size > 6e6) { note(`${f.name} is ${fmtBytes(f.size)}. Animated GIFs can\u2019t be shrunk, so keep them under 6 MB.`); return null; }
       src = await readURL(f);
     } else if (big <= IMG_MAX && f.size < 300e3) src = await readURL(f);
-    else src = drawTo(img, IMG_MAX, 0.82, alpha);
+    else src = drawTo(img, IMG_MAX, 0.8, alpha);
     const after = src.length * 0.75;
     note(after < f.size * 0.9 ? `${f.name} shrunk from ${fmtBytes(f.size)} to ${fmtBytes(after)}.` : `${f.name} added (${fmtBytes(after)}).`);
     return { src, kind: 'image', name: f.name, thumb };
@@ -2017,7 +2045,7 @@ function openCellEditor(c, r) {
   const current = () => UI.edit && UI.edit.c === c && UI.edit.r === r;
   const renderList = s => {
     if (!current()) return;
-    $(`[data-list="${s}"]`, bg).innerHTML = list(s).map((m, i) => `<div class="mitem">${mediaThumb(m)}<div class="minfo"><div class="mkind">${esc(KIND_LABEL[kindOf(m)])}</div><div class="msrc" title="${esc(srcLabel(m))}">${esc(srcLabel(m))}</div></div><select data-kind="${s}${i}" aria-label="Media type">${KINDS.map(k => `<option value="${k}"${(m.kind || 'auto') === k ? ' selected' : ''}>${k === 'auto' ? `Auto (${KIND_LABEL[detectKind(m.src)]})` : KIND_LABEL[k]}</option>`).join('')}</select><button class="btn sm icon ghost" data-m="mdel" data-side="${s}" data-i="${i}" title="Remove" aria-label="Remove media">${icon('x')}</button></div>`).join('');
+    $(`[data-list="${s}"]`, bg).innerHTML = list(s).map((m, i) => `<div class="mitem">${mediaThumb(m)}<div class="minfo"><div class="mkind">${esc(KIND_LABEL[kindOf(m)])}${m.zoom ? ` (zoomed in ${m.zoom.s}x)` : ''}</div><div class="msrc" title="${esc(srcLabel(m))}">${esc(srcLabel(m))}</div></div><select data-kind="${s}${i}" aria-label="Media type">${KINDS.map(k => `<option value="${k}"${(m.kind || 'auto') === k ? ' selected' : ''}>${k === 'auto' ? `Auto (${KIND_LABEL[detectKind(m.src)]})` : KIND_LABEL[k]}</option>`).join('')}</select>${kindOf(m) === 'image' ? `<button class="btn sm" data-m="zoom" data-side="${s}" data-i="${i}" title="Show a close-up first">${icon('zoom', 16)}Zoom</button>` : '<span></span>'}<button class="btn sm icon ghost" data-m="mdel" data-side="${s}" data-i="${i}" title="Remove" aria-label="Remove media">${icon('x')}</button></div>`).join('');
   };
   const addText = (s, text) => {
     let src = String(text || '').trim(), kind = 'auto';
@@ -2045,6 +2073,7 @@ function openCellEditor(c, r) {
     else if (m === 'prev') stepCell(-1);
     else if (m === 'next') stepCell(1);
     else if (m === 'add') { const inp = $(`[data-url="${b.dataset.side}"]`, bg); if (addText(b.dataset.side, inp.value)) inp.value = ''; }
+    else if (m === 'zoom') { const s = b.dataset.side, item = list(s)[+b.dataset.i]; if (item) openZoomEditor(item, z => { if (z) item.zoom = z; else delete item.zoom; saveSoon(); renderList(s); }); }
     else if (m === 'copyEx') copyText(YT_EXAMPLE).then(() => flashMsg('Example link copied'));
     else if (m === 'addEx') addText('q', YT_EXAMPLE);
     else if (m === 'mdel') { list(b.dataset.side).splice(+b.dataset.i, 1); saveSoon(); renderList(b.dataset.side); }
@@ -2116,6 +2145,49 @@ document.addEventListener('keydown', e => {
   else if ((e.ctrlKey || e.metaKey) && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) { e.preventDefault(); stepCell(e.key === 'ArrowDown' ? 1 : -1); }
 });
 
+/* zoom tool: pick the close-up players see first; the reveal pulls back to the full picture */
+function openZoomEditor(m, done) {
+  const st = Object.assign({ x: 0.5, y: 0.5, s: 4 }, m.zoom || {});
+  let ar = +st.ar || 16 / 9;
+  const ov = document.createElement('div'); ov.className = 'zoom-ed';
+  ov.innerHTML = `<div class="ze-card" role="dialog" aria-modal="true" aria-label="Zoom in on the picture">
+    <div class="modal-head"><b class="mh-plain">Zoom in</b><div class="grow"></div><button class="btn sm icon ghost" data-z="cancel" title="Close" aria-label="Close">${icon('x')}</button></div>
+    <div class="ze-body">
+      <div class="ze-left"><p class="hint">Click or drag on the picture to move the box onto the detail players should see. When you reveal the answer, it zooms out to the full picture.</p>
+        <div class="ze-stage"><img alt="" draggable="false"><div class="ze-rect"></div></div>
+        <label class="ze-slider"><span>Zoom</span><input type="range" min="1.5" max="10" step="0.5"><b class="ze-val"></b></label></div>
+      <div class="ze-right"><div class="ze-cap">What players see</div><div class="ze-prev"><div class="zframe"><img alt="" draggable="false"></div></div></div>
+    </div>
+    <div class="modal-foot"><button class="btn ghost danger" data-z="remove">No zoom</button><div class="grow"></div><button class="btn ghost" data-z="cancel">Cancel</button><button class="btn primary" data-z="save">Save zoom</button></div>
+  </div>`;
+  document.body.appendChild(ov);
+  const stage = $('.ze-stage', ov), img = $('img', stage), rect = $('.ze-rect', ov), range = $('input', ov), val = $('.ze-val', ov), frame = $('.ze-prev .zframe', ov), pimg = $('img', frame);
+  img.src = pimg.src = directSrc(m.src);
+  const draw = () => {
+    const h = 0.5 / st.s; st.x = clamp(st.x, h, 1 - h); st.y = clamp(st.y, h, 1 - h);
+    Object.assign(rect.style, { left: (st.x - h) * 100 + '%', top: (st.y - h) * 100 + '%', width: 100 / st.s + '%', height: 100 / st.s + '%' });
+    range.value = st.s; val.textContent = st.s + 'x';
+    pimg.style.setProperty('--zx', st.x); pimg.style.setProperty('--zy', st.y); pimg.style.setProperty('--zs', st.s);
+    frame.style.setProperty('--ar', ar);
+    stage.style.aspectRatio = ar; stage.style.width = `min(100%, ${(56 * ar).toFixed(2)}vh)`;
+  };
+  img.onload = () => { if (img.naturalWidth && img.naturalHeight) ar = img.naturalWidth / img.naturalHeight; draw(); };
+  const move = e => { const r = stage.getBoundingClientRect(); if (!r.width) return; st.x = (e.clientX - r.left) / r.width; st.y = (e.clientY - r.top) / r.height; draw(); };
+  stage.onpointerdown = e => { try { stage.setPointerCapture(e.pointerId); } catch (x) {} move(e); stage.onpointermove = move; };
+  stage.onpointerup = stage.onpointercancel = () => { stage.onpointermove = null; };
+  range.oninput = () => { st.s = +range.value; draw(); };
+  const onKey = e => { if (e.key === 'Escape') { e.stopPropagation(); e.preventDefault(); close(); } };
+  const close = () => { ov.remove(); document.removeEventListener('keydown', onKey, true); };
+  document.addEventListener('keydown', onKey, true);
+  ov.onclick = e => {
+    const b = e.target.closest('[data-z]'); if (!b) return;
+    if (b.dataset.z === 'save') done({ x: +st.x.toFixed(4), y: +st.y.toFixed(4), s: st.s, ar: +ar.toFixed(4) });
+    else if (b.dataset.z === 'remove') done(null);
+    close();
+  };
+  draw();
+}
+
 /* ---------- host mode ---------- */
 const Host = { screen: null };
 const RT = { buzz: null, timer: null, sel: null, selPlayer: -1, lastSent: { clue: null, ans: null }, outbox: [], hostSound: true, lastPub: null, lastValue: 0, panelDirty: false, spinT: 0, chatMin: false };
@@ -2150,7 +2222,7 @@ function pubState() {
     paused: false
   };
 }
-const mediaOut = list => list.filter(m => safeSrc(m.src)).map(m => ({ src: m.src, kind: m.kind || 'auto' }));
+const mediaOut = list => list.filter(m => safeSrc(m.src)).map(m => { const o = { src: m.src, kind: m.kind || 'auto' }; if (m.zoom) o.zoom = m.zoom; return o; });
 function clueMsg() { const o = G.live.open, cell = G.cats[o.c].cells[o.r]; return { key: o.key, q: cell.q, qm: mediaOut(cell.qm) }; }
 function answerMsg() { const o = G.live.open, cell = G.cats[o.c].cells[o.r]; return { key: o.key, a: cell.a, am: mediaOut(cell.am) }; }
 
