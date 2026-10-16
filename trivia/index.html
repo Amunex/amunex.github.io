@@ -596,6 +596,29 @@ select,.game-pick{font-size:15px}
 @media (prefers-reduced-motion:reduce){.eq i{animation:none}}
 .mbox.ytaudio iframe{box-shadow:none}
 
+/* home page */
+.home{max-width:1080px;margin:0 auto;padding:56px 24px 90px}
+.home-head{display:flex;flex-direction:column;align-items:center;gap:12px;margin-bottom:38px;text-align:center}
+.brand.big{margin:0;font-size:88px;line-height:.95;text-shadow:5px 5px 0 #000}
+.home-head p{max-width:600px;margin:0;font-size:18px;color:var(--ink-2)}
+.brand-btn{padding:0;border:0;background:none;cursor:pointer}
+.home-actions{display:grid;grid-template-columns:1fr 1fr;gap:18px;margin-bottom:44px}
+.hcard{display:flex;flex-direction:column;gap:8px;padding:22px 24px;border-radius:14px;border:1px solid var(--wire);background:rgba(20,25,58,.78);color:var(--ink);text-align:left;font:inherit;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px)}
+button.hcard{cursor:pointer;transition:border-color .12s,transform .12s}
+button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
+.hcard b{display:flex;align-items:center;gap:10px;font:700 28px/1.1 var(--f-cond);color:#fff}
+.hcard .ic{color:var(--gold)}
+.hcard span{font-size:15.5px;color:var(--ink-2)}
+.hc-join{display:flex;gap:8px;margin-top:6px}
+.hc-join .txt{height:40px;text-transform:uppercase;letter-spacing:.08em;font-weight:700}
+.home-games h2{margin:0 0 6px;font:700 32px/1.1 var(--f-cond)}
+.glist{display:flex;flex-direction:column;gap:10px;margin:16px 0 14px}
+.gitem{display:flex;align-items:center;gap:10px;padding:14px 16px;border-radius:12px;border:1px solid var(--wire);background:rgba(20,25,58,.78)}
+.gi-main{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px}
+.gi-main b{font:700 23px/1.15 var(--f-cond);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gi-main span{font-size:14px;color:var(--ink-2)}
+@media (max-width:760px){.home-actions{grid-template-columns:1fr}.brand.big{font-size:60px}.home{padding-top:36px}}
+
 </style>
 </head>
 <body>
@@ -1530,7 +1553,7 @@ const UI = { mode: 'edit', menu: null, edit: null };
 async function persist(g) {
   g.updated = Date.now();
   await Store.set('game:' + g.id, g);
-  const meta = { id: g.id, title: g.title, updated: g.updated }, i = games.findIndex(x => x.id === g.id);
+  const meta = { id: g.id, title: g.title, updated: g.updated, size: g.cats.length + ' \u00d7 ' + g.rows.length, clues: g.cats.reduce((n, c) => n + c.cells.filter(cellFilled).length, 0) }, i = games.findIndex(x => x.id === g.id);
   if (i < 0) games.push(meta); else games[i] = meta;
   await Store.set('index', games);
 }
@@ -1574,7 +1597,7 @@ function renderEditor() {
   const app = $('#app');
   app.innerHTML = `
 <header class="topbar">
-  <div class="brand">Trivia Night</div>
+  <button class="brand brand-btn" data-act="home" title="Home">Trivia Night</button>
   <select class="game-pick" id="gamePick" aria-label="Your games">${list.map(x => `<option value="${esc(x.id)}"${x.id === g.id ? ' selected' : ''}>${esc(x.title || 'Untitled game')}</option>`).join('')}</select>
   <button class="btn sm" data-act="newGame">${icon('plus', 16)}New game</button>
   <button class="btn sm icon ghost" data-act="more" title="More" aria-label="More options">${icon('dots', 18)}</button>
@@ -1662,6 +1685,7 @@ function editAct(a, d, btn) {
     case 'more': showMenu(btn, [
       ['Duplicate this game', duplicateGame],
       ['Add the demo game', () => addGame(demoGame())],
+      ['Copy a link that adds this game', copyBoardLink],
       ['Join someone else\u2019s game', joinPrompt],
       '-',
       ['Delete this game', deleteGame, false, 'danger']
@@ -1672,7 +1696,72 @@ function editAct(a, d, btn) {
     case 'ai': openAI(); break;
     case 'renumber': { const step = +G.rows[0] || 100; G.rows = G.rows.map((_, i) => step * (i + 1)); afterStructure(); break; }
     case 'host': enterHost(); break;
+    case 'home': saveSoon.flush(); renderHome(); break;
   }
+}
+
+/* ---------- home ---------- */
+function renderHome() {
+  UI.mode = 'home'; lsSet('tn.mode', 'home');
+  Host.screen = null;
+  document.body.className = 'is-home';
+  const list = games.slice().sort((a, b) => (b.updated || 0) - (a.updated || 0));
+  const app = $('#app');
+  app.innerHTML = `<main class="home">
+  <header class="home-head"><div class="brand big">Trivia Night</div><p>Host a Jeopardy-style game. You get a room code and a link, and everyone else joins with it.</p></header>
+  <div class="home-actions">
+    <button class="hcard" data-act="newGame"><b>${icon('plus', 26)}Make a new game</b><span>Start a blank board and write your clues.</span></button>
+    <div class="hcard"><b>${icon('link', 26)}Join a game</b><span>Got a room code from the host?</span><form id="joinForm" class="hc-join"><input class="txt" id="joinCode" maxlength="10" placeholder="Room code" autocomplete="off" aria-label="Room code"><button class="btn primary" type="submit">Join</button></form></div>
+  </div>
+  <section class="home-games"><h2>Host one of your games</h2><p class="hint">Press Host. You get a room code and an invite link to send to everyone.</p>
+    <div class="glist">${list.map(x => `<div class="gitem"><div class="gi-main"><b>${esc(x.title || 'Untitled game')}</b><span>${x.size ? `${esc(x.size)} board, ${plural(x.clues || 0, 'clue')}` : 'Saved game'}${x.updated ? `, edited ${esc(new Date(x.updated).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}` : ''}</span></div><button class="btn sm" data-act="editGame" data-id="${esc(x.id)}">Edit</button><button class="btn primary" data-act="hostGame" data-id="${esc(x.id)}">${icon('play', 16)}Host</button></div>`).join('')}</div>
+    <p class="hint small">Games are saved in this browser. Players never see this page\u2019s games; they only get what you show on screen.</p>
+  </section>
+</main>`;
+  app.oninput = app.onchange = app.onkeydown = null;
+  app.onclick = async e => {
+    const b = e.target.closest('[data-act]'); if (!b || b.disabled) return;
+    const a = b.dataset.act;
+    if (a === 'newGame') { await addGame(newGame(6, 5, 'Untitled game')); const t = $('#titleIn'); if (t) { t.focus(); t.select(); } }
+    else if (a === 'editGame' || a === 'hostGame') {
+      const g = await loadGame(b.dataset.id); if (!g) { flashMsg('That game couldn\u2019t be opened.'); return; }
+      G = g; lsSet('tn.current', g.id);
+      if (a === 'hostGame') { renderEditor(); enterHost(); } else renderEditor();
+    }
+  };
+  $('#joinForm').onsubmit = e => {
+    e.preventDefault();
+    const c = $('#joinCode').value.toUpperCase().replace(/[^A-Z0-9]/g, '');
+    if (c) location.href = location.pathname + '?join=' + c;
+  };
+}
+
+/* board links: #add=<compressed game>. The part after # never reaches the server, so answers stay private. */
+const b64urlToBytes = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const bin = atob(s); return Uint8Array.from(bin, c => c.charCodeAt(0)); };
+function bytesToB64url(b) { let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+async function addFromHash() {
+  const m = location.hash.match(/^#add=([A-Za-z0-9_-]+)$/); if (!m) return false;
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    if (!window.DecompressionStream) throw new Error('old browser');
+    const text = await new Response(new Blob([b64urlToBytes(m[1])]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    const obj = JSON.parse(text), g = normalizeGame(obj);
+    if (games.some(x => x.id === g.id)) { G = await loadGame(g.id) || G; lsSet('tn.current', G.id); flashMsg(`\u201c${g.title}\u201d is already in your games`); return true; }
+    g.live = freshLive(); g.cats.forEach(c => c.cells.forEach(x => { x.played = false; }));
+    await persist(g); G = g; lsSet('tn.current', g.id);
+    flashMsg(`Added \u201c${g.title}\u201d to your games`);
+    return true;
+  } catch (e) { flashMsg('That game link didn\u2019t work. Try opening it in Chrome or Edge.'); return false; }
+}
+async function copyBoardLink() {
+  saveSoon.flush();
+  const g = clone(G); delete g.live; g.cats.forEach(c => c.cells.forEach(x => { delete x.played; }));
+  const raw = new TextEncoder().encode(JSON.stringify({ app: 'trivia-night', version: 1, game: g }));
+  const packed = new Uint8Array(await new Response(new Blob([raw]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+  const url = location.origin + location.pathname + '#add=' + bytesToB64url(packed);
+  if (url.length > 200000) { flashMsg('This game has big uploaded files, so the link would be too long. Use Export instead.'); return; }
+  await copyText(url);
+  flashMsg('Link copied. It includes the answers, so only send it to co-hosts.');
 }
 
 /* board structure */
@@ -2315,14 +2404,14 @@ async function enterHost(opts = {}) {
   resetBuzz(false); RT.timer = null; RT.lastSent = { clue: null, ans: null };
   renderHost();
 }
-function exitHost() {
+function exitHost(to) {
   RT.timer = null;
   RT.lastPub = pubState();
   const paused = { t: 'state', s: Object.assign({}, RT.lastPub, { paused: true, open: null, timer: null }) };
   if (Net.bc) { try { Net.bc.postMessage(paused); } catch (e) {} }
   sendRemote(paused);
   saveSoon.flush();
-  renderEditor();
+  if (to === 'home') renderHome(); else renderEditor();
 }
 
 function renderHost() {
@@ -2332,7 +2421,7 @@ function renderHost() {
   app.onclick = app.oninput = app.onchange = app.onkeydown = null;
   app.innerHTML = `<div class="host">
   <div class="host-main">
-    <div class="host-top"><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
+    <div class="host-top"><button class="btn sm ghost" id="homeBtn">Home</button><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
     <div class="monitor" id="monitor"></div>
   </div>
   <aside class="hside" aria-label="Host controls">
@@ -2345,7 +2434,8 @@ function renderHost() {
   </aside>
 </div>`;
   Host.screen = createScreen($('#monitor'), { interactive: true, muted: !RT.hostSound, onTile: hostOpenTile, onStage: hostStage });
-  $('#exitHost').onclick = exitHost;
+  $('#exitHost').onclick = () => exitHost();
+  $('#homeBtn').onclick = () => exitHost('home');
   bindPanel($('#hpanel'));
   $('#hcForm').onsubmit = e => { e.preventDefault(); const i = $('#hcIn'); hostSay(i.value); i.value = ''; i.blur(); if (RT.panelDirty) renderHostPanel(); };
   $('#hcToggle').onclick = () => { RT.chatMin = !RT.chatMin; $('#hpChat').classList.toggle('min', RT.chatMin); $('#hcToggle').textContent = RT.chatMin ? 'Show' : 'Hide'; };
@@ -2842,8 +2932,12 @@ async function boot() {
   await loadAll();
   document.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
   addEventListener('pagehide', () => { if (G) persist(G).catch(() => {}); });
-  if (lsGet('tn.mode', 'edit') === 'host' && G.cats.some(c => c.cells.some(cellFilled))) enterHost({ silent: true });
-  else renderEditor();
+  addEventListener('hashchange', async () => { if (await addFromHash() && UI.mode !== 'host') renderHome(); });
+  if (await addFromHash()) { renderHome(); return; }
+  const mode = lsGet('tn.mode', 'home');
+  if (mode === 'host' && G.cats.some(c => c.cells.some(cellFilled))) enterHost({ silent: true });
+  else if (mode === 'edit') renderEditor();
+  else renderHome();
 }
 boot().catch(err => {
   console.error(err);
