@@ -677,6 +677,14 @@ button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 @keyframes mIn{from{opacity:0;transform:translateY(26px) scale(.97)}}
 @media (prefers-reduced-motion:reduce){.clue.intro .ch-cat,.clue.intro .ch-right,.clue.intro .clue-text .w,.clue.intro .clue-media .mbox,.clue-media .mbox,.clue-ans.anim .w{animation:none}}
 
+/* house rules on the title screen */
+.ov.intro .in-title{height:380px}
+.in-rules{position:relative;z-index:1;display:flex;flex-direction:column;gap:12px;max-width:1520px;margin-top:34px;padding:22px 44px;border-radius:18px;background:rgba(5,8,30,.6);box-shadow:0 0 0 3px rgba(243,195,0,.6);font:600 36px/1.25 var(--f-cond);color:#fff;text-align:center;text-shadow:2px 2px 0 #000}
+.in-rules b{color:var(--gold)}
+.ov.intro .in-join{margin-top:34px}
+/* host: buzzer button that's always on screen */
+.host-top #buzzTop{margin-right:6px}
+
 </style>
 </head>
 <body>
@@ -1313,8 +1321,8 @@ function createScreen(container, opts = {}) {
     const S = self.S, k = JSON.stringify([S.title, S.join]);
     if (k === keys.intro) return;
     keys.intro = k;
-    el.intro.innerHTML = `${BEAMS}${BULBS}<div class="in-title"><h1>${esc(S.title || 'Trivia Night')}</h1></div><p class="in-sub">The board opens soon</p>${S.join ? `<div class="in-join">Play along on your own screen: <b>${esc(S.join.url)}</b></div>` : ''}`;
-    fitText($('h1', el.intro), 190, 56, 1700, 500);
+    el.intro.innerHTML = `${BEAMS}${BULBS}<div class="in-title"><h1>${esc(S.title || 'Trivia Night')}</h1></div><p class="in-sub">The board opens soon</p><div class="in-rules"><div><b>Buzz in to answer.</b> Right adds the points, wrong takes them away, so you can go negative.</div><div><b>Get it right and you pick the next question.</b> If nobody gets it, the same person picks again.</div></div>${S.join ? `<div class="in-join">Play along on your own screen: <b>${esc(S.join.url)}</b></div>` : ''}`;
+    fitText($('h1', el.intro), 170, 56, 1700, 380);
   }
 
   function renderFinal() {
@@ -2617,7 +2625,7 @@ function renderHost() {
   app.onclick = app.oninput = app.onchange = app.onkeydown = null;
   app.innerHTML = `<div class="host">
   <div class="host-main">
-    <div class="host-top"><button class="btn sm ghost" id="homeBtn">Home</button><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><button class="btn sm" id="resetGameBtn" title="Start this game over">Reset game</button><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
+    <div class="host-top"><button class="btn sm ghost" id="homeBtn">Home</button><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><button class="btn sm ghost" id="buzzTop" disabled>${icon('bolt', 16)}Open buzzers <span class="kbd">B</span></button><button class="btn sm" id="resetGameBtn" title="Start this game over">Reset game</button><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
     <div class="monitor" id="monitor"></div>
   </div>
   <aside class="hside" aria-label="Host controls">
@@ -2632,6 +2640,7 @@ function renderHost() {
   Host.screen = createScreen($('#monitor'), { interactive: true, muted: !RT.hostSound, onTile: hostOpenTile, onStage: hostStage });
   $('#exitHost').onclick = () => exitHost();
   $('#homeBtn').onclick = () => exitHost('home');
+  $('#buzzTop').onclick = e => { hostToggleBuzzers(); e.currentTarget.blur(); };
   $('#resetGameBtn').onclick = async () => {
     const v = await choose('Reset the game?', 'Every clue goes back on the board, all scores go to 0, and everyone sees the title screen again. Players stay in the game.', [['reset', 'Yes, reset the game', 'primary']]);
     if (v !== 'reset' || !G) return;
@@ -2738,7 +2747,14 @@ function clueCard(o) {
   return h;
 }
 
+function syncBuzzTop() {
+  const bt = $('#buzzTop'); if (!bt || !G) return;
+  const o = G.live.open, can = !!(G.settings.buzzers && o && o.phase === 'clue' && !o.revealed && !o.dd && !o.jester), armed = can && !!(RT.buzz && RT.buzz.armed);
+  bt.disabled = !can; bt.className = 'btn sm ' + (armed ? 'bad' : can ? 'go' : 'ghost');
+  bt.innerHTML = `${icon('bolt', 16)}${armed ? 'Lock buzzers' : 'Open buzzers'} <span class="kbd">B</span>`;
+}
 function renderHostPanel() {
+  syncBuzzTop();
   const pane = $('#hpanel');
   if (!pane || UI.mode !== 'host') return;
   const ae = document.activeElement;
@@ -3208,7 +3224,7 @@ function startPlayer(code, name, test) {
     buzz.disabled = true; bnote.textContent = 'Buzzed\u2026';
   };
   buzz.onclick = doBuzz;
-  addEventListener('keydown', e => { if (e.code === 'Space' && !e.repeat && !/INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); doBuzz(); } });
+  addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'KeyB') && !e.repeat && !e.ctrlKey && !e.metaKey && !/INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); doBuzz(); } });
 
   /* connect: direct link first, then the backup relay if that doesn't come through */
   let via = null, relayActive = null, relayStarted = false, gaveUp = false, directRetry = () => {};
