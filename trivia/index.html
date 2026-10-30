@@ -1843,7 +1843,8 @@ function renderEditor() {
 function cellPreview(c, r) {
   const g = G, cell = g.cats[c].cells[r], f = cellFilled(cell);
   const kinds = [...new Set([...cell.qm, ...cell.am].map(kindOf))];
-  const pic = cell.qm.find(m => kindOf(m) === 'image' && (m.thumb || safeSrc(m.src))), yt = !pic && cell.qm.map(m => ['youtube', 'ytaudio'].includes(kindOf(m)) && ytInfo(m.src)).find(Boolean);
+  const isPic = m => kindOf(m) === 'image' && (m.thumb || safeSrc(m.src));
+  const pic = cell.qm.find(isPic) || cell.am.find(isPic), yt = !pic && cell.qm.map(m => ['youtube', 'ytaudio'].includes(kindOf(m)) && ytInfo(m.src)).find(Boolean);
   const thumb = pic ? (pic.thumb || directSrc(pic.src)) : yt ? `https://i.ytimg.com/vi/${encodeURIComponent(yt.id)}/default.jpg` : '';
   const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + (cell.jester ? `<span class="badge jester" title="Jester mini-game">${icon('jester', 13)}Jester</span>` : '') + (cell.mime ? '<span class="badge mime" title="M\u00edmica">\u{1F3AD}</span>' : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
   return `<button class="ecell${f ? '' : ' empty'}" data-act="edit" data-c="${c}" data-r="${r}" aria-label="Edit clue">

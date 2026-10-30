@@ -42,3 +42,5 @@ From Wikimedia Commons, resized for the trivia game.
 - Fabulosos Cadillacs at Zócalo, 2023 (52953583302).jpg. Secretaría de Cultura CDMX. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Fabulosos_Cadillacs_at_Z%C3%B3calo,_2023_(52953583302).jpg
 - Nokia 3310 blue.jpg. Michael Brandtner. Public domain. https://commons.wikimedia.org/wiki/File:Nokia_3310_blue.jpg
 - Nintendo-Switch-Console-Docked-wJoyConRB.jpg. Evan-Amos. Public domain. https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Console-Docked-wJoyConRB.jpg
+- Dorothy's Ruby Slippers, Wizard of Oz 1938.jpg. dbking. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Dorothy%27s_Ruby_Slippers,_Wizard_of_Oz_1938.jpg
+- Home Alone House 2026.jpg. Kidfly182. CC BY 4.0. https://commons.wikimedia.org/wiki/File:Home_Alone_House_2026.jpg
