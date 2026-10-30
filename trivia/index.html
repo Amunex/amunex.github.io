@@ -1952,7 +1952,28 @@ function renderHome() {
 /* board links: #add=<compressed game>. The part after # never reaches the server, so answers stay private. */
 const b64urlToBytes = s => { s = s.replace(/-/g, '+').replace(/_/g, '/'); while (s.length % 4) s += '='; const bin = atob(s); return Uint8Array.from(bin, c => c.charCodeAt(0)); };
 function bytesToB64url(b) { let s = ''; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, ''); }
+/* #patch= links change a few tiles in a game you already have, and keep everything else (pictures you pasted, scores) */
+async function patchFromHash(code) {
+  history.replaceState(null, '', location.pathname + location.search);
+  try {
+    if (!window.DecompressionStream) throw new Error('old browser');
+    const text = await new Response(new Blob([b64urlToBytes(code)]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+    const obj = JSON.parse(text), g = obj && obj.id ? await loadGame(String(obj.id)) : null;
+    if (!g) { flashMsg('Open the full game link first, then this update link.'); return true; }
+    let n = 0;
+    for (const p of (Array.isArray(obj.cells) ? obj.cells : [])) {
+      const c = +p.c, r = +p.r, old = g.cats[c] && g.cats[c].cells[r];
+      if (!old || !p.cell || typeof p.cell !== 'object') continue;
+      const nu = normCell(p.cell, true); nu.played = old.played; g.cats[c].cells[r] = nu; n++;
+    }
+    await persist(g); G = g; lsSet('tn.current', g.id);
+    try { const bc = new BroadcastChannel('amx-trivia-store'); bc.postMessage({ t: 'gameUpdated', id: g.id }); bc.close(); } catch (e) {}
+    flashMsg(`Updated ${plural(n, 'tile')} in \u201c${g.title}\u201d`);
+  } catch (e) { flashMsg('That update link didn\u2019t work. Try opening it in Chrome or Edge.'); }
+  return true;
+}
 async function addFromHash() {
+  const pm = location.hash.match(/^#patch=([A-Za-z0-9_-]+)$/); if (pm) return patchFromHash(pm[1]);
   const m = location.hash.match(/^#add=([A-Za-z0-9_-]+)$/); if (!m) return false;
   history.replaceState(null, '', location.pathname + location.search);
   try {
@@ -3679,6 +3700,15 @@ async function boot() {
   document.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
   addEventListener('pagehide', () => { if (G) persist(G).catch(() => {}); });
   addEventListener('hashchange', async () => { if (await addFromHash() && UI.mode !== 'host') renderHome(); });
+  try {
+    new BroadcastChannel('amx-trivia-store').onmessage = async e => {
+      const d = e.data; if (!d || d.t !== 'gameUpdated' || !G || G.id !== d.id) return;
+      const g = await loadGame(d.id); if (!g) return;
+      if (UI.mode === 'host') { g.live = G.live; G = g; renderHostPanel(); broadcast(); }
+      else { G = g; if (UI.mode === 'edit') renderEditor(); else renderHome(); }
+      flashMsg('This game was updated from a link');
+    };
+  } catch (e) {}
   if (await addFromHash()) { renderHome(); return; }
   const mode = lsGet('tn.mode', 'home');
   if (mode === 'host' && G.cats.some(c => c.cells.some(cellFilled))) enterHost({ silent: true });
