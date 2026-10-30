@@ -761,7 +761,7 @@ const uid = () => Math.random().toString(36).slice(2, 9) + Date.now().toString(3
 const clone = o => JSON.parse(JSON.stringify(o));
 const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const debounce = (fn, ms) => { let t; const d = (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; d.flush = () => { clearTimeout(t); fn(); }; return d; };
+const debounce = (fn, ms) => { let t, p = false; const d = (...a) => { clearTimeout(t); p = true; t = setTimeout(() => { p = false; fn(...a); }, ms); }; d.flush = () => { clearTimeout(t); p = false; fn(); }; d.pending = () => p; return d; };
 const lsGet = (k, d) => { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } };
 const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
 const randCode = (n = 6) => { const a = new Uint32Array(n); crypto.getRandomValues(a); return Array.from(a, x => CODE_CHARS[x % CODE_CHARS.length]).join(''); };
@@ -3698,7 +3698,7 @@ async function boot() {
   if (qs.has('display')) return bootDisplay();
   await loadAll();
   document.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
-  addEventListener('pagehide', () => { if (G) persist(G).catch(() => {}); });
+  addEventListener('pagehide', () => { if (G && saveSoon.pending()) saveSoon.flush(); });
   addEventListener('hashchange', async () => { if (await addFromHash() && UI.mode !== 'host') renderHome(); });
   try {
     new BroadcastChannel('amx-trivia-store').onmessage = async e => {
