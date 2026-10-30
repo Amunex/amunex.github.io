@@ -29,3 +29,16 @@ From Wikimedia Commons, resized for the trivia game.
 - 99 - Machu Picchu - Juin 2009.edit3.jpg. Martin St-Amant (S23678). CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:99_-_Machu_Picchu_-_Juin_2009.edit3.jpg
 - Inca-expansion-map.png. Norki156. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Inca-expansion-map.png
 - Korobeïniki music sample.ogg. Maxime Lorant. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Korobe%C3%AFniki_music_sample.ogg
+
+## Noche de Trivia (español)
+
+- West European Hedgehog (Erinaceus europaeus)1.jpg. Hrald. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:West_European_Hedgehog_(Erinaceus_europaeus)1.jpg
+- Nintendo-Entertainment-System-NES-Controller-FL.jpg. Evan-Amos. Public domain. https://commons.wikimedia.org/wiki/File:Nintendo-Entertainment-System-NES-Controller-FL.jpg
+- Donkey Kong arcade - zapwizard 34102189.jpg. Joshua Driggs (ZapWizard) from Austin, Texas. CC BY-SA 2.0. https://commons.wikimedia.org/wiki/File:Donkey_Kong_arcade_-_zapwizard_34102189.jpg
+- Nintendo Playstation Prototype (38460196990).jpg. Mats Lindh. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Nintendo_Playstation_Prototype_(38460196990).jpg
+- Alexey Pajitnov GDC 2024 (cropped).jpg. Official GDC. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Alexey_Pajitnov_GDC_2024_(cropped).jpg
+- King Kamehameha I Statue - Honolulu (4 by 3).jpg. Balazs Barnucz. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:King_Kamehameha_I_Statue_-_Honolulu_(4_by_3).jpg
+- LosBunkers.jpg. Pablo Osmin Briones Kloss. CC BY 2.0. https://commons.wikimedia.org/wiki/File:LosBunkers.jpg
+- Fabulosos Cadillacs at Zócalo, 2023 (52953583302).jpg. Secretaría de Cultura CDMX. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Fabulosos_Cadillacs_at_Z%C3%B3calo,_2023_(52953583302).jpg
+- Nokia 3310 blue.jpg. Michael Brandtner. Public domain. https://commons.wikimedia.org/wiki/File:Nokia_3310_blue.jpg
+- Nintendo-Switch-Console-Docked-wJoyConRB.jpg. Evan-Amos. Public domain. https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Console-Docked-wJoyConRB.jpg

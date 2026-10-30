@@ -720,6 +720,16 @@ button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 .pill.jb-on .ic{color:var(--gold)}
 @media (prefers-reduced-motion:reduce){.jb-eq.on i{animation:none;height:70%}}
 
+.badge.mime{padding:0 5px;background:#0e8a7a;color:#fff}
+.hp-mime{border:1px solid rgba(20,170,150,.55);background:rgba(20,170,150,.12);border-radius:10px;padding:10px 12px;margin:10px 0}
+.hm-pick{display:flex;flex-wrap:wrap;gap:6px;margin:8px 0 4px}
+.secret{position:fixed;inset:0;z-index:80;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(5,9,38,.94)}
+.secret.hidden,.sc-peek.hidden{display:none}
+.sc-card{width:100%;max-width:560px;text-align:center;color:#fff;background:linear-gradient(160deg,#1d2c8f,#0a1250);border:3px solid var(--gold);border-radius:22px;padding:26px 22px;box-shadow:0 24px 70px rgba(0,0,0,.55)}
+.sc-lbl{font:800 16px/1.3 "Barlow Condensed",sans-serif;letter-spacing:.05em;text-transform:uppercase;color:var(--gold)}
+.sc-word{font:400 clamp(40px,11vw,76px)/1.05 var(--f-num);margin:16px 0 10px;overflow-wrap:anywhere;text-shadow:4px 4px 0 #000}
+.sc-hint{font-size:16px;opacity:.85;margin-bottom:20px}
+.sc-peek{position:fixed;z-index:79;top:12px;left:50%;transform:translateX(-50%)}
 </style>
 </head>
 <body>
@@ -764,6 +774,10 @@ const plural = (n, w) => `${n} ${w}${n === 1 ? '' : 's'}`;
 const ordinal = n => n + ((n % 100 >= 11 && n % 100 <= 13) ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] || 'th'));
 const ssGet = k => { try { return sessionStorage.getItem(k); } catch (e) { return null; } };
 const ssSet = (k, v) => { try { sessionStorage.setItem(k, v); } catch (e) {} };
+/* Spanish: player screens and the board follow the game's setting; the host console stays in English. */
+let LANG = new URLSearchParams(location.search).get('lang') === 'es' ? 'es' : 'en';
+const T = (en, es) => (LANG === 'es' ? es : en);
+const HT = (en, es) => (G && G.settings && G.settings.es ? es : en);
 
 function richText(s) {
   const str = String(s || ''); let out = '', last = 0, m;
@@ -958,9 +972,9 @@ const SFX = (() => {
 })();
 
 /* ---------- game model ---------- */
-const emptyCell = () => ({ q: '', a: '', qm: [], am: [], dd: false, jester: false, pts: null, played: false });
+const emptyCell = () => ({ q: '', a: '', qm: [], am: [], dd: false, jester: false, mime: false, pts: null, played: false });
 const freshLive = () => ({ phase: 'intro', players: [], open: null, seq: 0, history: [], picker: null, chat: [] });
-const defaultSettings = () => ({ prefix: '', sfx: true, showScores: true, buzzers: true, autoAdd: true, autoplay: true, pickOnScreen: true, chat: true, v: 2 });
+const defaultSettings = () => ({ prefix: '', sfx: true, showScores: true, buzzers: true, autoAdd: true, autoplay: true, pickOnScreen: true, chat: true, es: false, v: 2 });
 
 function newGame(nC = 6, nR = 5, title = 'Untitled game') {
   return {
@@ -1013,6 +1027,8 @@ function normCell(x, trust) {
   c.dd = !!(x.dd ?? x.dailyDouble ?? x.daily_double);
   c.jester = !!(x.jester ?? x.isJester);
   if (c.jester) c.dd = false;
+  c.mime = !c.jester && !!(x.mime ?? x.mimica ?? x.charades);
+  if (c.mime) c.dd = false;
   const p = x.pts;
   c.pts = (p === null || p === undefined || p === '' || isNaN(+p)) ? null : +p;
   c.played = !!x.played;
@@ -1214,12 +1230,12 @@ function createScreen(container, opts = {}) {
       <div class="clue-head"><div class="ch-cat"></div><div class="ch-mid"></div><div class="ch-right"><span class="ch-time"></span><span class="ch-val"></span></div></div>
       <div class="clue-body"><div class="clue-text"><div></div></div><div class="clue-media"></div><div class="clue-ans hidden"><div></div></div></div>
     </div>
-    <div class="ov dd hidden"><div class="rays"></div><h1>Daily<br>Double</h1><div class="ddcat"></div></div>
+    <div class="ov dd hidden"><div class="rays"></div><h1>${T('Daily<br>Double', 'Apuesta<br>doble')}</h1><div class="ddcat"></div></div>
     <div class="ov final hidden"></div>
-    <div class="ov jest hidden"><div class="jest-bg"></div><div class="jest-hat">${icon('jester', 300)}</div><h1 class="jest-word">${'JESTER!'.split('').map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join('')}</h1><div class="jest-sub">Surprise mini-game</div></div>
-    <div class="ov spin hidden"><div class="sp-title">Who goes first?</div><div class="sp-box"><div class="sp-name"></div></div><div class="sp-sub"></div></div>
+    <div class="ov jest hidden"><div class="jest-bg"></div><div class="jest-hat">${icon('jester', 300)}</div><h1 class="jest-word">${T('JESTER!', '\u00a1BUF\u00d3N!').split('').map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join('')}</h1><div class="jest-sub">${T('Surprise mini-game', 'Minijuego sorpresa')}</div></div>
+    <div class="ov spin hidden"><div class="sp-title">${T('Who goes first?', '\u00bfQui\u00e9n empieza?')}</div><div class="sp-box"><div class="sp-name"></div></div><div class="sp-sub"></div></div>
     <div class="ov waiting">${BEAMS}${BULBS}<div class="w-title"></div><div class="w-sub"></div></div>
-    <div class="paused hidden">The host is editing the game</div>
+    <div class="paused hidden">${T('The host is editing the game', 'El anfitri\u00f3n est\u00e1 editando el juego')}</div>
     <canvas class="confetti hidden" width="${W}" height="${H}"></canvas>
     <div class="toasts"></div>
   </div>
@@ -1232,8 +1248,8 @@ function createScreen(container, opts = {}) {
     cat: q('.ch-cat'), mid: q('.ch-mid'), time: q('.ch-time'), val: q('.ch-val'), text: q('.clue-text'), textIn: q('.clue-text > div'),
     media: q('.clue-media'), jest: q('.jest'), spin: q('.spin'), spName: q('.sp-name'), spSub: q('.sp-sub'), ans: q('.clue-ans'), ansIn: q('.clue-ans > div'), scores: q('.scores'), toasts: q('.toasts'), confetti: q('.confetti')
   };
-  $('.w-title', el.waiting).textContent = opts.waitTitle || 'Trivia Night';
-  $('.w-sub', el.waiting).textContent = opts.waitText || 'Waiting for the host';
+  $('.w-title', el.waiting).textContent = opts.waitTitle || T('Trivia Night', 'Noche de Trivia');
+  $('.w-sub', el.waiting).textContent = opts.waitText || T('Waiting for the host', 'Esperando al anfitri\u00f3n');
   const keys = {};
   let scoresH = 0, fillT = 0, tInt = 0, tEnd = 0, tKey = null, tLast = -1;
   const soundOn = () => !self.muted && !(self.S && self.S.sfx === false);
@@ -1264,6 +1280,8 @@ function createScreen(container, opts = {}) {
       if (!m.s || typeof m.s !== 'object') return;
       const prev = self.S || {};
       self.S = m.s;
+      const nl = m.s.lang === 'es' ? 'es' : 'en';
+      if (keys.lang !== nl) { LANG = nl; keys.lang = nl; applyLang(); }
       const fill = self.primed && prev.phase === 'intro' && m.s.phase === 'board';
       const sounds = self.primed ? soundsFor(prev, m.s) : [];
       render();
@@ -1275,6 +1293,15 @@ function createScreen(container, opts = {}) {
     else if (m.t === 'media') media(m);
     else if (m.t === 'pre') preload(m.urls);
     else if (m.t === 'fx') fx(m);
+  }
+
+  function applyLang() {
+    $('h1', el.dd).innerHTML = T('Daily<br>Double', 'Apuesta<br>doble');
+    $('.jest-word', el.jest).innerHTML = T('JESTER!', '\u00a1BUF\u00d3N!').split('').map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join('');
+    $('.jest-sub', el.jest).textContent = T('Surprise mini-game', 'Minijuego sorpresa');
+    $('.sp-title', el.spin).textContent = T('Who goes first?', '\u00bfQui\u00e9n empieza?');
+    el.paused.textContent = T('The host is editing the game', 'El anfitri\u00f3n est\u00e1 editando el juego');
+    keys.intro = null; keys.final = null; keys.buzz = null;
   }
 
   function soundsFor(p, S) {
@@ -1356,7 +1383,7 @@ function createScreen(container, opts = {}) {
     const S = self.S, k = JSON.stringify([S.title, S.join]);
     if (k === keys.intro) return;
     keys.intro = k;
-    el.intro.innerHTML = `${BEAMS}${BULBS}<div class="in-title"><h1>${esc(S.title || 'Trivia Night')}</h1></div><p class="in-sub">The board opens soon</p><div class="in-rules"><div><b>Buzz in to answer.</b> Right adds the points, wrong takes them away, so you can go negative.</div><div><b>Get it right and you pick the next question.</b> If nobody gets it, the same person picks again.</div></div>${S.join ? `<div class="in-join">Play along on your own screen: <b>${esc(S.join.url)}</b></div>` : ''}`;
+    el.intro.innerHTML = `${BEAMS}${BULBS}<div class="in-title"><h1>${esc(S.title || T('Trivia Night', 'Noche de Trivia'))}</h1></div><p class="in-sub">${T('The board opens soon', 'El tablero se abre pronto')}</p><div class="in-rules"><div><b>${T('Buzz in to answer.', 'Toca el bot\u00f3n para responder.')}</b> ${T('Right adds the points, wrong takes them away, so you can go negative.', 'Si aciertas sumas los puntos y si fallas los pierdes, as\u00ed que puedes quedar en negativo.')}</div><div><b>${T('Get it right and you pick the next question.', 'Si aciertas, eliges la siguiente pregunta.')}</b> ${T('If nobody gets it, the same person picks again.', 'Si nadie acierta, vuelve a elegir la misma persona.')}</div></div>${S.join ? `<div class="in-join">${T('Play along on your own screen:', 'Juega desde tu propia pantalla:')} <b>${esc(S.join.url)}</b></div>` : ''}`;
     fitText($('h1', el.intro), 170, 56, 1700, 380);
   }
 
@@ -1367,7 +1394,7 @@ function createScreen(container, opts = {}) {
     const ps = S.players.slice().sort((a, b) => b.score - a.score);
     const n = Math.max(1, ps.length), rowH = Math.min(118, Math.floor((H - 330) / n) - 14), fs = Math.round(rowH * 0.46);
     const top = ps.length ? ps[0].score : 0;
-    el.final.innerHTML = `${BEAMS}<h1>Final scores</h1><ol>${ps.map(p => {
+    el.final.innerHTML = `${BEAMS}<h1>${T('Final scores', 'Puntajes finales')}</h1><ol>${ps.map(p => {
       const rank = 1 + ps.filter(x => x.score > p.score).length;
       return `<li class="${p.score === top ? 'win' : ''}" style="height:${rowH}px;font-size:${fs}px"><span class="rk">${rank}</span><span class="nm">${esc(p.name)}</span><span class="pt">${esc(fmtScore(p.score, S.prefix))}</span></li>`;
     }).join('')}</ol>`;
@@ -1413,8 +1440,8 @@ function createScreen(container, opts = {}) {
     el.clue.classList.remove('hidden');
     el.clue.classList.toggle('jester', !!o.jester);
     el.clue.classList.toggle('revealed', !!o.revealed);
-    el.cat.textContent = o.jester ? 'Jester round' : (S.cats[o.c] || '');
-    el.val.textContent = (o.dd ? 'Wager ' : '') + (S.prefix || '') + fmtNum(o.value);
+    el.cat.textContent = o.jester ? T('Jester round', 'Minijuego') : (S.cats[o.c] || '');
+    el.val.textContent = (o.dd ? T('Wager ', 'Apuesta ') : '') + (S.prefix || '') + fmtNum(o.value);
     const qk = o.key + (c ? '+' : '-');
     if (keys.q !== qk) {
       keys.q = qk; keys.a = null; keys.layout = null;
@@ -1642,11 +1669,12 @@ function createScreen(container, opts = {}) {
   function renderBuzz() {
     const S = self.S, b = S.buzz, o = S.open, first = b && b.order && b.order[0];
     const open = !!(b && b.on && b.armed && o && !o.revealed && !o.dd);
-    const k = first ? 'p:' + first.pid : open ? 'open' : '';
+    const mime = !first && o && o.mime && !o.revealed && o.actor ? o.actor : '';
+    const k = (first ? 'p:' + first.pid : open ? 'open' : mime ? 'm:' + mime : '') + LANG;
     if (keys.buzz !== k) {
       keys.buzz = k;
       el.mid.innerHTML = first ? `<div class="buzz-pill">${icon('bolt', 38)}<b>${esc(first.name)}</b><small></small></div>`
-        : open ? `<div class="buzz-pill open">${icon('bolt', 38)}<b>Buzz now</b></div>` : '';
+        : open ? `<div class="buzz-pill open">${icon('bolt', 38)}<b>${T('Buzz now', '\u00a1Toquen ya!')}</b></div>` : mime ? `<div class="buzz-pill open"><b>\u{1F3AD} ${esc(mime)} ${T('acts it out', 'hace la m\u00edmica')}</b></div>` : '';
     }
     const sm = $('small', el.mid);
     if (sm) sm.textContent = b.order.length > 1 ? `+${b.order.length - 1}` : '';
@@ -1675,7 +1703,7 @@ function createScreen(container, opts = {}) {
     const step = () => {
       el.spName.textContent = names[i];
       if (k >= steps - 1) {
-        el.spin.classList.add('done'); el.spSub.textContent = 'picks first';
+        el.spin.classList.add('done'); el.spSub.textContent = T('picks first', 'elige primero');
         if (soundOn()) SFX.play('correct');
         spinT = setTimeout(() => el.spin.classList.add('hidden'), 2800);
         return;
@@ -1817,7 +1845,7 @@ function cellPreview(c, r) {
   const kinds = [...new Set([...cell.qm, ...cell.am].map(kindOf))];
   const pic = cell.qm.find(m => kindOf(m) === 'image' && (m.thumb || safeSrc(m.src))), yt = !pic && cell.qm.map(m => ['youtube', 'ytaudio'].includes(kindOf(m)) && ytInfo(m.src)).find(Boolean);
   const thumb = pic ? (pic.thumb || directSrc(pic.src)) : yt ? `https://i.ytimg.com/vi/${encodeURIComponent(yt.id)}/default.jpg` : '';
-  const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + (cell.jester ? `<span class="badge jester" title="Jester mini-game">${icon('jester', 13)}Jester</span>` : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
+  const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + (cell.jester ? `<span class="badge jester" title="Jester mini-game">${icon('jester', 13)}Jester</span>` : '') + (cell.mime ? '<span class="badge mime" title="M\u00edmica">\u{1F3AD}</span>' : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
   return `<button class="ecell${f ? '' : ' empty'}" data-act="edit" data-c="${c}" data-r="${r}" aria-label="Edit clue">
     <span class="ec-top"><span class="ec-pts">${esc((g.settings.prefix || '') + fmtNum(cellValue(g, c, r)))}${cell.pts !== null ? '<sup>*</sup>' : ''}</span><span class="badges">${badges}</span></span>
     <span class="ec-q">${f ? esc(snippet(cell.q) || 'Media clue') : 'Add a clue'}</span>
@@ -2186,6 +2214,7 @@ function openCellEditor(c, r) {
     <div class="opts">
       <label class="chk"><input type="checkbox" data-f="dd"${cell.dd ? ' checked' : ''}><span>Daily Double<em>only the player who picks it answers, and they bet points before seeing the clue</em></span></label>
       <label class="chk"><input type="checkbox" data-f="jester"${cell.jester ? ' checked' : ''}><span>Jester<em>a surprise mini-game that has nothing to do with the category</em></span></label>
+      <label class="chk"><input type="checkbox" data-f="mime"${cell.mime ? ' checked' : ''}><span>M\u00edmica<em>the player who picked it sees the answer on their own screen and acts it out, everyone else guesses</em></span></label>
       <label class="pts-over">Points for this clue<input class="txt" type="number" step="100" data-f="pts" placeholder="${esc(G.rows[r])}" value="${cell.pts === null ? '' : esc(cell.pts)}"></label>
     </div>
     <div class="tipbox">
@@ -2258,8 +2287,9 @@ function openCellEditor(c, r) {
   };
   bg.onchange = e => {
     const t = e.target;
-    if (t.dataset.f === 'dd') { cell.dd = t.checked; if (t.checked) { cell.jester = false; $('[data-f="jester"]', bg).checked = false; } saveSoon(); setHints(); }
-    else if (t.dataset.f === 'jester') { cell.jester = t.checked; if (t.checked) { cell.dd = false; $('[data-f="dd"]', bg).checked = false; } saveSoon(); setHints(); }
+    if (t.dataset.f === 'dd') { cell.dd = t.checked; if (t.checked) { cell.jester = false; cell.mime = false; $('[data-f="jester"]', bg).checked = false; $('[data-f="mime"]', bg).checked = false; } saveSoon(); setHints(); }
+    else if (t.dataset.f === 'jester') { cell.jester = t.checked; if (t.checked) { cell.dd = false; cell.mime = false; $('[data-f="dd"]', bg).checked = false; $('[data-f="mime"]', bg).checked = false; } saveSoon(); setHints(); }
+    else if (t.dataset.f === 'mime') { cell.mime = t.checked; if (t.checked) { cell.dd = false; cell.jester = false; $('[data-f="dd"]', bg).checked = false; $('[data-f="jester"]', bg).checked = false; } saveSoon(); setHints(); }
     else if (t.dataset.kind) { const s = t.dataset.kind[0], m = list(s)[+t.dataset.kind.slice(1)]; if (m) { m.kind = t.value; saveSoon(); renderList(s); } }
     else if (t.dataset.file) { addFiles(t.dataset.file, t.files).then(() => { t.value = ''; }); }
   };
@@ -2299,11 +2329,11 @@ function openCellEditor(c, r) {
     else if (e.dataTransfer) { const txt = e.dataTransfer.getData('text/uri-list') || e.dataTransfer.getData('text/plain'); if (txt) addText(s, txt.split(/\r?\n/).find(l => l && !l.startsWith('#'))); }
   };
   function setHints() {
-    const j = !!cell.jester;
+    const j = !!cell.jester, mi = !!cell.mime;
     $('.side[data-side="q"] h4', bg).textContent = j ? 'Mini-game' : 'Clue';
-    $('.side[data-side="q"] .hint', bg).textContent = j ? 'Describe the mini-game. Everyone sees it right after the Jester animation.' : 'Everyone sees this when the tile opens.';
-    $('.side[data-side="a"] h4', bg).textContent = j ? 'Notes' : 'Answer';
-    $('.side[data-side="a"] .hint', bg).textContent = j ? 'Only you see this, like how to pick the winner. Optional.' : 'Only you see this until you reveal it.';
+    $('.side[data-side="q"] .hint', bg).textContent = j ? 'Describe the mini-game. Everyone sees it right after the Jester animation.' : mi ? 'Everyone sees this. Say what kind of thing it is, like \u201cM\u00edmica: pel\u00edcula\u201d.' : 'Everyone sees this when the tile opens.';
+    $('.side[data-side="a"] h4', bg).textContent = j ? 'Notes' : mi ? 'What they act out' : 'Answer';
+    $('.side[data-side="a"] .hint', bg).textContent = j ? 'Only you see this, like how to pick the winner. Optional.' : mi ? 'Only the actor sees this on their phone. Everyone sees it when you reveal.' : 'Only you see this until you reveal it.';
     $('[data-f="q"]', bg).placeholder = j ? 'Everyone has 20 seconds to type as many Pok\u00e9mon as they can in the chat. Most correct names wins.' : 'This Pok\u00e9mon is No. 025 in the National Pok\u00e9dex.';
   }
   setHints();
@@ -2377,7 +2407,7 @@ const Net = { bc: null, peer: null, conns: new Map(), status: 'off', note: '', c
 function resetBuzz(armed) { RT.buzz = { armed: !!armed, order: [], out: new Set(), early: [], openedAt: armed ? Date.now() : 0 }; }
 resetBuzz(false);
 
-const joinUrl = () => location.origin + location.pathname + '?join=' + Net.code;
+const joinUrl = () => location.origin + location.pathname + '?join=' + Net.code + (G && G.settings.es ? '&lang=es' : '');
 const countLeft = () => G.cats.reduce((n, c) => n + c.cells.filter(x => cellFilled(x) && !x.played).length, 0);
 const playerByPid = pid => G.live.players.findIndex(p => p.pid && p.pid === pid);
 function openValue() {
@@ -2388,12 +2418,12 @@ function openValue() {
 function pubState() {
   const L = G.live, o = L.open, b = RT.buzz;
   return {
-    v: 1, title: G.title, phase: L.phase, prefix: G.settings.prefix || '',
+    v: 1, lang: G.settings.es ? 'es' : 'en', title: G.title, phase: L.phase, prefix: G.settings.prefix || '',
     cats: G.cats.map(c => c.name), rows: G.rows.slice(),
     vals: G.cats.map((c, ci) => c.cells.map((_, ri) => cellValue(G, ci, ri))),
     empty: G.cats.map(c => c.cells.map(x => !cellFilled(x))),
     done: G.cats.flatMap((c, ci) => c.cells.map((x, ri) => x.played ? ci + ',' + ri : null)).filter(Boolean),
-    open: o ? { key: o.key, c: o.c, r: o.r, phase: o.phase, revealed: !!o.revealed, quiet: !!o.quiet, dd: !!o.dd, jester: !!o.jester, value: openValue() } : null,
+    open: o ? { key: o.key, c: o.c, r: o.r, phase: o.phase, revealed: !!o.revealed, quiet: !!o.quiet, dd: !!o.dd, jester: !!o.jester, mime: !!o.mime, actorId: o.mime ? (o.actor || null) : null, actor: o.mime ? ((L.players.find(x => x.id === o.actor) || {}).name || null) : null, value: openValue() } : null,
     players: L.players.map(p => ({ id: p.id, name: p.name, score: p.score, pid: p.pid || null })),
     picker: L.picker || null, pick: !!G.settings.pickOnScreen, chat: !!G.settings.chat,
     show: !!G.settings.showScores, sfx: !!G.settings.sfx, autoplay: !!G.settings.autoplay,
@@ -2451,7 +2481,7 @@ function hostOpenTile(c, r) {
   if (cell.played && !confirm('This clue was already played. Open it again?')) return;
   L.phase = 'board';
   L.seq = (+L.seq || 0) + 1;
-  L.open = { c, r, key: `${c}-${r}-${L.seq}`, phase: cell.dd ? 'dd' : cell.jester ? 'jester' : 'clue', revealed: false, quiet: false, dd: !!cell.dd, jester: !!cell.jester, wager: null };
+  L.open = { c, r, key: `${c}-${r}-${L.seq}`, phase: cell.dd ? 'dd' : cell.jester ? 'jester' : 'clue', revealed: false, quiet: false, dd: !!cell.dd, jester: !!cell.jester, mime: !!cell.mime, actor: cell.mime ? (L.picker || null) : null, wager: null };
   cell.played = true;
   RT.timer = null; resetBuzz(false);
   RT.sel = { c, r }; RT.lastValue = cellValue(G, c, r);
@@ -2459,7 +2489,21 @@ function hostOpenTile(c, r) {
   const pre = mediaUrls(cell.am); if (pre.length) RT.outbox.push({ t: 'pre', urls: pre });
   if (L.open.phase === 'clue') logClue(c, r);
   commit();
+  if (L.open && L.open.mime) mimeSend();
 }
+/* Mímica: only the actor's phone gets the answer, everyone else sees the clue */
+function sendToPid(pid, m) {
+  if (!pid) return;
+  for (const r of Net.conns.values()) if (r.pid === pid) safeSend(r.conn, m);
+  const rr = Relay.players.get(pid);
+  if (rr && rr.rel && Relay.code) relaySend(rr.rel, relayTopic(Relay.code, 'u/' + pid), m);
+}
+function mimeSend() {
+  const o = G && G.live.open; if (!o || !o.mime || o.revealed || !o.actor) return;
+  const p = G.live.players.find(x => x.id === o.actor), cell = G.cats[o.c].cells[o.r];
+  if (p && p.pid) sendToPid(p.pid, { t: 'secret', key: o.key, text: cell.a, hint: cell.q });
+}
+function hostMimeActor(id) { const o = G.live.open; if (!o || !o.mime) return; o.actor = id || null; commit(); mimeSend(); }
 function hostShowDDClue() {
   const o = G.live.open; if (!o || o.phase !== 'dd') return;
   if (o.wager === null || o.wager === '' || isNaN(+o.wager)) o.wager = cellValue(G, o.c, o.r);
@@ -2475,7 +2519,7 @@ function hostReveal() {
   if (o.jester) return hostClose(false);
   if (o.revealed) return;
   o.revealed = true; o.quiet = false; RT.buzz.armed = false;
-  { const cell = G.cats[o.c].cells[o.r]; if (cell.a.trim()) sysChat(`Answer: ${cell.a.trim().replace(/\s+/g, ' ')}`); }
+  { const cell = G.cats[o.c].cells[o.r]; if (cell.a.trim()) sysChat(HT('Answer: ', 'Respuesta: ') + cell.a.trim().replace(/\s+/g, ' ')); }
   commit();
 }
 function hostClose(keepTile) {
@@ -2501,14 +2545,14 @@ function hostBuzz(pid, fallbackName) {
   if (!b.armed) {
     if (b.openedAt) return; /* locked again after opening: ignore, no penalty */
     b.out.add(pid); b.early.push({ pid, name });
-    RT.outbox.push({ t: 'fx', sound: 'early', toast: `${name} buzzed too early`, tone: 'bad' });
-    sysChat(`${name} buzzed too early and is locked out of this clue`);
+    RT.outbox.push({ t: 'fx', sound: 'early', toast: HT(`${name} buzzed too early`, `${name} toc\u00f3 antes de tiempo`), tone: 'bad' });
+    sysChat(HT(`${name} buzzed too early and is locked out of this clue`, `${name} toc\u00f3 antes de tiempo y queda fuera de esta pregunta`));
     broadcast(); renderHostPanel();
     return;
   }
   const now = Date.now();
   b.order.push({ pid, name, t: now, ms: now - b.openedAt });
-  sysChat(`${name} buzzed ${ordinal(b.order.length)} (${((now - b.openedAt) / 1000).toFixed(2)}s)`);
+  sysChat(HT(`${name} buzzed ${ordinal(b.order.length)}`, `${name} toc\u00f3 en el lugar ${b.order.length}`) + ` (${((now - b.openedAt) / 1000).toFixed(2)}s)`);
   broadcast(); renderHostPanel();
 }
 function hostAward(i, sign) {
@@ -2519,7 +2563,7 @@ function hostAward(i, sign) {
   L.history.push({ id: p.id, d }); if (L.history.length > 200) L.history.shift();
   RT.outbox.push({ t: 'fx', sound: sign > 0 ? 'correct' : 'wrong', toast: `${p.name} ${d >= 0 ? '+' : '\u2212'}${G.settings.prefix || ''}${Math.abs(d).toLocaleString('en-US')}`, tone: sign > 0 ? 'ok' : 'bad', flash: p.id });
   if (sign > 0) L.picker = p.id;
-  if (o && o.phase === 'clue') sysChat(`${p.name} got it ${sign > 0 ? 'right' : 'wrong'} (${d >= 0 ? '+' : '\u2212'}${Math.abs(d).toLocaleString('en-US')})`);
+  if (o && o.phase === 'clue') sysChat(`${p.name} ${sign > 0 ? HT('got it right', 'acert\u00f3') : HT('got it wrong', 'fall\u00f3')} (${d >= 0 ? '+' : '\u2212'}${Math.abs(d).toLocaleString('en-US')})`);
   if (o && o.phase === 'clue') {
     if (sign > 0) { if (!o.revealed) { o.revealed = true; o.quiet = true; } RT.buzz.armed = false; }
     if (sign < 0 && p.pid) {
@@ -2544,7 +2588,7 @@ function addPlayer(name, pid, test) {
 function setPicker(id, announce) {
   const L = G.live, p = L.players.find(x => x.id === id);
   L.picker = p ? p.id : null;
-  if (p && announce) RT.outbox.push({ t: 'fx', toast: `${p.name} picks`, tone: 'gold' });
+  if (p && announce) RT.outbox.push({ t: 'fx', toast: HT(`${p.name} picks`, `${p.name} elige`), tone: 'gold' });
   commit();
 }
 function hostRandomPicker() {
@@ -2576,9 +2620,9 @@ function chatPush(m) {
 function logClue(c, r, kind) {
   const cat = G.cats[c], cell = cat && cat.cells[r]; if (!cell) return;
   const q = cell.q.trim().replace(/\s+/g, ' ') || 'Picture or sound clue';
-  if (kind === 'jester') { sysChat(`Jester round: ${q}`); return; }
+  if (kind === 'jester') { sysChat(HT('Jester round: ', 'Minijuego: ') + q); return; }
   const val = (G.settings.prefix || '') + fmtNum(kind === 'dd' ? (G.live.open && G.live.open.wager) || cellValue(G, c, r) : cellValue(G, c, r));
-  sysChat(`${kind === 'dd' ? 'Daily Double' : 'New question'} (${cat.name || 'Category ' + (c + 1)}, ${kind === 'dd' ? 'bet ' : ''}${val}): ${q}`);
+  sysChat(`${kind === 'dd' ? HT('Daily Double', 'Apuesta doble') : HT('New question', 'Nueva pregunta')} (${cat.name || HT('Category ', 'Categor\u00eda ') + (c + 1)}, ${kind === 'dd' ? HT('bet ', 'apuesta ') : ''}${val}): ${q}`);
 }
 function sysChat(text) { if (G) chatPush({ id: uid(), name: '', text, t: Date.now(), host: false, sys: true, pid: null }); }
 function hostSay(text) {
@@ -2608,7 +2652,7 @@ function hostStage(kind) {
 setInterval(() => {
   if (UI.mode === 'host' && RT.timer && !RT.timer.fired && Date.now() >= RT.timer.end) {
     RT.timer.fired = true;
-    RT.outbox.push({ t: 'fx', sound: 'timeup', toast: 'Time\u2019s up', tone: 'bad' });
+    RT.outbox.push({ t: 'fx', sound: 'timeup', toast: HT('Time\u2019s up', '\u00a1Se acab\u00f3 el tiempo!'), tone: 'bad' });
     commit();
   }
 }, 200);
@@ -2741,6 +2785,10 @@ function clueCard(o) {
   let h = `<section class="hp-sec hp-clue"><div class="hp-cluehead"><b>${o.jester ? 'Jester round' : esc(G.cats[o.c].name || 'Category ' + (o.c + 1))}</b><span>${o.dd ? 'Daily Double' : esc(pre + fmtNum(openValue()))}</span></div>
     <div class="read"><div class="rd-label">${o.phase === 'dd' ? 'The clue (hidden until they bet)' : o.phase === 'jester' ? 'The mini-game (hidden until you show it)' : 'Read this out loud'}</div><div class="rd-q">${richText(cell.q) || '<em>Media clue</em>'}</div></div>
     <div class="answer-box"><div class="ab-label">${o.jester ? 'Notes' : 'Answer'}</div><div class="ab-ans">${cell.a.trim() ? richText(cell.a) : `<em>${o.jester ? 'No notes' : 'No answer written'}</em>`}</div>${cell.am.length ? `<div class="ab-extra">${plural(cell.am.length, 'media item')} with the answer</div>` : ''}</div>`;
+  if (o.mime && o.phase === 'clue' && !o.revealed) {
+    const actor = L.players.find(x => x.id === o.actor);
+    h += `<div class="hp-mime"><div class="hm-who">\u{1F3AD} ${actor ? `<b>${esc(actor.name)}</b> sees the answer on their screen and acts it out` : '<b>M\u00edmica:</b> choose who acts it out'}</div><div class="hm-pick">${L.players.map(p => `<button class="btn sm${p.id === o.actor ? ' primary' : ''}" data-act="mimeActor" data-id="${esc(p.id)}">${esc(p.name)}</button>`).join('') || '<span class="hp-muted small">Add players first</span>'}${actor && actor.pid ? '<button class="btn sm ghost" data-act="mimeResend">Send again</button>' : ''}</div><p class="hp-muted small">${actor && !actor.pid ? 'They haven\u2019t joined on their own screen, so show them the answer yourself.' : 'No talking or sounds. Start the 60s timer. When someone guesses it, give the points to the guesser and to the actor with the green buttons under Scores.'}</p></div>`;
+  }
   if (o.phase === 'clue') {
     const side = o.revealed ? 'a' : 'q', list = side === 'a' ? cell.am : cell.qm;
     const kinds = list.map(kindOf).filter(k => ['image', 'audio', 'video'].includes(k));
@@ -2783,7 +2831,7 @@ function clueCard(o) {
     if (wrong.length) h += `<p class="hp-muted small">Already answered: ${wrong.map(esc).join(', ')}</p>`;
   }
   h += `<div class="hp-btns">${o.jester ? `<button class="btn primary" data-act="close">Done, back to the board <span class="kbd">Space</span></button>` : o.revealed ? `<button class="btn primary" data-act="close">Back to the board <span class="kbd">Space</span></button>` : `<button class="btn primary" data-act="reveal">${b.order.length || o.dd ? 'Reveal answer' : 'Nobody got it: reveal'} <span class="kbd">Space</span></button><button class="btn" data-act="close">Back to the board <span class="kbd">Esc</span></button>`}</div>
-    <div class="hp-row"><span class="hp-lbl">${icon('timer', 16)}Timer</span>${[5, 10, 15, 30].map(s => `<button class="btn sm" data-act="timer" data-s="${s}">${s}s</button>`).join('')}${RT.timer ? '<button class="btn sm ghost" data-act="stopTimer">Stop</button>' : ''}</div>`;
+    <div class="hp-row"><span class="hp-lbl">${icon('timer', 16)}Timer</span>${[5, 10, 15, 30, 60].map(s => `<button class="btn sm" data-act="timer" data-s="${s}">${s}s</button>`).join('')}${RT.timer ? '<button class="btn sm ghost" data-act="stopTimer">Stop</button>' : ''}</div>`;
   const items = [...cell.qm.map((m, i) => ['q', i, m]), ...(o.revealed ? cell.am.map((m, i) => ['a', i, m]) : [])].filter(x => PLAYABLE.includes(kindOf(x[2])));
   if (items.length) h += `<div class="hp-media">${items.map(([s, i, m]) => `<div class="hp-mrow"><span>${esc(KIND_LABEL[kindOf(m)])}${s === 'a' ? ' with the answer' : ''}</span>${[['play', 'Play'], ['pause', 'Pause'], ['restart', 'Restart']].map(([a, t]) => `<button class="btn sm icon" data-act="media" data-side="${s}" data-i="${i}" data-a="${a}" title="${t}" aria-label="${t}">${icon(a, 16)}</button>`).join('')}</div>`).join('')}</div>`;
   if (S.buzzers && !o.dd && b.openedAt && !o.revealed) h += `<button class="btn sm ghost" data-act="buzzReset">Clear buzzes and lockouts</button>`;
@@ -2839,7 +2887,7 @@ function renderHostPanel() {
     </div>`; }).join('')}</div>
     <div class="hp-btns"><button class="btn sm" data-act="addPlayer">${icon('plus', 16)}Add player or team</button>${L.players.some(p => p.test) ? '<button class="btn sm ghost" data-act="rmTests">Remove test players</button>' : ''}</div></section>
   <section class="hp-sec"><h3>Settings</h3>
-    ${tgl('buzzers', 'Buzzers for people who joined')}${tgl('pickOnScreen', 'Picker can tap a tile on their screen')}${tgl('chat', 'Chat for people who joined')}${tgl('autoAdd', 'Add people to scores when they join')}${tgl('showScores', 'Show scores on screen')}${tgl('sfx', 'Sound effects')}${tgl('autoplay', 'Play media when a clue opens')}
+    ${tgl('buzzers', 'Buzzers for people who joined')}${tgl('pickOnScreen', 'Picker can tap a tile on their screen')}${tgl('chat', 'Chat for people who joined')}${tgl('autoAdd', 'Add people to scores when they join')}${tgl('showScores', 'Show scores on screen')}${tgl('sfx', 'Sound effects')}${tgl('autoplay', 'Play media when a clue opens')}${tgl('es', 'Spanish on the board and phones')}
     <label class="tgl"><span>Sound on this page</span><input type="checkbox" data-hostsound${RT.hostSound ? ' checked' : ''}><i></i></label>
     <div class="hp-btns"><button class="btn sm ghost" data-act="resetBoard">Reset board</button><button class="btn sm ghost" data-act="resetScores">Reset scores</button><button class="btn sm ghost" data-act="newCode">New room code</button></div>
     <p class="hp-muted small">Keys: arrows pick a tile, Enter opens it, B opens or locks buzzers, Y and N mark the first buzzer right or wrong, Space reveals, Esc closes. Press 1 to 9 to pick a player, then up or down to add or take away the clue\u2019s points.</p>
@@ -2859,6 +2907,8 @@ function bindPanel(pane) {
       case 'final': hostFinal(); break;
       case 'ddShow': hostShowDDClue(); break;
       case 'jesterShow': hostShowJester(); break;
+      case 'mimeActor': hostMimeActor(d.id); break;
+      case 'mimeResend': mimeSend(); flashMsg('Sent again'); break;
       case 'reveal': hostReveal(); break;
       case 'close': hostClose(false); break;
       case 'keep': hostClose(true); break;
@@ -3151,7 +3201,7 @@ function jbAdd(url, by) {
   j.q.push(item);
   if (j.cur < 0) { j.cur = j.q.length - 1; j.playing = true; j.pos = y.start || 0; jbPosAt = jbStartAt = performance.now(); }
   jbSend(); saveSoon();
-  const log = () => sysChat(`${item.by} added a song: ${item.title}`);
+  const log = () => sysChat(HT(`${item.by} added a song: `, `${item.by} agreg\u00f3 una canci\u00f3n: `) + item.title);
   fetch('https://www.youtube.com/oembed?format=json&url=' + encodeURIComponent('https://www.youtube.com/watch?v=' + y.id))
     .then(r => r.ok ? r.json() : null)
     .then(d => { if (d && d.title) { item.title = String(d.title).slice(0, 120); jbSend(); saveSoon(); } log(); })
@@ -3363,6 +3413,7 @@ function onScreenMsg(m, from) {
       else if (addPlayer(rec.name, rec.pid, rec.test)) commit();
       else renderHostPanel();
     } else renderHostPanel();
+    if (UI.mode === 'host' && G && G.live.open && G.live.open.mime) setTimeout(mimeSend, 400);
   } else if (m.t === 'buzz') hostBuzz(rec.pid, rec.name);
   else if (m.t === 'mready') { (rec.ready = rec.ready || new Set()).add(String(m.key) + ':' + m.side); readySoon(); }
   else if (m.t === 'jbAdd' && UI.mode === 'host' && G) jbAddFrom(rec, m.url);
@@ -3400,13 +3451,13 @@ function bootDisplay() {
 /* ---------- player page (joined with the invite link) ---------- */
 function bootJoin(raw, autoName, test) {
   const code = String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 10);
-  document.title = 'Join \u2013 Trivia Night';
+  document.title = T('Join \u2013 Trivia Night', 'Unirse \u2013 Noche de Trivia');
   $('#app').innerHTML = `<div class="join-screen"><form class="join-card" id="jf">
-    <div class="jc-brand">Trivia Night</div><h1>Join the game</h1>
-    <p class="hint">Room <span class="room">${esc(code)}</span></p>
-    <label class="field"><span>Your name</span><input class="txt" id="jn" maxlength="28" required autocomplete="nickname" placeholder="Name for the scoreboard" value="${esc(lsGet('tn.name', ''))}"></label>
-    <button class="btn primary big wide" type="submit">Join</button>
-    <p class="hint small">You\u2019ll see the board here while the host runs the game.</p>
+    <div class="jc-brand">${T('Trivia Night', 'Noche de Trivia')}</div><h1>${T('Join the game', '\u00danete al juego')}</h1>
+    <p class="hint">${T('Room', 'Sala')} <span class="room">${esc(code)}</span></p>
+    <label class="field"><span>${T('Your name', 'Tu nombre')}</span><input class="txt" id="jn" maxlength="28" required autocomplete="nickname" placeholder="${T('Name for the scoreboard', 'Nombre para el marcador')}" value="${esc(lsGet('tn.name', ''))}"></label>
+    <button class="btn primary big wide" type="submit">${T('Join', 'Entrar')}</button>
+    <p class="hint small">${T('You\u2019ll see the board here while the host runs the game.', 'Aqu\u00ed vas a ver el tablero mientras el anfitri\u00f3n dirige el juego.')}</p>
   </form></div>`;
   $('#jf').onsubmit = e => {
     e.preventDefault();
@@ -3418,29 +3469,31 @@ function bootJoin(raw, autoName, test) {
 }
 function startPlayer(code, name, test) {
   let pid = ssGet('tn.pid'); if (!pid) { pid = uid(); ssSet('tn.pid', pid); }
-  document.title = 'Trivia Night';
+  document.title = T('Trivia Night', 'Noche de Trivia');
   document.body.className = 'is-screen is-player';
   $('#app').innerHTML = `<div class="viewer pv">
   <div class="pv-main">
     <div class="screen-host" id="scr"></div>
     <div class="pbar">
-      <div class="pb-side"><span class="pill" id="pst"><i class="dot"></i><span>Connecting</span></span><button class="pill hidden" id="retryBtn" onclick="location.reload()">Retry</button></div>
-      <div class="pb-center"><button class="buzzbtn idle" id="buzz" disabled>Buzz</button><div class="pbar-note" id="bnote"></div></div>
-      <div class="pb-side right"><button class="pill" id="jbBtn" title="Jukebox">${icon('music', 16)}Music</button><button class="pill" id="chatBtn">${icon('chat', 16)}Chat<b class="unread hidden" id="unread"></b></button><button class="pill" id="muteBtn" title="Mute" aria-label="Mute"></button><button class="pill" id="fsBtn" title="Full screen" aria-label="Full screen">${icon('full', 16)}</button></div>
+      <div class="pb-side"><span class="pill" id="pst"><i class="dot"></i><span>${T('Connecting', 'Conectando')}</span></span><button class="pill hidden" id="retryBtn" onclick="location.reload()">${T('Retry', 'Reintentar')}</button></div>
+      <div class="pb-center"><button class="buzzbtn idle" id="buzz" disabled>${T('Buzz', 'Tocar')}</button><div class="pbar-note" id="bnote"></div></div>
+      <div class="pb-side right"><button class="pill" id="jbBtn" title="${T('Jukebox', 'Rocola')}">${icon('music', 16)}${T('Music', 'M\u00fasica')}</button><button class="pill" id="chatBtn">${icon('chat', 16)}Chat<b class="unread hidden" id="unread"></b></button><button class="pill" id="muteBtn" title="${T('Mute', 'Silenciar')}" aria-label="${T('Mute', 'Silenciar')}"></button><button class="pill" id="fsBtn" title="${T('Full screen', 'Pantalla completa')}" aria-label="${T('Full screen', 'Pantalla completa')}">${icon('full', 16)}</button></div>
     </div>
   </div>
   <aside class="chat" id="chat" aria-label="Chat">
     <div class="chat-head"><b>Chat</b><button class="btn sm icon ghost" id="chatClose" title="Close chat" aria-label="Close chat">${icon('x', 16)}</button></div>
     <div class="chat-log" id="chatLog" aria-live="polite"></div>
-    <form class="chat-form" id="chatForm"><input class="txt" id="chatIn" maxlength="300" placeholder="Say something" autocomplete="off"><button class="btn sm primary" type="submit">Send</button></form>
+    <form class="chat-form" id="chatForm"><input class="txt" id="chatIn" maxlength="300" placeholder="${T('Say something', 'Escribe algo')}" autocomplete="off"><button class="btn sm primary" type="submit">${T('Send', 'Enviar')}</button></form>
   </aside>
+  <div class="secret hidden" id="secret" role="dialog" aria-modal="true"><div class="sc-card"><div class="sc-lbl" id="scLbl"></div><div class="sc-word" id="scWord"></div><div class="sc-hint" id="scHint"></div><button class="btn primary big" id="scHide"></button></div></div>
+  <button class="pill sc-peek hidden" id="scPeek"></button>
 </div>`;
   const buzz = $('#buzz'), bnote = $('#bnote'), pst = $('#pst'), chat = $('#chat'), chatLog = $('#chatLog'), unreadEl = $('#unread');
   JBUI.send = m => sendToHost(m);
   $('#jbBtn').onclick = e => { openJukebox('player'); e.currentTarget.blur(); };
   let muted = !!lsGet('tn.mute', false), conn = null, last = 0, retryT = 0, S = null, unread = 0, buzzedKey = null, sendToHost = () => {}, buzzShown = false, popUntil = 0;
   let chatOpen = lsGet('tn.chatOpen', innerWidth >= 1000);
-  const scr = createScreen($('#scr'), { waitText: 'Connecting to the host', muted, onState: st => { S = st; update(); }, onTile: (c, r) => sendToHost({ t: 'pick', c, r }), onReady: (key, side) => sendToHost({ t: 'mready', key, side }) });
+  const scr = createScreen($('#scr'), { waitText: T('Connecting to the host', 'Conectando con el anfitri\u00f3n'), muted, onState: st => { S = st; update(); }, onTile: (c, r) => sendToHost({ t: 'pick', c, r }), onReady: (key, side) => sendToHost({ t: 'mready', key, side }) });
   const setSt = (kind, text) => { pst.className = 'pill ' + kind; $('span', pst).textContent = text; if (!S) scr.setWait(text); };
   const setMuteIcon = () => { $('#muteBtn').innerHTML = icon(muted ? 'mute' : 'vol', 16); };
   const showChat = v => {
@@ -3449,6 +3502,20 @@ function startPlayer(code, name, test) {
     if (v) { unread = 0; unreadEl.classList.add('hidden'); chatLog.scrollTop = chatLog.scrollHeight; }
   };
   setMuteIcon(); showChat(chatOpen);
+  let secret = null;
+  const secretEl = $('#secret'), peekEl = $('#scPeek');
+  const showSecret = d => {
+    secret = d;
+    $('#scLbl').textContent = T('You\u2019re acting! No talking or sounds', '\u00a1Te toca actuar! Sin hablar ni hacer ruidos');
+    $('#scWord').textContent = d.text || '?';
+    $('#scHint').textContent = d.hint || '';
+    $('#scHide').textContent = T('Hide it', 'Ocultar');
+    peekEl.textContent = T('\u{1F3AD} Show my word', '\u{1F3AD} Ver mi palabra');
+    secretEl.classList.remove('hidden'); peekEl.classList.add('hidden');
+  };
+  const clearSecret = () => { secret = null; secretEl.classList.add('hidden'); peekEl.classList.add('hidden'); };
+  $('#scHide').onclick = () => { secretEl.classList.add('hidden'); peekEl.classList.remove('hidden'); };
+  peekEl.onclick = () => { secretEl.classList.remove('hidden'); peekEl.classList.add('hidden'); };
   $('#muteBtn').onclick = () => { muted = !muted; lsSet('tn.mute', muted); scr.setMuted(muted); setMuteIcon(); };
   $('#fsBtn').onclick = toggleFullscreen;
   $('#chatBtn').onclick = () => showChat(!chatOpen);
@@ -3472,24 +3539,27 @@ function startPlayer(code, name, test) {
     chat.classList.toggle('hidden', !chatOpen || S.chat === false);
     const me = S.players.find(p => p.pid === pid), picker = S.players.find(p => p.id === S.picker);
     const o = S.phase === 'board' ? S.open : null, b = S.buzz || {};
+    if (secret && (!o || o.key !== secret.key || o.revealed || (o.actorId && me && o.actorId !== me.id))) clearSecret();
+    const mimeOpen = !!(o && o.mime && o.phase === 'clue' && !o.revealed);
     const myPick = !!(me && picker && me.id === picker.id && S.pick && S.phase === 'board' && !o);
     scr.setPickable(myPick);
     const inClue = !!(o && o.phase === 'clue' && !o.revealed && !o.dd);
     const order = b.order || [], idx = order.findIndex(x => x.pid === pid);
     const early = (b.early || []).some(x => x.pid === pid), out = (b.out || []).includes(pid);
-    let label = 'Buzz', cls = 'idle', enabled = false, note;
-    if (o && o.phase === 'jester') note = 'Jester! A surprise mini-game is coming.';
-    else if (o && o.dd && !o.revealed) note = picker && me && picker.id === me.id ? 'Daily Double! Only you answer this one.' : `Daily Double: only ${picker ? picker.name : 'the picker'} answers`;
-    else if (!inClue) note = myPick ? 'Your pick! Tap a tile on the board.' : picker && S.phase === 'board' && !o ? `${picker.name} is picking` : 'Wait for the next clue';
-    else if (!b.on) note = 'Answer out loud when the host asks';
-    else if (early) { label = 'Locked'; cls = 'out'; note = 'Too early! You\u2019re locked out of this one.'; }
-    else if (out) { label = 'Locked'; cls = 'out'; note = 'You already answered this one'; }
-    else if (idx === 0) { label = 'You\u2019re first'; cls = 'first'; note = 'Answer now!'; }
-    else if (idx > 0) { label = `#${idx + 1}`; cls = 'queued'; note = `You\u2019re number ${idx + 1} in line`; }
-    else if (!b.armed) { label = 'Wait'; cls = 'wait'; enabled = true; note = b.opened ? 'Buzzers are locked' : 'Wait for the host to open buzzers. Buzzing early locks you out.'; }
-    else { label = 'Buzz!'; cls = 'go'; enabled = true; note = 'Buzz now! (Space)'; }
-    if (inClue && buzzedKey === o.key + ':' + (b.opened ? 1 : 0) && idx < 0 && !out) { enabled = false; note = 'Buzzed\u2026'; }
-    const showBuzz = !!b.on && inClue;
+    let label = T('Buzz', 'Tocar'), cls = 'idle', enabled = false, note;
+    if (o && o.phase === 'jester') note = T('Jester! A surprise mini-game is coming.', '\u00a1Buf\u00f3n! Viene un minijuego sorpresa.');
+    else if (o && o.dd && !o.revealed) note = picker && me && picker.id === me.id ? T('Daily Double! Only you answer this one.', '\u00a1Apuesta doble! Solo t\u00fa respondes esta.') : T(`Daily Double: only ${picker ? picker.name : 'the picker'} answers`, `Apuesta doble: solo responde ${picker ? picker.name : 'quien eligi\u00f3'}`);
+    else if (mimeOpen) note = o.actorId && me && o.actorId === me.id ? T('You\u2019re acting! Look at your word. No talking.', '\u00a1Te toca actuar! Mira tu palabra. Sin hablar.') : T(`${o.actor || 'Someone'} is acting it out. Shout your guess!`, `${o.actor || 'Alguien'} est\u00e1 haciendo la m\u00edmica. \u00a1Griten la respuesta!`);
+    else if (!inClue) note = myPick ? T('Your pick! Tap a tile on the board.', '\u00a1Te toca elegir! Toca una casilla del tablero.') : picker && S.phase === 'board' && !o ? T(`${picker.name} is picking`, `${picker.name} est\u00e1 eligiendo`) : T('Wait for the next clue', 'Espera la siguiente pregunta');
+    else if (!b.on) note = T('Answer out loud when the host asks', 'Responde en voz alta cuando el anfitri\u00f3n te pregunte');
+    else if (early) { label = T('Locked', 'Bloqueado'); cls = 'out'; note = T('Too early! You\u2019re locked out of this one.', '\u00a1Muy pronto! Quedas fuera de esta.'); }
+    else if (out) { label = T('Locked', 'Bloqueado'); cls = 'out'; note = T('You already answered this one', 'Ya respondiste esta'); }
+    else if (idx === 0) { label = T('You\u2019re first', '\u00a1Primero!'); cls = 'first'; note = T('Answer now!', '\u00a1Responde ahora!'); }
+    else if (idx > 0) { label = `#${idx + 1}`; cls = 'queued'; note = T(`You\u2019re number ${idx + 1} in line`, `Eres el n\u00famero ${idx + 1} en la fila`); }
+    else if (!b.armed) { label = T('Wait', 'Espera'); cls = 'wait'; enabled = true; note = b.opened ? T('Buzzers are locked', 'Los botones est\u00e1n bloqueados') : T('Wait for the host to open buzzers. Buzzing early locks you out.', 'Espera a que el anfitri\u00f3n active los botones. Si tocas antes, quedas fuera.'); }
+    else { label = T('Buzz!', '\u00a1Tocar!'); cls = 'go'; enabled = true; note = T('Buzz now! (Space)', '\u00a1Toca ahora! (Espacio)'); }
+    if (inClue && buzzedKey === o.key + ':' + (b.opened ? 1 : 0) && idx < 0 && !out) { enabled = false; note = T('Buzzed\u2026', 'Tocaste\u2026'); }
+    const showBuzz = !!b.on && inClue && !mimeOpen;
     if (showBuzz && !buzzShown) popUntil = Date.now() + 600;
     buzzShown = showBuzz;
     buzz.textContent = label; buzz.disabled = !enabled;
@@ -3500,7 +3570,7 @@ function startPlayer(code, name, test) {
     if (buzz.disabled || !S || !S.open) return;
     sendToHost({ t: 'buzz', pid });
     buzzedKey = S.open.key + ':' + (S.buzz && S.buzz.opened ? 1 : 0);
-    buzz.disabled = true; bnote.textContent = 'Buzzed\u2026';
+    buzz.disabled = true; bnote.textContent = T('Buzzed\u2026', 'Tocaste\u2026');
   };
   buzz.onclick = doBuzz;
   addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'KeyB') && !e.repeat && !e.ctrlKey && !e.metaKey && !/INPUT|TEXTAREA|SELECT|BUTTON/.test(e.target.tagName)) { e.preventDefault(); doBuzz(); } });
@@ -3520,18 +3590,19 @@ function startPlayer(code, name, test) {
       via = src === 'direct' ? 'direct' : 'relay';
       if (via === 'relay') { relayActive = src; relays.forEach(r => { if (r !== src) relayEnd(r); }); }
       gaveUp = false; $('#retryBtn').classList.add('hidden');
-      setSt('ok', via === 'direct' ? 'Live' : 'Live (backup route)');
+      setSt('ok', via === 'direct' ? T('Live', 'En vivo') : T('Live (backup route)', 'En vivo (ruta de respaldo)'));
     } else if (via === 'direct' ? src !== 'direct' : src !== relayActive) return;
     last = Date.now();
     if (d.t === 'jb' && d.s) { JBP.apply(d.s); renderJukebox(); }
     else if (d.t === 'chat' && d.m) addMsg(d.m);
+    else if (d.t === 'secret' && d.text) showSecret(d);
     else if (d.t === 'chatlog' && Array.isArray(d.list)) { chatLog.innerHTML = ''; d.list.forEach(m => addMsg(m, true)); chatLog.scrollTop = chatLog.scrollHeight; }
     else scr.handle(d);
   }
   async function startRelay() {
     if (relayStarted) return;
     relayStarted = true;
-    if (!via) setSt('', 'Trying another route');
+    if (!via) setSt('', T('Trying another route', 'Probando otra ruta'));
     try { await loadMqtt(); } catch (e) { relayStarted = false; return; }
     for (const r of RELAYS) relays.push(relayConnect(r, (rel, topic, m) => fromHost(rel, m), (rel, ok) => {
       if (!ok) return;
@@ -3540,7 +3611,7 @@ function startPlayer(code, name, test) {
     }));
   }
   function restartRelay() { relays.forEach(relayEnd); relays.length = 0; relayStarted = false; startRelay(); }
-  setSt('', 'Connecting');
+  setSt('', T('Connecting', 'Conectando'));
   if (!forceRelay) loadPeerJS().then(() => {
     const peer = new window.Peer({ debug: 1 });
     const retry = ms => { if (retryT) return; retryT = setTimeout(() => { retryT = 0; connect(); }, ms); };
@@ -3554,13 +3625,13 @@ function startPlayer(code, name, test) {
       const to = setTimeout(() => { if (conn === c && !c.open) { try { c.close(); } catch (e) {} retry(1500); } }, 12000);
       c.on('open', () => { clearTimeout(to); safeSend(c, { t: 'hello', name, pid, test: !!test }); });
       c.on('data', d => fromHost('direct', d));
-      c.on('close', () => { if (conn === c) { if (via === 'direct') { via = null; setSt('', 'Reconnecting'); } retry(2500); } });
+      c.on('close', () => { if (conn === c) { if (via === 'direct') { via = null; setSt('', T('Reconnecting', 'Reconectando')); } retry(2500); } });
       c.on('error', () => { if (conn === c) retry(2500); });
     }
     peer.on('open', connect);
     peer.on('error', err => {
       const t = err && err.type;
-      if (t === 'peer-unavailable') { if (!via) setSt('', relayStarted ? 'Trying another route' : 'Waiting for the host'); retry(4000); }
+      if (t === 'peer-unavailable') { if (!via) setSt('', relayStarted ? T('Trying another route', 'Probando otra ruta') : T('Waiting for the host', 'Esperando al anfitri\u00f3n')); retry(4000); }
       else if (t === 'browser-incompatible') startRelay();
       else { retry(4000); startRelay(); }
     });
@@ -3571,13 +3642,13 @@ function startPlayer(code, name, test) {
   setInterval(() => {
     if (via === 'relay' && relayActive) relaySend(relayActive, relayTopic(code, 'p'), env({ t: 'ping' }));
     if (via && Date.now() - last > 22000) {
-      via = null; relayActive = null; setSt('', 'Reconnecting');
+      via = null; relayActive = null; setSt('', T('Reconnecting', 'Reconectando'));
       if (conn && conn.open) { try { conn.close(); } catch (e) {} }
       directRetry(500); restartRelay();
     }
     if (!via && !gaveUp && Date.now() - t0 > 25000) {
-      gaveUp = true; setSt('bad', 'Can\u2019t reach the host');
-      scr.setWait('Can\u2019t reach the host yet. Check with the host that they pressed Host and that your link matches theirs. Turning off a VPN or switching networks can help. Still trying\u2026');
+      gaveUp = true; setSt('bad', T('Can\u2019t reach the host', 'No se encuentra al anfitri\u00f3n'));
+      scr.setWait(T('Can\u2019t reach the host yet. Check with the host that they pressed Host and that your link matches theirs. Turning off a VPN or switching networks can help. Still trying\u2026', 'Todav\u00eda no se encuentra al anfitri\u00f3n. Revisa con el anfitri\u00f3n que haya apretado Host y que tu link sea el mismo. Apagar una VPN o cambiar de red puede ayudar. Seguimos intentando\u2026'));
       $('#retryBtn').classList.remove('hidden');
     }
   }, 4000);
