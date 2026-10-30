@@ -44,3 +44,7 @@ From Wikimedia Commons, resized for the trivia game.
 - Nintendo-Switch-Console-Docked-wJoyConRB.jpg. Evan-Amos. Public domain. https://commons.wikimedia.org/wiki/File:Nintendo-Switch-Console-Docked-wJoyConRB.jpg
 - Dorothy's Ruby Slippers, Wizard of Oz 1938.jpg. dbking. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Dorothy%27s_Ruby_Slippers,_Wizard_of_Oz_1938.jpg
 - Home Alone House 2026.jpg. Kidfly182. CC BY 4.0. https://commons.wikimedia.org/wiki/File:Home_Alone_House_2026.jpg
+- Koji Kondo - GDC 2007 cropped.jpg. Koji_Kondo_-_GDC_2007.jpg: Vincent Diamante from Los Angeles, CA, USA derivative. CC BY-SA 2.0. https://commons.wikimedia.org/wiki/File:Koji_Kondo_-_GDC_2007_cropped.jpg
+- Sega-Mega-Drive-JP-Mk1-Console-Set.jpg. Evan-Amos. Public domain. https://commons.wikimedia.org/wiki/File:Sega-Mega-Drive-JP-Mk1-Console-Set.jpg
+- Shoko Nakagawa at Japan Expo 2014 (2).jpg. Serwan Melk. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Shoko_Nakagawa_at_Japan_Expo_2014_(2).jpg
+- Sidney Hall - Urania's Mirror - Taurus.jpg. Sidney Hall / Adam Cuerden. Public domain. https://commons.wikimedia.org/wiki/File:Sidney_Hall_-_Urania%27s_Mirror_-_Taurus.jpg
