@@ -136,3 +136,26 @@ From Wikimedia Commons, resized for the trivia game.
 - n2-dd44c428aa.webp: Source file: Ssolbergj This file: Svenskbygderna (talk), CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Laos_(orthographic_projection).svg
 - n2-a2c9f31a71.webp: derived work: DancingPhilosopher, Public domain, https://commons.wikimedia.org/wiki/File:Slovenia_(orthographic_projection)_gray_and_green_scheme_globe.svg
 - n2-8e7c8361c6.webp: Artwin, Public domain, https://commons.wikimedia.org/wiki/File:Suriname_(orthographic_projection).svg
+
+- n2-2b035e1b83.webp: Chris Yunker from St. Louis, United States, CC BY 2.0, https://commons.wikimedia.org/wiki/File:Sagrada_Fam%C3%ADlia_(51970333757).jpg
+- n2-23a5f0ba6e.webp: slgckgc, CC BY 2.0, https://commons.wikimedia.org/wiki/File:Bon_Jovi_at_Madison_Square_Garden.jpg
+- n2-59c3185d4a.webp: Raph_PH, CC BY 2.0, https://commons.wikimedia.org/wiki/File:GunsNRoses160617-61_(35271773841).jpg
+- n2-6e5abf8e6c.webp: Carol Riquelme, CC BY-SA 3.0 cl, https://commons.wikimedia.org/wiki/File:Los_Prisioneros_Museo_abierto_al_Cielo_en_San_Miguel.jpg
+- n2-30d0c9a289.webp: Someone during linkin park's performance, CC BY 2.0, https://commons.wikimedia.org/wiki/File:Linkin_Park_-_Paris_Bercy_Juin_2007.jpg
+- n2-45a96c74c5.webp: Raph_PH, CC BY 2.0, https://commons.wikimedia.org/wiki/File:Red_Hot_Chili_Peppers_at_Ohana2019-313_(49679348892).jpg
+- n2-672d5673b3.webp: Michael Morel from Barcelona, Spain; modified by anetode, CC BY 2.0, https://commons.wikimedia.org/wiki/File:Meg_%26_Jack,_The_White_Stripes.jpg
+- n2-7f6b18d82b.webp: Secretaría de Cultura Ciudad de México from México, CC BY-SA 2.0, https://commons.wikimedia.org/wiki/File:%C3%81lvaro_Henr%C3%ADquez_-_MX_TV_Conferencia_Los_Tres.jpg
+- n2-ea5d9f99a9.webp: Nachokos, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Claudio_Valenzuela.jpg
+- n2-fd228b5a1f.webp: Victor Schifeli, CC BY-SA 2.0, https://commons.wikimedia.org/wiki/File:Mark_Knopfler_and_Hal_Lindes_1981.jpg
+- n2-f1d8e43b02.webp: Luis Alvaz, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Aterciopelados_en_la_FNSM_2017,_Foro_del_Lago,_Aguascalientes_56.jpg
+- n2-008521eb28.webp: Zach Vega, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:IPhone_5.png
+- n2-a949ef39ac.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:Wii-console.jpg
+- n2-6632c48a58.webp: Evan-Amos, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Nintendo-DS-Lite-Black-Open.jpg
+- n2-b1aa736634.webp: Luis Alfredo Romero, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:PONG_arcade.jpg
+- n2-957749fff4.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:Game-Gear-Handheld.jpg
+- n2-12e7f10097.webp: Georges Seguin (Okki), CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Hideo_Kojima_20100702_Japan_Expo_1_(cropped).jpg
+- n2-05c0c69f1d.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:PSX-Console-wController.jpg
+- n2-1f2481018c.webp: Sharon Nathan, CC BY-SA 3.0 de, https://commons.wikimedia.org/wiki/File:Nobuo_uematsu_001.jpg
+- n2-1d154308dc.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:Magnavox-Odyssey-Console-Set.jpg
+- n2-69ede35341.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:Atari-2600-Wood-4Sw-Set.jpg
+- n2-f4a9c342c7.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:N64-Console-Set.png
