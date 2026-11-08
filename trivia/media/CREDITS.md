@@ -48,3 +48,91 @@ From Wikimedia Commons, resized for the trivia game.
 - Sega-Mega-Drive-JP-Mk1-Console-Set.jpg. Evan-Amos. Public domain. https://commons.wikimedia.org/wiki/File:Sega-Mega-Drive-JP-Mk1-Console-Set.jpg
 - Shoko Nakagawa at Japan Expo 2014 (2).jpg. Serwan Melk. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Shoko_Nakagawa_at_Japan_Expo_2014_(2).jpg
 - Sidney Hall - Urania's Mirror - Taurus.jpg. Sidney Hall / Adam Cuerden. Public domain. https://commons.wikimedia.org/wiki/File:Sidney_Hall_-_Urania%27s_Mirror_-_Taurus.jpg
+
+
+## Noche de Trivia 2 (Wikimedia Commons)
+
+- n2-d0120a0cba.webp: Various, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Japan.svg
+- n2-66fb5e42d3.webp: Raimundo Teixeira Mendes, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Brazil.svg
+- n2-ca24788d31.webp: Created by George F. G. Stanley / E Pluribus Anthony / User:Mzajac, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Canada.svg
+- n2-9ae61367e5.webp: Manuel Belgrano, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Argentina.svg
+- n2-f12d7da22b.webp: Omar Alejandro Covarrubias Neri, 9 April 2006. Based on the 1968 arms by Francis, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Mexico.svg
+- n2-2e5f9bf557.webp: See below., Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Italy.svg
+- n2-9b702fe74f.webp: User:SKopp, User:Madden, and other users, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Germany.svg
+- n2-f8225b4a62.webp: David Benbennick, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Peru.svg
+- n2-5814d715a5.webp: Original: Government of the Republic of Korea Vector: Great Brightstar and other, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_South_Korea.svg
+- n2-c3cbca6680.webp: Jon Harald Søby and others., Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Sweden.svg
+- n2-5596d536ea.webp: The SVG code is valid. This vector image was created with Inkscape by SKopp, and, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Jamaica.svg
+- n2-c93c8a1ea4.webp: Government of India, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_India.svg
+- n2-9c345dcb3f.webp: Unknown authorUnknown author, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Greece.svg
+- n2-1baec73ef3.webp: Original: Columbano Bordalo Pinheiro (1910; generic design) Vector: Vítor Luís R, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Portugal.svg
+- n2-e7c9ee2a22.webp: Flag design by Frederick Brownell, image by Wikimedia Commons users, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_South_Africa.svg
+- n2-4e846fa8be.webp: David Benbennick (original author), Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Turkey.svg
+- n2-a714bf173d.webp: Drawn by Pumbaa80, Achim1999, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Nepal.svg
+- n2-9c5066e4f7.webp: User:Pumbaa80, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Kenya.svg
+- n2-4a9e2394b9.webp: See File history below for details., Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Vietnam.svg
+- n2-0c290e2eed.webp: Nightstallion, Elephantus, Neoneo13, Denelson83, Rainman, R-41, Minestrone, Lupo, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Croatia.svg
+- n2-310749ef11.webp: Original: Matthías Þórðarson Vector: Árni Dagur and Magasjukur2, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Iceland.svg
+- n2-ca6eea2dd9.webp: See File history below for details., Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Bhutan.svg
+- n2-d573793047.webp: Original: Sri Lanka Vectorization: Zscout370, Mike Rohsopht, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Sri_Lanka.svg
+- n2-64d57fe541.webp: Shaken Niyazbekop, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Kazakhstan.svg
+- n2-deee9536c8.webp: User:Hanzlan, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Kiribati.svg
+- n2-89e3d714ee.webp: See File history below for details., Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Mongolia.svg
+- n2-ba1a722004.webp: User:Nightstallion, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Papua_New_Guinea.svg
+- n2-303a41c050.webp: User:Vxb83, Public domain, https://commons.wikimedia.org/wiki/File:Flag_of_Seychelles.svg
+- n2-f6e52ae3c7.webp: Benh LIEU SONG, Public domain, https://commons.wikimedia.org/wiki/File:Tour_Eiffel_Wikimedia_Commons.jpg
+- n2-eb561d10e9.webp: William Warby, CC BY 2.0, https://commons.wikimedia.org/wiki/File:Statue_of_Liberty,_NY.jpg
+- n2-9915fe4dd1.webp: Arne Müseler, CC BY-SA 3.0 de, https://commons.wikimedia.org/wiki/File:Christ_the_Redeemer_-_Cristo_Redentor.jpg
+- n2-e61ebe4d9d.webp: Velatrix, CC0, https://commons.wikimedia.org/wiki/File:Great_Wall_of_China_July_2006.JPG
+- n2-cd9eab9ef3.webp: Tournasol7, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Colosseum_in_Rome_(3).jpg
+- n2-81f2eb9ecd.webp: Yann; edited by King of Hearts, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Taj_Mahal,_Agra,_India_edit2.jpg
+- n2-8c033a0c79.webp: Julian Herzog (Website), CC BY 4.0, https://commons.wikimedia.org/wiki/File:Big_Ben_Elizabeth_Tower_London_2023_01.jpg
+- n2-7ebf43d0cd.webp: kallerna, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Pyramids_of_Giza_and_boat_pit.jpg
+- n2-1e5e989caa.webp: Matti Blume, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Sagrada_Familia,_Barcelona_(P1170693).jpg
+- n2-60ce53b167.webp: Diliff, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Sydney_Opera_House_-_Dec_2008.jpg
+- n2-6b8279a266.webp: Saffron Blaze, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:The_Leaning_Tower_of_Pisa_SB.jpeg
+- n2-ef74878f78.webp: Dietmar Rabich, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:San_Francisco_(CA,_USA),_Golden_Gate_Bridge_--_2022_--_3023_(bw).jpg
+- n2-cccb23cda1.webp: Al_Khazneh_Petra.jpg: Graham Racher from London, UK derivative work: MrPanyGoff, CC BY-SA 2.0, https://commons.wikimedia.org/wiki/File:Al_Khazneh_Petra_edit_2.jpg
+- n2-362e7e64c3.webp: Daniel Schwen, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Chichen_Itza_3.jpg
+- n2-52746ba337.webp: Dean Franklin, Public domain, https://commons.wikimedia.org/wiki/File:Dean_Franklin_-_06.04.03_Mount_Rushmore_Monument_(by-sa).jpg
+- n2-f909e70a8f.webp: Юрий Д.К., CC BY 4.0, https://commons.wikimedia.org/wiki/File:Moscow_-_2025_-_Daytime_view_of_St._Basil%27s_Cathedral_from_Vasilyevsky_Spusk.jpg
+- n2-0bd40e742b.webp: Satdeep Gill, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Angkor_Wat_with_its_reflection_(cropped).jpg
+- n2-d6020c609f.webp: A.Savin, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Attica_06-13_Athens_50_View_from_Philopappos_-_Acropolis_Hill.jpg
+- n2-658cdf6242.webp: Operarius, CC BY 3.0, https://commons.wikimedia.org/wiki/File:Stonehenge,_Salisbury_retouched.jpg
+- n2-57e21cc799.webp: Wilfredor, CC0, https://commons.wikimedia.org/wiki/File:Neuschwanstein_Castle_2024-02.jpg
+- n2-6c8aed068a.webp: Aheilner, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Burj_dubai_3.11.08.jpg
+- n2-335bff848b.webp: Thomas Wolf, www.foto-tw.de, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Brandenburger_Tor_morgens.jpg
+- n2-61f2f135ff.webp: Jakub Hałun, CC BY 4.0, https://commons.wikimedia.org/wiki/File:Itsukushima-jinja_torii_at_sunset,_Miyajima,_Japan,_20240816_1812_4144.jpg
+- n2-ce009fc854.webp: Diego Delso, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Atomium,_Bruselas,_B%C3%A9lgica,_2021-12-15,_DD_148-150_HDR.jpg
+- n2-1f3d60f148.webp: Arild Vågen, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Hagia_Sophia_Mars_2013.jpg
+- n2-2ca0fa8741.webp: Diego Delso, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Cuernos_del_Paine,_Parque_Nacional_Torres_del_Paine,_Chile1.jpg
+- n2-8b63f14111.webp: Christopher Crouzet, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Reflection_on_the_Salar_de_Uyuni,_bolivia.jpg
+- n2-ca9152f9a6.webp: CEphoto, Uwe Aranas, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Beijing_China_Forbidden-City-03.jpg
+- n2-31d4bf2527.webp: Addicted04 (talk), CC BY 3.0, https://commons.wikimedia.org/wiki/File:Chile_(orthographic_projection).svg
+- n2-fc356490f2.webp: This W3C-unspecified vector image was created with Inkscape ., CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Australia_(orthographic_projection).svg
+- n2-15353811cb.webp: Ssolbergj, CC BY 3.0, https://commons.wikimedia.org/wiki/File:Russian_Federation_(orthographic_projection).svg
+- n2-a7dbac2e8e.webp: Ssolbergj, CC BY 3.0, https://commons.wikimedia.org/wiki/File:United_States_(orthographic_projection).svg
+- n2-50d0df86af.webp: Spain_(orthographic_projection).png: Neoespaña (talk) derivative work: L'América, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Spain_(orthographic_projection).svg
+- n2-aa3bbaa3c3.webp: Damouns, Ssolbergj, Public domain, https://commons.wikimedia.org/wiki/File:France_(orthographic_projection).svg
+- n2-93981f5734.webp: Addicted04, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Colombia_(orthographic_projection).svg
+- n2-d5becf1e04.webp: Rob, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:United_Kingdom_(orthographic_projection).svg
+- n2-f12bb12f6b.webp: Africa_(orthographic_projection).svg: Martin23230 derivative work: Nableezy (tal, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Egypt_(orthographic_projection).svg
+- n2-e58f47f6ce.webp: MSClaudiu, Public domain, https://commons.wikimedia.org/wiki/File:Norway_(orthographic_projection).svg
+- n2-96c1ae8edd.webp: Addicted04, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Ecuador_(orthographic_projection).svg
+- n2-f71cedfe6f.webp: Zuanzuanfuwa, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Thailand_(orthographic_projection).svg
+- n2-d9b303a207.webp: Connormah, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Madagascar_(orthographic_projection).svg
+- n2-93ca84d89c.webp: Connormah, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:New_Zealand_(orthographic_projection).svg
+- n2-64f79295c0.webp: Addicted04, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Philippines_(orthographic_projection).svg
+- n2-f1e36c2297.webp: Connormah, Ssolbergj (original), CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Cuba_(orthographic_projection).svg
+- n2-abc66bfad4.webp: Fjat, CC0, https://commons.wikimedia.org/wiki/File:Finland_(orthographic_projection).svg
+- n2-611a282f1d.webp: Ssolbergj (source map), Connormah, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Paraguay_(orthographic_projection).svg
+- n2-b5f7f2c93f.webp: Addicted04, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Indonesia_(orthographic_projection).svg
+- n2-a9c4920772.webp: Keepscases, perlshaper, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Saudi_Arabia_(orthographic_projection).svg
+- n2-b3d0b76691.webp: Ukabia, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Nigeria_(orthographic_projection).svg
+- n2-5d8d05d1b1.webp: P30Carl, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Iran_(orthographic_projection).svg
+- n2-ca4b78f37b.webp: Connormah, CC BY-SA 3.0, https://commons.wikimedia.org/wiki/File:Uruguay_(orthographic_projection).svg
+- n2-f3b65bfbe7.webp: see source, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Poland_(orthographic_projection).svg
+- n2-105bc34a61.webp: Marcos Elias de Oliveira Júnior, Public domain, https://commons.wikimedia.org/wiki/File:Malawi_(orthographic_projection).svg
+- n2-dd44c428aa.webp: Source file: Ssolbergj This file: Svenskbygderna (talk), CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Laos_(orthographic_projection).svg
+- n2-a2c9f31a71.webp: derived work: DancingPhilosopher, Public domain, https://commons.wikimedia.org/wiki/File:Slovenia_(orthographic_projection)_gray_and_green_scheme_globe.svg
+- n2-8e7c8361c6.webp: Artwin, Public domain, https://commons.wikimedia.org/wiki/File:Suriname_(orthographic_projection).svg
