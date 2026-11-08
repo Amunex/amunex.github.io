@@ -159,3 +159,8 @@ From Wikimedia Commons, resized for the trivia game.
 - n2-1d154308dc.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:Magnavox-Odyssey-Console-Set.jpg
 - n2-69ede35341.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:Atari-2600-Wood-4Sw-Set.jpg
 - n2-f4a9c342c7.webp: Evan-Amos, Public domain, https://commons.wikimedia.org/wiki/File:N64-Console-Set.png
+
+- n2-437de8de9a.webp: User:GaeMFreeK, created by Square Enix, Public domain, https://commons.wikimedia.org/wiki/File:Square_Enix_logo.svg
+- n2-b497b00935.webp: YosemiteYamper, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Pac-Man_arcade_machine,_De_Notaris_Schaijk.jpg
+- n2-5ef544fad9.webp: Roblox Corporation, Public domain, https://commons.wikimedia.org/wiki/File:Roblox_Logo_Black.svg
+- n2-9c1c21128c.webp: Metro-Goldwyn-Mayer, Public domain, https://commons.wikimedia.org/wiki/File:Metro-Goldwyn-Mayer_%E2%80%94_Slats_the_Lion_(1926).png
