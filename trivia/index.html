@@ -745,6 +745,36 @@ button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 .cmsg.priv{background:rgba(245,197,66,.16);border:1px solid var(--gold);border-radius:8px;padding:6px 9px;font-weight:700;color:#ffe08a;font-style:normal}
 .sc-card .btn[disabled]{opacity:.45;cursor:default}
 </style>
+<style id="adaptive-editor">
+/* Adaptive editor: the board grid always fits the screen width; text scales with each tile. */
+.editor{max-width:none;padding-left:clamp(10px,1.6vw,26px);padding-right:clamp(10px,1.6vw,26px)}
+.egrid{--pcol:clamp(54px,5.2vw,96px);--acol:clamp(30px,2.8vw,56px);min-width:0}
+.egrid-wrap{overflow-x:visible}
+.eg-cat,.ecell{container-type:inline-size}
+.eg-cat{min-height:clamp(60px,6.4vw,92px);padding:8px 22px 8px 6px}
+.cat-in{font-size:clamp(12px,13cqi,22px);overflow-wrap:normal;word-break:normal}
+.ecell{min-height:clamp(94px,8.6vw,126px);padding:clamp(7px,.7vw,11px) clamp(7px,.75vw,12px)}
+.ec-top{flex-wrap:wrap;row-gap:4px}
+.badges{flex-wrap:wrap}
+.ec-pts{font-size:clamp(16px,16cqi,27px)}
+.ec-q{font-size:clamp(11.5px,9.6cqi,15px)}
+.ec-a{font-size:clamp(10.5px,8.6cqi,13.5px)}
+.ec-img{width:clamp(34px,32cqi,58px);height:auto;aspect-ratio:58/40;right:clamp(6px,5cqi,10px);bottom:clamp(6px,5cqi,10px)}
+.ecell:has(.ec-img) .ec-a{padding-right:calc(clamp(34px,32cqi,58px) + 6px)}
+.eg-row{padding:6px 20px 6px 4px}
+.pts-in{height:clamp(32px,2.9vw,44px);font-size:clamp(15px,1.6vw,25px)}
+.title-in{font-size:clamp(28px,3.4vw,48px)}
+/* Stacked: when tiles would get too narrow, each category becomes its own block of tiles. */
+.egrid-wrap.stack .egrid{grid-template-columns:repeat(auto-fill,minmax(148px,1fr))!important}
+.egrid-wrap.stack .egrid>*{order:var(--o,0)}
+.egrid-wrap.stack .eg-cat{grid-column:1/-1;min-height:50px;margin-top:8px}
+.egrid-wrap.stack .cat-in{font-size:22px;text-align:left}
+.egrid-wrap.stack .eg-gap{display:none}
+.egrid-wrap.stack .eg-add[data-act="addCol"]{order:98998;grid-column:1/-1;margin-top:8px}
+.egrid-wrap.stack .eg-corner{order:98999;grid-column:1/-1;justify-content:flex-start;margin-top:8px}
+.egrid-wrap.stack .eg-add[data-act="addRow"]{order:99999;grid-column:1/-1!important}
+.egrid-wrap.stack .ecell{min-height:100px}
+</style>
 </head>
 <body>
 <div id="app"><div class="boot">Loading</div></div>
@@ -1955,11 +1985,11 @@ function renderEditor() {
 <main class="editor">
   <input class="title-in" id="titleIn" value="${esc(g.title)}" placeholder="Game title" aria-label="Game title" maxlength="200">
   <div class="meta"><span>${filled} of ${nC * nR} clues written</span><span>${plural(nC, 'category').replace('categorys', 'categories')}, ${plural(nR, 'row')}</span><span id="saveState">${Store.broken ? '<span class="err">This browser isn\u2019t saving games (private window?). Export before you close it.</span>' : ''}</span></div>
-  <div class="egrid-wrap"><div class="egrid" style="grid-template-columns:96px repeat(${nC},minmax(168px,1fr)) 56px">
+  <div class="egrid-wrap"><div class="egrid" style="grid-template-columns:var(--pcol) repeat(${nC},minmax(0,1fr)) var(--acol)">
     <div class="eg-corner">Points</div>
-    ${g.cats.map((cat, c) => `<div class="eg-cat"><textarea class="cat-in" data-c="${c}" rows="2" maxlength="80" placeholder="Category ${c + 1}" aria-label="Category ${c + 1} name">${esc(cat.name)}</textarea><button class="eg-more" data-act="colMenu" data-c="${c}" title="Category options" aria-label="Category ${c + 1} options">${icon('dots', 16)}</button></div>`).join('')}
+    ${g.cats.map((cat, c) => `<div class="eg-cat" style="--o:${c * 100}"><textarea class="cat-in" data-c="${c}" rows="2" maxlength="80" placeholder="Category ${c + 1}" aria-label="Category ${c + 1} name">${esc(cat.name)}</textarea><button class="eg-more" data-act="colMenu" data-c="${c}" title="Category options" aria-label="Category ${c + 1} options">${icon('dots', 16)}</button></div>`).join('')}
     <button class="eg-add" data-act="addCol"${nC >= MAX_COLS ? ' disabled' : ''} title="Add a category" aria-label="Add a category">${icon('plus')}</button>
-    ${g.rows.map((pts, r) => `<div class="eg-row"><input class="pts-in" data-r="${r}" type="number" step="100" value="${esc(pts)}" aria-label="Row ${r + 1} points"><button class="eg-more" data-act="rowMenu" data-r="${r}" title="Row options" aria-label="Row ${r + 1} options">${icon('dots', 16)}</button></div>${g.cats.map((_, c) => cellPreview(c, r)).join('')}<div></div>`).join('')}
+    ${g.rows.map((pts, r) => `<div class="eg-row" style="--o:${99000 + r}"><input class="pts-in" data-r="${r}" type="number" step="100" value="${esc(pts)}" aria-label="Row ${r + 1} points"><button class="eg-more" data-act="rowMenu" data-r="${r}" title="Row options" aria-label="Row ${r + 1} options">${icon('dots', 16)}</button></div>${g.cats.map((_, c) => cellPreview(c, r)).join('')}<div class="eg-gap"></div>`).join('')}
     <button class="eg-add" data-act="addRow"${nR >= MAX_ROWS ? ' disabled' : ''} style="grid-column:1 / span ${nC + 1}">${icon('plus')}Add a row</button>
   </div></div>
   <section class="ed-settings">
@@ -1972,6 +2002,15 @@ function renderEditor() {
   app.oninput = onEditorInput;
   app.onchange = e => { if (e.target.id === 'gamePick') switchGame(e.target.value); };
   app.onkeydown = e => { if (e.target.classList.contains('cat-in') && e.key === 'Enter') { e.preventDefault(); e.target.blur(); } };
+  fitEditorGrid(nC);
+}
+let EG_RO = null;
+function fitEditorGrid(nC) {
+  const wrap = $('.egrid-wrap'); if (!wrap) return;
+  const fit = () => wrap.classList.toggle('stack', wrap.clientWidth < nC * 112 + 110);
+  if (EG_RO) EG_RO.disconnect();
+  if (window.ResizeObserver) { EG_RO = new ResizeObserver(fit); EG_RO.observe(wrap); } else addEventListener('resize', fit);
+  fit();
 }
 
 function cellPreview(c, r) {
@@ -1981,7 +2020,7 @@ function cellPreview(c, r) {
   const pic = cell.qm.find(isPic) || cell.am.find(isPic), yt = !pic && cell.qm.map(m => ['youtube', 'ytaudio'].includes(kindOf(m)) && ytInfo(m.src)).find(Boolean);
   const thumb = pic ? (pic.thumb || directSrc(pic.src)) : yt ? `https://i.ytimg.com/vi/${encodeURIComponent(yt.id)}/default.jpg` : '';
   const badges = (cell.dd ? '<span class="badge dd" title="Daily Double">DD</span>' : '') + (cell.jester ? `<span class="badge jester" title="Jester mini-game">${icon('jester', 13)}Jester</span>` : '') + (cell.mime ? '<span class="badge mime" title="M\u00edmica">\u{1F3AD}</span>' : '') + kinds.map(k => `<span class="badge" title="${esc(KIND_LABEL[k])}">${icon(KIND_ICON[k] || 'link', 12)}</span>`).join('');
-  return `<button class="ecell${f ? '' : ' empty'}" data-act="edit" data-c="${c}" data-r="${r}" aria-label="Edit clue">
+  return `<button class="ecell${f ? '' : ' empty'}" style="--o:${c * 100 + r + 1}" data-act="edit" data-c="${c}" data-r="${r}" aria-label="Edit clue">
     <span class="ec-top"><span class="ec-pts">${esc((g.settings.prefix || '') + fmtNum(cellValue(g, c, r)))}${cell.pts !== null ? '<sup>*</sup>' : ''}</span><span class="badges">${badges}</span></span>
     <span class="ec-q">${f ? esc(snippet(cell.q) || 'Media clue') : 'Add a clue'}</span>
     ${thumb ? `<span class="ec-img" style="background-image:url('${cssUrl(thumb)}')"></span>` : ''}
