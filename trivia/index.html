@@ -745,6 +745,10 @@ button.hcard:hover{border-color:var(--gold);transform:translateY(-2px)}
 .cmsg.priv{background:rgba(245,197,66,.16);border:1px solid var(--gold);border-radius:8px;padding:6px 9px;font-weight:700;color:#ffe08a;font-style:normal}
 .sc-card .btn[disabled]{opacity:.45;cursor:default}
 </style>
+<style id="test-run">
+.test-pill{display:inline-flex;align-items:center;height:28px;padding:0 12px;border-radius:999px;background:#7a22e0;color:#fff;font:700 13px/1 var(--f-ui);letter-spacing:.05em;text-transform:uppercase;white-space:nowrap}
+body.testing .monitor{box-shadow:0 0 0 3px #7a22e0,0 24px 70px rgba(0,0,0,.5)}
+</style>
 <style id="adaptive-editor">
 /* Adaptive editor: the board grid always fits the screen width; text scales with each tile. */
 .editor{max-width:none;padding-left:clamp(10px,1.6vw,26px);padding-right:clamp(10px,1.6vw,26px)}
@@ -1979,6 +1983,7 @@ function renderEditor() {
   <button class="btn sm" data-act="save" title="Save (Ctrl+S)">${icon('check', 16)}Save</button>
   <button class="btn sm ghost" data-act="import">Import</button>
   <button class="btn sm ghost" data-act="export">Export</button>
+  <button class="btn sm" data-act="testRun" title="Play the game yourself to check clues, pictures and sounds. Scores and used tiles go back when you finish.">Test run</button>
   <button class="btn primary" data-act="host">${icon('play', 16)}Host this game</button>
   ${langSwHTML()}
 </header>
@@ -2081,6 +2086,7 @@ function editAct(a, d, btn) {
     case 'save': saveNow(); break;
     case 'renumber': { const step = +G.rows[0] || 100; G.rows = G.rows.map((_, i) => step * (i + 1)); afterStructure(); break; }
     case 'host': enterHost(); break;
+    case 'testRun': startTestRun(); break;
     case 'home': saveSoon.flush(); renderHome(); break;
   }
 }
@@ -2907,7 +2913,35 @@ function exitHost(to) {
   if (Net.bc) { try { Net.bc.postMessage(paused); } catch (e) {} }
   sendRemote(paused);
   saveSoon.flush();
-  if (to === 'home') renderHome(); else renderEditor();
+  const go = () => { if (to === 'home') renderHome(); else renderEditor(); };
+  if (RT.testRun || lsGet(TEST_KEY, null)) endTestRun().then(go, go); else go();
+}
+
+/* ---------- test run: play the game privately, then put everything back ---------- */
+const TEST_KEY = 'tn.testSnap';
+function startTestRun() {
+  if (!G) return;
+  saveSoon.flush();
+  lsSet(TEST_KEY, { id: G.id, live: clone(G.live), played: G.cats.map(c => c.cells.map(x => !!x.played)) });
+  RT.testRun = true;
+  G.cats.forEach(c => c.cells.forEach(x => { x.played = false; }));   /* every tile is open to try */
+  G.live = Object.assign(freshLive(), { players: G.live.players.map(p => Object.assign({}, p, { score: 0 })) });
+  enterHost({ silent: true });
+  flashMsg('Test run: open anything you like. When you leave, it all goes back.');
+}
+async function endTestRun(silent) {
+  const snap = lsGet(TEST_KEY, null);
+  RT.testRun = false; document.body.classList.remove('testing');
+  try { localStorage.removeItem(TEST_KEY); } catch (e) {}
+  if (!snap || !snap.id) return false;
+  const g = (G && G.id === snap.id) ? G : await loadGame(snap.id);
+  if (!g) return false;
+  g.live = snap.live; fixLive(g);
+  g.cats.forEach((c, ci) => c.cells.forEach((x, ri) => { x.played = !!(snap.played && snap.played[ci] && snap.played[ci][ri]); }));
+  await persist(g);
+  if (G && G.id === g.id) G = g;
+  if (!silent) flashMsg('Test run over. Scores and tiles are back how they were.');
+  return true;
 }
 
 function renderHost() {
@@ -2933,6 +2967,8 @@ function renderHost() {
 </div>`;
   Host.screen = createScreen($('#monitor'), { interactive: true, muted: !RT.hostSound, onTile: hostOpenTile, onStage: hostStage });
   $('#exitHost').onclick = () => exitHost();
+  document.body.classList.toggle('testing', !!RT.testRun);
+  if (RT.testRun) { $('.host-top').insertAdjacentHTML('afterbegin', '<span class="test-pill" title="Nothing here counts. Leave to put everything back.">Test run</span>'); $('#exitHost').innerHTML = icon('chevL', 16) + 'End test'; }
   $('#homeBtn').onclick = () => exitHost('home');
   $('#buzzTop').onclick = e => { hostToggleBuzzers(); e.currentTarget.blur(); };
   $('#jbTop').onclick = e => { openJukebox('host'); e.currentTarget.blur(); };
@@ -3876,6 +3912,7 @@ async function boot() {
   if (qs.get('join')) return bootJoin(qs.get('join'), qs.get('name'), qs.has('test'));
   if (qs.has('display')) return bootDisplay();
   await loadAll();
+  if (lsGet(TEST_KEY, null)) { await endTestRun(true); lsSet('tn.mode', 'edit'); setTimeout(() => flashMsg('Your last test run was undone.'), 600); }
   document.addEventListener('pointerdown', () => SFX.unlock(), { once: true });
   addEventListener('pagehide', () => { if (G && saveSoon.pending()) saveSoon.flush(); });
   addEventListener('hashchange', async () => { if (await addFromHash() && UI.mode !== 'host') renderHome(); });
