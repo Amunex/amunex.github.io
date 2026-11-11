@@ -833,6 +833,10 @@ html[data-themed] body:not(.is-screen)::after{background-image:linear-gradient(c
 .fj-grid .txt{width:100%}
 @media (max-width:800px){.fj-grid{grid-template-columns:1fr}}
 /* player: the private box */
+.fjb-lock{margin:-2px 0 10px;padding:8px 10px;border-radius:9px;background:rgba(255,199,44,.12);border:1px solid rgba(255,199,44,.4);font:500 13px/1.35 var(--f-ui);color:var(--ink)}.fjb-lock b{color:var(--gold)}
+.fj-out{font:600 30px/1.25 var(--f-cond);color:#c9cff5;text-shadow:2px 2px 0 #000}
+.fin-tie{position:relative;z-index:1;margin:-10px 0 20px;font:700 40px/1.2 var(--f-cond);color:var(--gold);text-shadow:3px 3px 0 #000;animation:fjIn .5s 1.6s both}
+.fj-noq{display:inline-block;margin-left:6px;padding:2px 6px;border-radius:5px;background:rgba(255,90,95,.16);color:#ff8a8e;font:700 11px/1.3 var(--f-ui);font-style:normal}
 @media (min-width:901px){body:has(#chat:not(.hidden)) .fj-box{left:calc((100% - 330px) / 2)}}
 .fj-box{position:fixed;left:50%;bottom:104px;z-index:70;width:min(540px,calc(100vw - 20px));transform:translateX(-50%);padding:14px 16px;border-radius:14px;background:var(--desk);border:2px solid var(--gold);box-shadow:0 18px 50px rgba(0,0,0,.55);animation:fjIn .3s both}
 .fjb-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}.fjb-h b{font:700 16px/1.2 var(--f-ui);color:var(--gold)}.fjb-h span{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
@@ -1436,6 +1440,7 @@ const SFX = (() => {
     fjstart() { [262, 330, 392, 523].forEach((f, i) => tone(f, i * 0.09, 0.55, 'triangle', 0.42)); tone(1047, 0.42, 0.95, 'triangle', 0.34); noise(0.36, 1.3, 0.34, 5200); tone(65, 0.36, 0.6, 'sine', 0.6, 40); },
     drumroll() { const n = 36; for (let i = 0; i < n; i++) noise(i * 0.058, 0.06, 0.08 + 0.3 * i / n, 2400); noise(n * 0.058, 1.3, 0.5, 6200); tone(65, n * 0.058, 0.6, 'sine', 0.7, 42); },
     fjtick() { tone(1250, 0, 0.035, 'square', 0.09); },
+    fjthink() { [523, 659, 784, 659].forEach((f, i) => tone(f, i * 0.22, 0.2, 'triangle', 0.1)); tone(131, 0, 0.9, 'sine', 0.12); },
     fjtock() { tone(880, 0, 0.06, 'square', 0.14); tone(440, 0, 0.14, 'triangle', 0.2); }
   };
   return { play(n) { try { if (lib[n]) lib[n](); } catch (e) {} }, unlock() { ac(); }, setVol(v) { if (out) out.gain.value = 0.62 * VOLX(v); } };
@@ -2093,20 +2098,21 @@ function createScreen(container, opts = {}) {
     if (st === 'title') el.fj.innerHTML = `${BEAMS}<div class="fj-logo">${T('Final<br>Jeopardy!', 'Jeopardy<br>final')}</div><div class="fj-sub">${T('Get your wager ready', 'Prepara tu apuesta')}</div>`;
     else if (st === 'cat') {
       el.fj.innerHTML = `${BEAMS}<div class="fj-kicker">${T('Final Jeopardy', 'Jeopardy final')}</div><div class="fj-cat"><span>${esc(f.cat || '')}</span></div>
-        <div class="fj-sub">${T('Make your wager on your device. Only the host sees it.', 'Haz tu apuesta en tu dispositivo. Solo el anfitri\u00f3n la ve.')}</div>
-        <div class="fj-got">${(f.got || []).map(n => `<span>\u2714 ${esc(n)}</span>`).join('')}</div>`;
+        <div class="fj-sub">${T('Wager in the private box on your device. Only the host can read it.', 'Apuesta en el cuadro privado de tu dispositivo. Solo el anfitri\u00f3n puede leerlo.')}</div>
+        <div class="fj-got">${(f.got || []).map(n => `<span>\u2714 ${esc(n)}</span>`).join('')}</div>
+        ${(f.out || []).length ? `<div class="fj-out">${T('Sitting out with 0 or less, like on TV:', 'Fuera por tener 0 o menos, como en la TV:')} ${(f.out || []).map(esc).join(', ')}</div>` : ''}`;
       const sp = $('.fj-cat span', el.fj); if (sp) fitText(sp, 160, 50, sp.clientWidth || 1660, 300);
     } else if (st === 'clue' || st === 'judge') {
       el.fj.innerHTML = `<div class="fj-kicker">${esc(f.cat || '')}</div><div class="fj-clue"><div>${esc(f.q || '')}</div></div>
         <div class="fj-clock${st === 'judge' ? ' over' : ''}"><i></i><b></b></div>
-        <div class="fj-sub">${st === 'judge' ? T('Time\u2019s up! The host is checking the answers.', '\u00a1Se acab\u00f3 el tiempo! El anfitri\u00f3n revisa las respuestas.') : T('Answer on your device, in the form of a question.', 'Responde en tu dispositivo, en forma de pregunta.')}</div>
+        <div class="fj-sub">${st === 'judge' ? T('Time\u2019s up! The host is checking the answers.', '\u00a1Se acab\u00f3 el tiempo! El anfitri\u00f3n revisa las respuestas.') : T('Write your answer in your private box, as a question. Only the host can read it.', 'Escribe tu respuesta en tu cuadro privado, en forma de pregunta. Solo el anfitri\u00f3n puede leerla.')}</div>
         <div class="fj-got">${st === 'clue' ? (f.got || []).map(n => `<span>\u270e ${esc(n)}</span>`).join('') : ''}</div>`;
       const d = $('.fj-clue div', el.fj); if (d) fitText(d, 100, 40, d.clientWidth || 1660, 520);
       if (st === 'clue') {
         const skew = Date.now() - (f.now || Date.now()), tick = () => {
           const left = Math.max(0, f.endsAt - (Date.now() - skew)), s = Math.ceil(left / 1000), bar = $('.fj-clock i', el.fj), lab = $('.fj-clock b', el.fj);
           if (bar) bar.style.width = Math.min(100, left / 300) + '%'; if (lab) lab.textContent = s + 's';
-          if (s !== fjSec && fjSec !== -1 && s > 0 && self.primed && soundOn()) SFX.play(s <= 5 ? 'fjtock' : 'fjtick');
+          if (s !== fjSec && fjSec !== -1 && s > 0 && self.primed && soundOn()) { SFX.play(s <= 5 ? 'fjtock' : 'fjtick'); if (s > 5 && s % 4 === 2) SFX.play('fjthink'); }
           fjSec = s;
         };
         stopFJClock(); tick(); fjClock = setInterval(tick, 200);
@@ -2147,7 +2153,8 @@ function createScreen(container, opts = {}) {
     /* rows come in from last place to first, under a drum roll; the winner lands with a crash and confetti */
     const step = 0.55, delay = i => (seq ? 0.5 + (ps.length - 1 - i) * step : 0).toFixed(2) + 's';
     el.final.classList.toggle('seq', seq);
-    el.final.innerHTML = `${BEAMS}<h1>${T('Final scores', 'Puntajes finales')}</h1><ol>${ps.map((p, i) => {
+    const tie = ps.length > 1 && ps[0].score === ps[1].score;
+    el.final.innerHTML = `${BEAMS}<h1>${T('Final scores', 'Puntajes finales')}</h1>${tie ? `<div class="fin-tie">${T('It\u2019s a tie for first! On TV they\u2019d play one tiebreaker clue.', '\u00a1Empate en el primer lugar! En la TV jugar\u00edan una pregunta de desempate.')}</div>` : ''}<ol>${ps.map((p, i) => {
       const rank = 1 + ps.filter(x => x.score > p.score).length;
       return `<li class="${p.score === top ? 'win' : ''}" style="height:${rowH}px;font-size:${fs}px;--d:${delay(i)}"><span class="rk">${rank}</span><span class="nm">${esc(p.name)}</span><span class="pt">${esc(fmtScore(p.score, S.prefix))}</span></li>`;
     }).join('')}</ol>`;
@@ -3615,8 +3622,10 @@ function fjPub(f) {
   const got = st === 'cat' ? Object.keys(f.w || {}) : st === 'clue' ? Object.keys(f.a || {}).filter(id => (f.a[id] || '').trim()) : [];
   const done = st === 'reveal' && f.order && f.revealed && f.revealed.length >= f.order.length;
   return { stage: st, cat: st === 'title' ? '' : (F.cat || ''), q: ['clue', 'judge', 'reveal'].includes(st) ? (F.q || '') : '', endsAt: f.endsAt || 0, now: Date.now(),
-    got: got.map(nm).filter(Boolean), rev: (f.revealed || []).map(x => Object.assign({}, x)), right: done ? (F.a || '') : '' };
+    elig: fjElig(f), out: ps.filter(p => !fjElig(f).includes(p.id)).map(p => p.name), got: got.map(nm).filter(Boolean), rev: (f.revealed || []).map(x => Object.assign({}, x)), right: done ? (F.a || '') : '' };
 }
+const fjElig = f => f.elig || G.live.players.filter(p => p.score > 0).map(p => p.id);
+const fjIsQ = s => /^\s*¿?\s*(what|who|where|when|which|why|how|qu[eé]|qui[eé]n(es)?|d[oó]nde|cu[aá]ndo|cu[aá]l(es)?|por ?qu[eé]|c[oó]mo)\b/i.test(s || '');
 function fjLeftTiles() { return G.cats.reduce((n, c) => n + c.cells.filter(x => cellFilled(x) && !x.played).length, 0); }
 async function hostFJStart() {
   if (!G) return; const L = G.live;
@@ -3629,17 +3638,25 @@ async function hostFJStart() {
 }
 function hostFJ(act, d) {
   const L = G.live, f = L.fj, F = G.final || {}; if (!f) return;
-  if (act === 'fjCat') { if (!(F.cat || '').trim()) { flashMsg('Write the category first'); return; } f.stage = 'cat'; }
+  if (act === 'fjCat') {
+    if (!(F.cat || '').trim()) { flashMsg('Write the category first'); return; }
+    f.elig = L.players.filter(p => p.score > 0).map(p => p.id); f.stage = 'cat';   /* like on TV: you need more than 0 to play */
+    sysChat(HT('Final Jeopardy! The category is up. Make your wager in the private box on your screen. Only the host can read what you type there; nobody else in the game will see it.',
+      '\u00a1Jeopardy final! Ya est\u00e1 la categor\u00eda. Haz tu apuesta en el cuadro privado de tu pantalla. Solo el anfitri\u00f3n puede leer lo que escribas ah\u00ed; nadie m\u00e1s en el juego lo ver\u00e1.'));
+    const out = L.players.filter(p => !f.elig.includes(p.id)).map(p => p.name);
+    if (out.length) sysChat(HT(`${out.join(', ')} ${out.length > 1 ? 'sit' : 'sits'} this one out: like on TV, you need more than 0 points to play Final Jeopardy.`, `${out.join(', ')} ${out.length > 1 ? 'quedan' : 'queda'} fuera de esta: como en la TV, necesitas m\u00e1s de 0 puntos para jugar el Jeopardy final.`));
+  }
   else if (act === 'fjClue') {
     if (!(F.q || '').trim()) { flashMsg('Write the clue first'); return; }
-    L.players.forEach(p => { f.cap[p.id] = Math.max(0, p.score); f.w[p.id] = Math.max(0, Math.min(f.w[p.id] | 0, f.cap[p.id])); });
-    f.stage = 'clue'; f.endsAt = Date.now() + 30000;
+    const el = fjElig(f); L.players.forEach(p => { if (!el.includes(p.id)) { delete f.w[p.id]; return; } f.cap[p.id] = Math.max(0, p.score); f.w[p.id] = Math.max(0, Math.min(f.w[p.id] | 0, f.cap[p.id])); });
+    f.stage = 'clue'; f.endsAt = Date.now() + 30000;   /* wagers are locked now, like on TV */
+    sysChat(HT('Here\u2019s the clue. You have 30 seconds to write your answer in your private box, phrased as a question (What is\u2026? Who is\u2026?). Only the host can read it.', 'Aqu\u00ed est\u00e1 la pregunta. Tienes 30 segundos para escribir tu respuesta en tu cuadro privado, en forma de pregunta (\u00bfQu\u00e9 es\u2026? \u00bfQui\u00e9n es\u2026?). Solo el anfitri\u00f3n puede leerla.'));
   }
   else if (act === 'fjMore') f.endsAt = Math.max(f.endsAt, Date.now()) + 15000;
   else if (act === 'fjStop') fjToJudge(f);
   else if (act === 'fjOk') f.ok[d.id] = d.v === '1';
   else if (act === 'fjRev') {
-    if (f.stage !== 'reveal') { f.stage = 'reveal'; f.order = L.players.slice().sort((a, b) => a.score - b.score || a.name.localeCompare(b.name)).map(p => p.id); f.revealed = []; }
+    if (f.stage !== 'reveal') { f.stage = 'reveal'; f.order = L.players.filter(p => fjElig(f).includes(p.id)).sort((a, b) => a.score - b.score || a.name.localeCompare(b.name)).map(p => p.id); f.revealed = []; }
     const id = f.order[f.revealed.length], p = L.players.find(x => x.id === id);
     if (p) {
       const w = Math.max(0, Math.min(f.w[id] | 0, f.cap[id] == null ? Math.max(0, p.score) : f.cap[id])), ok = f.ok[id] === true, before = p.score, dlt = ok ? w : -w;
@@ -3651,16 +3668,16 @@ function hostFJ(act, d) {
   else if (act === 'fjCancel') { L.phase = 'board'; L.fj = null; }
   commit();
 }
-function fjToJudge(f) { f.stage = 'judge'; G.live.players.forEach(p => { if (!(f.a[p.id] || '').trim() && f.ok[p.id] == null) f.ok[p.id] = false; }); }
+function fjToJudge(f) { f.stage = 'judge'; const el = fjElig(f); G.live.players.forEach(p => { if (el.includes(p.id) && !(f.a[p.id] || '').trim() && f.ok[p.id] == null) f.ok[p.id] = false; }); }
 function hostFJWager(rec, m) {
   const L = G.live, f = L.fj; if (L.phase !== 'fj' || !f || f.stage !== 'cat') return;
-  const pi = playerByPid(rec.pid); if (pi < 0) return; const p = L.players[pi];
+  const pi = playerByPid(rec.pid); if (pi < 0) return; const p = L.players[pi]; if (!fjElig(f).includes(p.id)) return;
   const w = Math.max(0, Math.min(Math.round(+m.w || 0), Math.max(0, p.score))); f.w[p.id] = w;
   sendToPid(rec.pid, { t: 'fjack', w }); saveSoon(); broadcastSoon(); renderHostPanel();
 }
 function hostFJAnswer(rec, m) {
   const L = G.live, f = L.fj; if (L.phase !== 'fj' || !f || f.stage !== 'clue' || Date.now() > f.endsAt + 1500) return;
-  const pi = playerByPid(rec.pid); if (pi < 0) return; const p = L.players[pi];
+  const pi = playerByPid(rec.pid); if (pi < 0) return; const p = L.players[pi]; if (!fjElig(f).includes(p.id)) return;
   f.a[p.id] = String(m.a || '').slice(0, 200); sendToPid(rec.pid, { t: 'fjack', a: f.a[p.id] }); saveSoon(); broadcastSoon(); renderHostPanel();
 }
 setInterval(() => {
@@ -3669,9 +3686,12 @@ setInterval(() => {
   if (f.stage === 'clue') { const s = Math.max(0, Math.ceil((f.endsAt - Date.now()) / 1000)); if (el) el.textContent = s + 's'; if (Date.now() >= f.endsAt) { fjToJudge(f); commit(); } }
 }, 250);
 function fjSection() {
-  const L = G.live, f = L.fj, F = G.final || {}, ps = L.players, fmt = n => esc(fmtScore(n, G.settings.prefix));
+  const L = G.live, f = L.fj, F = G.final || {}, all = L.players, fmt = n => esc(fmtScore(n, G.settings.prefix));
+  const ps = f.stage === 'title' ? all : all.filter(p => fjElig(f).includes(p.id)), out = f.stage === 'title' ? [] : all.filter(p => !fjElig(f).includes(p.id));
   let h = `<section class="hp-sec fj-sec"><div class="hp-h3row"><h3>Final Jeopardy</h3><button class="btn sm ghost" data-act="fjCancel">Back to the board</button></div>`;
-  if (!ps.length) h += `<p class="hp-muted">Add players first. People who join with the invite link show up in Scores.</p>`;
+  if (!all.length) h += `<p class="hp-muted">Add players first. People who join with the invite link show up in Scores.</p>`;
+  else if (f.stage !== 'title' && !ps.length) h += `<p class="hp-muted">Nobody has more than 0 points, so nobody can play Final Jeopardy (that\u2019s the TV rule). Go back to the board, or show the final scores.</p><div class="hp-btns"><button class="btn sm primary" data-act="fjFinal">${icon('trophy', 16)}Show final scores</button></div>`;
+  if (out.length) h += `<p class="hp-muted small">Sitting out with 0 or less, like on TV: ${out.map(p => esc(p.name)).join(', ')}.</p>`;
   if (f.stage === 'title') h += `<p class="hp-muted">Everyone sees the Final Jeopardy title. Check the clue, then reveal the category.</p>
       <label class="fj-in"><span>Category</span><input class="txt" data-input="fjtext" data-k="cat" maxlength="120" value="${esc(F.cat || '')}"></label>
       <label class="fj-in"><span>Clue</span><textarea class="txt" data-input="fjtext" data-k="q" rows="3" maxlength="600">${esc(F.q || '')}</textarea></label>
@@ -3685,8 +3705,8 @@ function fjSection() {
       <div class="hp-btns"><button class="btn sm" data-act="fjMore">+15 seconds</button><button class="btn sm bad" data-act="fjStop">Stop answers now</button></div>`;
   else if (f.stage === 'judge') { const all = ps.every(p => f.ok[p.id] === true || f.ok[p.id] === false);
     h += `<p class="hp-muted">Mark every answer, then start the reveal. It goes from the lowest score to the highest.</p>
-      <div class="fj-list">${ps.map(p => `<div class="fj-pl judge"><b>${esc(p.name)}</b><span class="fj-ans">${(f.a[p.id] || '').trim() ? esc(f.a[p.id]) : '<i>No answer</i>'}</span><span>${fmt(f.w[p.id] || 0)}</span><span class="fj-ok"><button class="btn sm ${f.ok[p.id] === true ? 'ok' : 'ghost'}" data-act="fjOk" data-id="${p.id}" data-v="1">Right</button><button class="btn sm ${f.ok[p.id] === false ? 'bad' : 'ghost'}" data-act="fjOk" data-id="${p.id}" data-v="0">Wrong</button></span></div>`).join('')}</div>
-      ${F.a ? `<p class="hp-muted">Correct response: <b>${esc(F.a)}</b></p>` : ''}
+      <div class="fj-list">${ps.map(p => `<div class="fj-pl judge"><b>${esc(p.name)}</b><span class="fj-ans">${(f.a[p.id] || '').trim() ? esc(f.a[p.id]) + (fjIsQ(f.a[p.id]) ? '' : '<em class="fj-noq">Not a question</em>') : '<i>No answer</i>'}</span><span>${fmt(f.w[p.id] || 0)}</span><span class="fj-ok"><button class="btn sm ${f.ok[p.id] === true ? 'ok' : 'ghost'}" data-act="fjOk" data-id="${p.id}" data-v="1">Right</button><button class="btn sm ${f.ok[p.id] === false ? 'bad' : 'ghost'}" data-act="fjOk" data-id="${p.id}" data-v="0">Wrong</button></span></div>`).join('')}</div>
+      ${F.a ? `<p class="hp-muted">Correct response: <b>${esc(F.a)}</b></p>` : ''}<p class="hp-muted small">On TV, an answer that isn\u2019t phrased as a question counts as wrong. Your call.</p>
       <div class="hp-btns"><button class="btn sm primary" data-act="fjRev"${all && ps.length ? '' : ' disabled'}>Start the reveal</button></div>`; }
   else if (f.stage === 'reveal') { const n = f.revealed.length, next = ps.find(p => p.id === f.order[n]);
     h += `<p class="hp-muted">Revealed ${n} of ${f.order.length}. Each reveal plays a drum roll, then right or wrong, then the new score.</p>
@@ -4701,14 +4721,16 @@ function startPlayer(code, name, test) {
     const me = S.players.find(p => p.pid === pid), max = me ? Math.max(0, me.score) : 0, k = f.stage + '|' + (me ? me.id : '') + '|' + max;
     box.classList.remove('hidden');
     if (k === fjKey) return; fjKey = k;
-    const head = (t, s) => `<div class="fjb-h"><b>${t}</b><span>${s}</span></div>`;
-    if (f.stage === 'cat' && me) box.innerHTML = head(T('Final Jeopardy: your wager', 'Jeopardy final: tu apuesta'), T('Only the host sees it', 'Solo el anfitri\u00f3n la ve'))
+    const lock = `<div class="fjb-lock"><b>\ud83d\udd12 ${T('Private', 'Privado')}</b> ${T('Only the host can read what you type here. Nobody else in the game will see it.', 'Solo el anfitri\u00f3n puede leer lo que escribas aqu\u00ed. Nadie m\u00e1s en el juego lo ver\u00e1.')}</div>`;
+    const head = (t, s) => `<div class="fjb-h"><b>${t}</b><span>${s}</span></div>`, inGame = !!me && (!f.elig || f.elig.includes(me.id));
+    if (f.stage === 'cat' && inGame) box.innerHTML = lock + head(T('Final Jeopardy: your wager', 'Jeopardy final: tu apuesta'), T('Only the host sees it', 'Solo el anfitri\u00f3n la ve'))
       + `<div class="fjb-cat">${esc(f.cat || '')}</div><form class="fjb-form" id="fjForm"><input class="txt" id="fjIn" type="number" min="0" max="${max}" step="1" inputmode="numeric" placeholder="0 to ${max}" aria-label="${T('Your wager', 'Tu apuesta')}"><button class="btn primary" type="submit">${T('Lock in', 'Confirmar')}</button></form>`
       + `<div class="fjb-note" id="fjNote">${T(`Bet from 0 to ${max}. Right and your bet doubles; wrong and you lose it.`, `Apuesta de 0 a ${max}. Si aciertas tu apuesta se duplica; si fallas la pierdes.`)}</div>`;
-    else if (f.stage === 'clue' && me) box.innerHTML = head(T('Final Jeopardy: your answer', 'Jeopardy final: tu respuesta'), T('Only the host sees it', 'Solo el anfitri\u00f3n la ve'))
+    else if (f.stage === 'clue' && inGame) box.innerHTML = lock + head(T('Final Jeopardy: your answer', 'Jeopardy final: tu respuesta'), T('Only the host sees it', 'Solo el anfitri\u00f3n la ve'))
       + `<form class="fjb-form" id="fjForm"><input class="txt" id="fjIn" maxlength="200" autocomplete="off" placeholder="${T('What is...?', '\u00bfQu\u00e9 es...?')}" aria-label="${T('Your answer', 'Tu respuesta')}"><button class="btn primary" type="submit">${T('Send', 'Enviar')}</button></form>`
-      + `<div class="fjb-note" id="fjNote">${T('You can change it until time runs out.', 'Puedes cambiarla hasta que se acabe el tiempo.')}</div>`;
+      + `<div class="fjb-note" id="fjNote">${T('Like on TV, write it as a question: What is\u2026? Who is\u2026? You can change it until time runs out.', 'Como en la TV, escr\u00edbela como pregunta: \u00bfQu\u00e9 es\u2026? \u00bfQui\u00e9n es\u2026? Puedes cambiarla hasta que se acabe el tiempo.')}</div>`;
     else box.innerHTML = head(T('Final Jeopardy', 'Jeopardy final'), '') + `<div class="fjb-note">${f.stage === 'title' ? T('Coming up: get ready to wager.', 'Ya viene: prep\u00e1rate para apostar.')
+      : (f.stage === 'cat' || f.stage === 'clue') && me ? T('Like on TV, you need more than 0 points to play Final Jeopardy. Watch the reveal and cheer!', 'Como en la TV, necesitas m\u00e1s de 0 puntos para jugar el Jeopardy final. \u00a1Mira la revelaci\u00f3n y anima!')
       : f.stage === 'cat' || f.stage === 'clue' ? T('Only players on the scoreboard can play this one.', 'Solo los jugadores del marcador pueden jugar esta.') : T('Answers are locked. Watch the reveal!', 'Las respuestas est\u00e1n cerradas. \u00a1Mira la revelaci\u00f3n!')}</div>`;
     const form = $('#fjForm'), inp = $('#fjIn');
     if (form) {
@@ -4766,7 +4788,7 @@ function startPlayer(code, name, test) {
     } else if (via === 'direct' ? src !== 'direct' : src !== relayActive) return;
     last = Date.now();
     if (d.t === 'hping') { sendToHost({ t: 'hpong', ts: d.ts }); return; }
-    if (d.t === 'fjack') { const n = $('#fjNote'); if (n) n.textContent = 'w' in d ? T(`\u2714 Wager locked in: ${d.w}. Only the host sees it.`, `\u2714 Apuesta confirmada: ${d.w}. Solo el anfitri\u00f3n la ve.`) : T('\u2714 Answer sent. You can change it until time runs out.', '\u2714 Respuesta enviada. Puedes cambiarla hasta que se acabe el tiempo.'); return; }
+    if (d.t === 'fjack') { const n = $('#fjNote'); if (n) n.textContent = 'w' in d ? T(`\u2714 Wager locked in: ${d.w}. Only the host can see it. You can change it until the clue is revealed.`, `\u2714 Apuesta confirmada: ${d.w}. Solo el anfitri\u00f3n puede verla. Puedes cambiarla hasta que se revele la pregunta.`) : T('\u2714 Answer sent. You can change it until time runs out.', '\u2714 Respuesta enviada. Puedes cambiarla hasta que se acabe el tiempo.'); return; }
     if (d.t === 'pings') { const v = d.p && d.p[pid], el = $('#pingPill'); if (el && v != null) { el.textContent = T(`Ping ${v} ms`, `Ping ${v} ms`); el.className = 'pill ping ' + pingCls(v); } return; }
     if (d.t === 'jb' && d.s) { JBP.apply(d.s); renderJukebox(); }
     else if (d.t === 'chat' && d.m) addMsg(d.m);
