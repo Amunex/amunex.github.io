@@ -774,6 +774,19 @@ html[data-themed] body:not(.is-screen)::after{background-image:linear-gradient(c
 .tm-custom label{display:flex;align-items:center;gap:6px;color:var(--ink-2);cursor:pointer}
 .tm-custom input[type=color]{width:30px;height:24px;padding:0;border:1px solid var(--wire);border-radius:5px;background:none;cursor:pointer}
 </style>
+<style id="v12">
+.clue .cl-card{position:absolute;inset:0;z-index:6;display:none;flex-direction:column;align-items:center;justify-content:center;gap:26px;padding:0 140px;text-align:center;pointer-events:none;background:inherit;border-radius:inherit}
+.clue.card .cl-card{display:flex;animation:clCard 1.35s ease both}
+@keyframes clCard{0%,80%{opacity:1}100%{opacity:0;visibility:hidden}}
+.cc-cat{width:100%;font:400 150px/1.02 var(--tx-cat,var(--f-cond));text-transform:uppercase;color:#fff;text-shadow:6px 6px 0 #000;animation:ccIn .5s .15s cubic-bezier(.2,.9,.3,1.25) both}
+.cc-val{font:400 210px/1 var(--tx-num,var(--f-num));color:var(--gold);text-shadow:9px 9px 0 #000;animation:ccIn .55s .38s cubic-bezier(.2,.9,.3,1.35) both}
+@keyframes ccIn{from{opacity:0;transform:scale(.55)}to{opacity:1;transform:none}}
+</style>
+<style id="v11">
+.buzz-pill.hold{background:#3a3550;color:#ffd27a;animation:holdPulse 1s ease-in-out infinite alternate}
+@keyframes holdPulse{from{opacity:.75}to{opacity:1}}
+.ping-hold{border:1px solid rgba(255,199,44,.55);background:rgba(255,199,44,.08)}
+</style>
 <style id="v10">
 /* private mode */
 .fj-box.private{background:linear-gradient(160deg,#2b1253,#170a30);border-color:#b47cff;box-shadow:0 0 0 4px rgba(180,124,255,.22),0 18px 50px rgba(0,0,0,.55)}
@@ -1135,6 +1148,7 @@ const MAX_COLS = 12, MAX_ROWS = 10, MAX_PLAYERS = 16;
 const W = 1920, H = 1080;
 const REDUCED = !!(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches);
 const noMotion = () => REDUCED || document.documentElement.hasAttribute('data-fx-still');
+const CARD_MS = 1350;   /* how long "Category · Value" shows before the clue */
 const IS_FILE = location.protocol === 'file:';
 
 /* ---------- helpers ---------- */
@@ -1673,7 +1687,7 @@ document.addEventListener('click', e => {
 /* ---------- game model ---------- */
 const emptyCell = () => ({ q: '', a: '', qm: [], am: [], dd: false, jester: false, mime: false, pts: null, played: false });
 const freshLive = () => ({ phase: 'intro', players: [], open: null, seq: 0, history: [], picker: null, chat: [] });
-const defaultSettings = () => ({ theme: null, texture: null, fx: null, keys: true, earlyPen: false, earlyAmt: 50, prefix: '', sfx: true, showScores: true, buzzers: true, autoAdd: true, autoplay: true, pickOnScreen: true, chat: true, es: false, v: 2 });
+const defaultSettings = () => ({ theme: null, texture: null, fx: null, showPing: true, pingCheck: true, pingPlayers: false, keys: true, earlyPen: false, earlyAmt: 50, prefix: '', sfx: true, showScores: true, buzzers: true, autoAdd: true, autoplay: true, pickOnScreen: true, chat: true, es: false, v: 2 });
 
 function newGame(nC = 6, nR = 5, title = 'Untitled game') {
   return {
@@ -1932,6 +1946,7 @@ function createScreen(container, opts = {}) {
     <div class="board"><div class="cats"></div><div class="tiles"></div></div>
     <div class="ov intro hidden"></div>
     <div class="ov clue hidden">
+      <div class="cl-card" aria-hidden="true"><div class="cc-cat"></div><div class="cc-val"></div></div>
       <div class="timer hidden"><i></i></div>
       <div class="clue-head"><div class="ch-cat"></div><div class="ch-mid"></div><div class="ch-right"><span class="ch-time"></span><span class="ch-val"></span></div></div>
       <div class="clue-body"><div class="clue-text"><div></div></div><div class="clue-media"></div><div class="clue-ans hidden"><div></div></div></div>
@@ -2235,14 +2250,28 @@ function createScreen(container, opts = {}) {
     el.clue.classList.toggle('revealed', !!o.revealed);
     el.cat.textContent = o.jester ? T('Jester round', 'Minijuego') : (S.cats[o.c] || '');
     el.val.textContent = (o.dd ? T('Wager ', 'Apuesta ') : '') + (S.prefix || '') + fmtNum(o.value);
+    /* a new clue first shows its category and value ("Music · 100"), then the clue comes in */
+    if (wasHidden && keys.card !== o.key && !o.dd && !o.jester && !o.revealed && o.phase === 'clue' && self.primed && !noMotion()) {
+      keys.card = o.key; keys.cardAt = performance.now();
+      const cc = $('.cc-cat', el.clue), cv = $('.cc-val', el.clue);
+      cc.textContent = S.cats[o.c] || ''; cv.textContent = (S.prefix || '') + fmtNum(o.value);
+      el.clue.classList.remove('card'); void el.clue.offsetWidth; el.clue.classList.add('card');
+      fitText(cc, 150, 48, cc.clientWidth || 1600, 330);
+      clearTimeout(keys.cardT); keys.cardT = setTimeout(() => el.clue.classList.remove('card'), CARD_MS + 150);
+    }
+    const cardLeft = keys.card === o.key ? Math.max(0, CARD_MS - (performance.now() - (keys.cardAt || 0))) : 0;
     const qk = o.key + (c ? '+' : '-');
     if (keys.q !== qk) {
       keys.q = qk; keys.a = null; keys.layout = null;
       el.textIn.innerHTML = c ? richText(c.q) : '';
       el.media.innerHTML = c ? c.qm.map((m, i) => mediaHTML(m, 'q' + i, 'q')).join('') : '';
-      initMedia(Array.from(el.media.children), o.key, 'q');
+      const mNodes = Array.from(el.media.children);
+      if (cardLeft > 50) {   /* hold the sound and video until the card is gone */
+        $$('iframe', el.media).forEach(f => { f.dataset.later = f.getAttribute('src') || ''; f.removeAttribute('src'); });
+        setTimeout(() => { if (keys.q !== qk) return; $$('iframe[data-later]', el.media).forEach(f => { f.setAttribute('src', f.dataset.later); delete f.dataset.later; }); initMedia(mNodes, o.key, 'q'); }, cardLeft);
+      } else initMedia(mNodes, o.key, 'q');
       if (c) {
-        const n = wordWrap(el.textIn), step = Math.min(0.045, 1.1 / Math.max(1, n)), base = wasHidden ? 0.3 : 0.1;
+        const n = wordWrap(el.textIn), step = Math.min(0.045, 1.1 / Math.max(1, n)), base = cardLeft / 1000 + (wasHidden || cardLeft ? 0.3 : 0.1);
         el.clue.style.setProperty('--wbase', base + 's'); el.clue.style.setProperty('--wstep', step.toFixed(3) + 's');
         el.clue.style.setProperty('--mdelay', (c.q.trim() ? base + n * step + 0.1 : base).toFixed(2) + 's');
         el.clue.classList.remove('intro'); void el.clue.offsetWidth; el.clue.classList.add('intro');
@@ -2286,7 +2315,7 @@ function createScreen(container, opts = {}) {
   }
 
   function hideClue() {
-    el.clue.classList.add('hidden');
+    el.clue.classList.add('hidden'); el.clue.classList.remove('card'); clearTimeout(keys.cardT);
     if (keys.q) { el.media.innerHTML = ''; el.textIn.innerHTML = ''; el.ansIn.innerHTML = ''; }
     keys.q = keys.a = keys.layout = keys.buzz = null;
     el.mid.innerHTML = '';
@@ -2463,11 +2492,12 @@ function createScreen(container, opts = {}) {
   function renderBuzz() {
     const S = self.S, b = S.buzz, o = S.open, first = b && b.order && b.order[0];
     const open = !!(b && b.on && b.armed && o && !o.revealed && !o.dd);
-    const mime = !first && o && o.mime && !o.revealed ? (o.actor || '?') : '';
-    const k = (first ? 'p:' + first.pid : open ? 'open' : mime ? 'm:' + mime : '') + LANG;
+    const mime = !first && o && o.mime && !o.revealed ? (o.actor || '?') : '', hold = !first && b && b.hold;
+    const k = (first ? 'p:' + first.pid : hold ? 'hold' : open ? 'open' : mime ? 'm:' + mime : '') + LANG;
     if (keys.buzz !== k) {
       keys.buzz = k;
       el.mid.innerHTML = first ? `<div class="buzz-pill">${icon('bolt', 38)}<b>${esc(first.name)}</b><small></small></div>`
+        : hold ? `<div class="buzz-pill hold">${icon('bolt', 38)}<b>${T('Checking who was first\u2026', 'Revisando qui\u00e9n fue primero\u2026')}</b></div>`
         : open ? `<div class="buzz-pill open">${icon('bolt', 38)}<b>${T('Buzz now', '\u00a1Toquen ya!')}</b></div>` : mime ? `<div class="buzz-pill open"><b>\u{1F3AD} ${mime === '?' ? T('Charades: who acts it out?', 'M\u00edmica: \u00bfqui\u00e9n act\u00faa?') : `${esc(mime)} ${T('acts it out', 'hace la m\u00edmica')}`}</b></div>` : '';
     }
     const sm = $('small', el.mid);
@@ -3355,7 +3385,7 @@ const Host = { screen: null };
 const RT = { buzz: null, timer: null, sel: null, selPlayer: -1, lastSent: { clue: null, ans: null }, outbox: [], hostSound: true, lastPub: null, lastValue: 0, panelDirty: false, spinT: 0, chatMin: false };
 const Net = { bc: null, peer: null, conns: new Map(), status: 'off', note: '', code: null, locals: new Map(), starting: false };
 /* Buzzers start locked on every clue. The host opens them after reading. Buzzing before that locks you out of the clue. */
-function resetBuzz(armed) { RT.buzz = { armed: !!armed, order: [], out: new Set(), early: [], openedAt: armed ? Date.now() : 0 }; }
+function resetBuzz(armed) { clearTimeout(RT.holdT); RT.buzz = { armed: !!armed, order: [], out: new Set(), early: [], openedAt: armed ? Date.now() : 0, hold: false, settled: false }; }
 resetBuzz(false);
 
 const joinUrl = () => location.origin + location.pathname + '?join=' + Net.code + (LANG === 'es' ? '&lang=es' : '');
@@ -3369,7 +3399,7 @@ function openValue() {
 function pubState() {
   const L = G.live, o = L.open, b = RT.buzz;
   return {
-    v: 1, lang: LANG, vol: typeof RT.vol === 'number' ? RT.vol : 50, theme: G.settings.theme || null, texture: G.settings.texture || null, fx: G.settings.fx || null, keys: G.settings.keys !== false, early: G.settings.earlyPen ? Math.max(0, G.settings.earlyAmt | 0) : 0, title: G.title, phase: L.phase, prefix: G.settings.prefix || '',
+    v: 1, lang: LANG, vol: typeof RT.vol === 'number' ? RT.vol : 50, theme: G.settings.theme || null, texture: G.settings.texture || null, fx: G.settings.fx || null, keys: G.settings.keys !== false, pingPlayers: !!G.settings.pingPlayers, early: G.settings.earlyPen ? Math.max(0, G.settings.earlyAmt | 0) : 0, title: G.title, phase: L.phase, prefix: G.settings.prefix || '',
     cats: G.cats.map(c => c.name), rows: G.rows.slice(),
     vals: G.cats.map((c, ci) => c.cells.map((_, ri) => cellValue(G, ci, ri))),
     empty: G.cats.map(c => c.cells.map(x => !cellFilled(x))),
@@ -3378,7 +3408,7 @@ function pubState() {
     players: L.players.map(p => ({ id: p.id, name: p.name, score: p.score, pid: p.pid || null })), fj: L.phase === 'fj' && L.fj ? fjPub(L.fj) : null,
     picker: L.picker || null, pick: !!G.settings.pickOnScreen, chat: !!G.settings.chat,
     show: !!G.settings.showScores, sfx: !!G.settings.sfx, autoplay: !!G.settings.autoplay,
-    buzz: { on: !!G.settings.buzzers, armed: !!b.armed, opened: !!b.openedAt, order: b.order.map(x => ({ pid: x.pid, name: x.name, ms: x.ms })), out: Array.from(b.out), early: b.early.map(x => ({ pid: x.pid, name: x.name })) },
+    buzz: { on: !!G.settings.buzzers, armed: !!b.armed, opened: !!b.openedAt, hold: !!b.hold, order: b.hold ? [] : b.order.map(x => ({ pid: x.pid, name: x.name, ms: x.ms })), out: Array.from(b.out), early: b.early.map(x => ({ pid: x.pid, name: x.name })) },
     timer: RT.timer ? { id: RT.timer.id, dur: RT.timer.dur, left: Math.max(0, RT.timer.end - Date.now()) } : null,
     join: Net.code && (Net.status === 'online' || relayOn()) && !IS_FILE ? { url: joinUrl().replace(/^https?:\/\//, ''), code: Net.code } : null,
     paused: false
@@ -3498,17 +3528,31 @@ function hostToggleBuzzers() {
 /* ---------- ping: the host measures each player's round trip every few seconds ---------- */
 /* A note is only raised when the estimate beats the first buzz by more than this, since ping itself wobbles by a few dozen ms. */
 const PING_MARGIN = 30;
-function noteText(n) { return `Ping check: ${n.name} (ping ${n.p1} ms) probably pressed about ${n.gap} ms before ${n.other} (ping ${n.p2} ms), so ${n.name} should go first.`; }
-function hostPingNote(ent, first, gap) {
+const PING_SETTLE = 450;   /* how long the first buzz waits for a slower connection that may have pressed earlier */
+const buzzLine = (x, n) => HT(`${x.name} buzzed ${ordinal(n)}`, `${x.name} toc\u00f3 en el lugar ${n}`) + ` (${((x.ping != null && RT.buzz.openedAt ? Math.max(0, x.est - RT.buzz.openedAt) : x.ms) / 1000).toFixed(2)}s)`;   /* with ping known, the time is when they most likely pressed */
+function releaseHold(b) { if (!b.hold) return; b.hold = false; b.order.forEach((x, i) => sysChat(buzzLine(x, i + 1))); }
+function settleBuzz() {
+  const b = RT.buzz; if (!b || !b.hold || b.settled) return;
+  b.settled = true;
+  const o = G.live.open; if (!o || o.revealed || !b.order.length) { releaseHold(b); commit(); return; }
+  const first = b.order[0]; let best = first;
+  for (const x of b.order) if (x !== first && x.ping != null && first.ping != null && x.est < best.est) best = x;
+  const gap = Math.round(first.est - best.est);
+  if (best !== first && gap > PING_MARGIN) { hostPingNote(best, first, gap, true); commit(); return; }   /* stays hidden until the host decides */
+  releaseHold(b); commit();
+}
+function noteText(n) { return `Ping check: ${n.name} (ping ${n.p1} ms) probably pressed about ${n.gap} ms before ${n.other} (ping ${n.p2} ms), so ${n.name} should go first.` + (n.hold ? ' Nobody can see who was first until you decide.' : ''); }
+function hostPingNote(ent, first, gap, hold) {
   RT.notes = RT.notes || [];
-  const n = { id: uid(), t: Date.now(), key: G.live.open && G.live.open.key, pid: ent.pid, name: ent.name, other: first.name, gap: Math.round(gap), p1: ent.ping, p2: first.ping, done: false, told: false };
+  const n = { id: uid(), t: Date.now(), key: G.live.open && G.live.open.key, pid: ent.pid, name: ent.name, other: first.name, gap: Math.round(gap), p1: ent.ping, p2: first.ping, done: false, told: false, hold: !!hold };
+  RT.holdNote = hold ? n.id : null;
   RT.notes.push(n); if (RT.notes.length > 40) RT.notes.shift();
   appendHostNote(n); flashMsg('Ping check in the chat (only you see it)');
 }
 function appendHostNote(n) {
   const log = $('#hcLog'); if (!log || UI.mode !== 'host') return;
   const d = document.createElement('div'); d.className = 'cmsg hnote'; d.dataset.note = n.id;
-  d.innerHTML = `<span class="hn-tag">Only you see this</span><span>${esc(noteText(n))}</span><span class="hn-acts">${n.done ? `<em>${esc(n.name)} is first now</em>` : `<button class="btn sm ok" data-pnote="${n.id}" data-pact="first">Let ${esc(n.name)} go first</button>`}${n.told ? '<em>Everyone was told</em>' : `<button class="btn sm ghost" data-pnote="${n.id}" data-pact="tell">Tell everyone</button>`}</span>`;
+  d.innerHTML = `<span class="hn-tag">Only you see this</span><span>${esc(noteText(n))}</span><span class="hn-acts">${n.done === 'keep' ? `<em>${esc(n.other)} stayed first</em>` : n.done ? `<em>${esc(n.name)} is first now</em>` : `<button class="btn sm ok" data-pnote="${n.id}" data-pact="first">Let ${esc(n.name)} go first</button>${n.hold ? `<button class="btn sm" data-pnote="${n.id}" data-pact="keep">Keep ${esc(n.other)} first</button>` : ''}`}${n.told ? '<em>Everyone was told</em>' : `<button class="btn sm ghost" data-pnote="${n.id}" data-pact="tell">Tell everyone</button>`}</span>`;
   log.appendChild(d); log.scrollTop = log.scrollHeight;
 }
 function hostNoteAct(id, act) {
@@ -3518,7 +3562,10 @@ function hostNoteAct(id, act) {
     if (!o || o.key !== n.key) { flashMsg('That clue is already closed'); return; }
     const i = b.order.findIndex(x => x.pid === n.pid);
     if (i > 0) { const [e] = b.order.splice(i, 1); b.order.unshift(e); }
-    n.done = true; commit();
+    n.done = true; if (n.hold) { RT.holdNote = null; releaseHold(b); } commit();
+  } else if (act === 'keep') {
+    const o = G.live.open; if (!o || o.key !== n.key) { flashMsg('That clue is already closed'); return; }
+    n.done = 'keep'; RT.holdNote = null; releaseHold(RT.buzz); commit();
   } else if (act === 'tell') {
     n.told = true; sysChat(HT(`Ping check: ${n.name} probably pressed about ${n.gap} ms before ${n.other}, so ${n.name} goes first.`, `Revisión de ping: ${n.name} probablemente tocó unos ${n.gap} ms antes que ${n.other}, así que ${n.name} va primero.`));
   }
@@ -3531,7 +3578,7 @@ function hostPingTick() {
   const pids = [...new Set(allRecs().filter(r => r.pid).map(r => r.pid))]; if (!pids.length) return;
   const ts = Date.now(); pids.forEach(pid => sendToPid(pid, { t: 'hping', ts }));
   const p = {}; pids.forEach(pid => { if (RT.ping[pid] != null) p[pid] = RT.ping[pid]; });
-  sendRemote({ t: 'pings', p });
+  if (G.settings.pingPlayers) sendRemote({ t: 'pings', p });
   $$('.pping[data-ping]').forEach(el => { const v = RT.ping[el.dataset.ping]; el.textContent = v != null ? v + ' ms' : ''; el.className = 'pping ' + pingCls(v); });
 }
 setInterval(hostPingTick, 2500);
@@ -3562,9 +3609,9 @@ function hostBuzz(pid, fallbackName) {
   const now = Date.now(), rtt = RT.ping ? RT.ping[pid] : null, est = now - (rtt ? Math.round(rtt / 2) : 0);
   const ent = { pid, name, t: now, est, ping: rtt == null ? null : rtt, ms: Math.max(0, now - b.openedAt) };
   b.order.push(ent);
-  sysChat(HT(`${name} buzzed ${ordinal(b.order.length)}`, `${name} toc\u00f3 en el lugar ${b.order.length}`) + ` (${(ent.ms / 1000).toFixed(2)}s)`);
-  const first = b.order[0];
-  if (first !== ent && rtt != null && first.ping != null && now - first.t < 600 && first.est - est > PING_MARGIN) hostPingNote(ent, first, first.est - est);
+  /* With the ping check on, the first buzz is held for a moment so nobody sees who was first until ping has been checked */
+  if (G.settings.pingCheck && b.order.length === 1 && !b.settled) { b.hold = true; clearTimeout(RT.holdT); RT.holdT = setTimeout(settleBuzz, PING_SETTLE); }
+  if (!b.hold) sysChat(buzzLine(ent, b.order.length));
   broadcast(); renderHostPanel();
 }
 function hostAward(i, sign) {
@@ -4012,6 +4059,8 @@ function renderHostPanel() {
   const badge = on ? '<span class="onair"><i></i>On air</span>' : Net.status === 'connecting' ? '<span class="onair off wait"><i></i>Connecting</span>' : `<span class="onair off"><i></i>${Net.status === 'error' ? 'Offline' : 'Not live'}</span>`;
   let h = '';
   if (L.phase === 'fj' && L.fj) h += fjSection();
+  { const n = RT.buzz.hold && RT.holdNote && (RT.notes || []).find(x => x.id === RT.holdNote);
+    if (n && !n.done) h += `<section class="hp-sec ping-hold"><h3>Ping check</h3><p class="hp-muted">${esc(noteText(n))}</p><div class="hp-btns"><button class="btn sm ok" data-pnote="${n.id}" data-pact="first">Let ${esc(n.name)} go first</button><button class="btn sm" data-pnote="${n.id}" data-pact="keep">Keep ${esc(n.other)} first</button></div></section>`; }
   if (o) h += clueCard(o);
   h += `<section class="hp-sec">
     <div class="hp-live">${badge}<span class="hp-viewers">${viewers.length === 0 ? 'Nobody joined yet' : viewers.length === 1 ? '1 person joined' : viewers.length + ' people joined'}${Net.locals.size ? '<br>Display tab open' : ''}</span></div>
@@ -4037,13 +4086,13 @@ function renderHostPanel() {
     ${L.players.length ? '' : `<p class="hp-muted">${S.autoAdd ? 'People who join with the invite link show up here. ' : ''}You can also add players or teams by hand.</p>`}
     <div class="plist">${L.players.map((p, i) => { const ord = p.pid ? RT.buzz.order.findIndex(x => x.pid === p.pid) + 1 : 0; return `<div class="prow${RT.selPlayer === i ? ' sel' : ''}${p.pid && p.pid === fp ? ' buzzed' : ''}${p.id === L.picker ? ' picks' : ''}">
       <span class="pn">${ord ? `<span class="ord${ord === 1 ? ' first' : ''}">${ordinal(ord)}</span>` : i + 1}</span>
-      <span class="pwrap"><input class="pname" data-input="pname" data-i="${i}" value="${esc(p.name)}" maxlength="28" aria-label="Name of player ${i + 1}">${p.pid ? `<span class="pping ${pingCls(RT.ping && RT.ping[p.pid])}" data-ping="${esc(p.pid)}" title="Ping">${RT.ping && RT.ping[p.pid] != null ? RT.ping[p.pid] + ' ms' : ''}</span>` : ''}</span>
+      <span class="pwrap"><input class="pname" data-input="pname" data-i="${i}" value="${esc(p.name)}" maxlength="28" aria-label="Name of player ${i + 1}">${p.pid && G.settings.showPing ? `<span class="pping ${pingCls(RT.ping && RT.ping[p.pid])}" data-ping="${esc(p.pid)}" title="Ping">${RT.ping && RT.ping[p.pid] != null ? RT.ping[p.pid] + ' ms' : ''}</span>` : ''}</span>
       <input class="pscore" type="number" step="100" data-input="pscore" data-i="${i}" value="${p.score}" aria-label="Score of player ${i + 1}">
       <span class="pbtns">${v ? `<button class="btn sm ok" data-act="award" data-i="${i}" data-s="1" title="Right">${icon('check', 14)}${fmtNum(v)}</button><button class="btn sm bad" data-act="award" data-i="${i}" data-s="-1" title="Wrong">${icon('minus', 14)}${fmtNum(v)}</button>` : `<button class="btn sm icon ghost" data-act="rmPlayer" data-i="${i}" title="Remove" aria-label="Remove ${esc(p.name)}">${icon('x', 16)}</button>`}</span>
     </div>`; }).join('')}</div>
     <div class="hp-btns"><button class="btn sm" data-act="addPlayer">${icon('plus', 16)}Add player or team</button>${L.players.some(p => p.test) ? '<button class="btn sm ghost" data-act="rmTests">Remove test players</button>' : ''}</div></section>
   <section class="hp-sec"><h3>Settings</h3>
-    ${tgl('buzzers', 'Buzzers for people who joined')}${tgl('keys', 'Keyboard shortcuts for players (Space to buzz)')}${tgl('earlyPen', 'Buzzing early costs points')}<label class="tgl tgl-num${G.settings.earlyPen ? '' : ' off'}"><span>Points lost for buzzing early</span><input type="number" min="0" max="10000" step="10" data-input="earlyAmt" value="${G.settings.earlyAmt | 0}" aria-label="Points lost for buzzing early"${G.settings.earlyPen ? '' : ' disabled'}></label>${tgl('pickOnScreen', 'Picker can tap a tile on their screen')}${tgl('chat', 'Chat for people who joined')}${tgl('autoAdd', 'Add people to scores when they join')}${tgl('showScores', 'Show scores on screen')}${tgl('sfx', 'Sound effects')}${tgl('autoplay', 'Play media when a clue opens')}
+    ${tgl('buzzers', 'Buzzers for people who joined')}${tgl('keys', 'Keyboard shortcuts for players (Space to buzz)')}${tgl('showPing', 'Show ping next to each player (only you see it)')}${tgl('pingCheck', 'Ping check before showing who buzzed first')}${tgl('pingPlayers', 'Players see their own ping')}${tgl('earlyPen', 'Buzzing early costs points')}<label class="tgl tgl-num${G.settings.earlyPen ? '' : ' off'}"><span>Points lost for buzzing early</span><input type="number" min="0" max="10000" step="10" data-input="earlyAmt" value="${G.settings.earlyAmt | 0}" aria-label="Points lost for buzzing early"${G.settings.earlyPen ? '' : ' disabled'}></label>${tgl('pickOnScreen', 'Picker can tap a tile on their screen')}${tgl('chat', 'Chat for people who joined')}${tgl('autoAdd', 'Add people to scores when they join')}${tgl('showScores', 'Show scores on screen')}${tgl('sfx', 'Sound effects')}${tgl('autoplay', 'Play media when a clue opens')}
     <label class="tgl"><span>Sound on this page</span><input type="checkbox" data-hostsound${RT.hostSound ? ' checked' : ''}><i></i></label>
     <div class="hp-btns"><button class="btn sm ghost" data-act="resetBoard">Reset board</button><button class="btn sm ghost" data-act="resetScores">Reset scores</button><button class="btn sm ghost" data-act="newCode">New room code</button></div>
     <p class="hp-muted small">Keys: arrows pick a tile, Enter opens it, Y and N mark the first buzzer right or wrong, R plays the sound or video again, Space reveals, Esc closes. Press 1 to 9 to pick a player, then up or down to add or take away the clue\u2019s points.</p>
@@ -4709,6 +4758,7 @@ function startPlayer(code, name, test) {
   function update() {
     if (!S) return;
     renderFJBox();
+    { const pp = $('#pingPill'); if (pp && !S.pingPlayers) pp.classList.add('hidden'); }
     $('#chatBtn').classList.toggle('hidden', S.chat === false);
     chat.classList.toggle('hidden', !chatOpen || S.chat === false);
     const me = S.players.find(p => p.pid === pid), picker = S.players.find(p => p.id === S.picker);
@@ -4728,6 +4778,7 @@ function startPlayer(code, name, test) {
     else if (!b.on) note = T('Answer out loud when the host asks', 'Responde en voz alta cuando el anfitri\u00f3n te pregunte');
     else if (early) { label = T('Locked', 'Bloqueado'); cls = 'out'; note = T('Too early! You\u2019re locked out of this one.', '\u00a1Muy pronto! Quedas fuera de esta.'); }
     else if (out) { label = T('Locked', 'Bloqueado'); cls = 'out'; note = T('You already answered this one', 'Ya respondiste esta'); }
+    else if (b.hold && o && buzzedKey && buzzedKey.indexOf(o.key + ':') === 0) { label = T('Buzzed!', '\u00a1Tocaste!'); cls = 'queued'; note = T('Checking who was first\u2026', 'Revisando qui\u00e9n fue primero\u2026'); }
     else if (idx === 0) { label = T('You\u2019re first', '\u00a1Primero!'); cls = 'first'; note = T('Answer now!', '\u00a1Responde ahora!'); }
     else if (idx > 0) { label = `#${idx + 1}`; cls = 'queued'; note = T(`You\u2019re number ${idx + 1} in line`, `Eres el n\u00famero ${idx + 1} en la fila`); }
     else if (!b.armed && !b.opened && S.early > 0) { label = T('Wait\u2026', 'Espera\u2026'); cls = 'wait'; enabled = true; note = T(`Wait for the host. Buzzing early costs ${S.early}.`, `Espera al anfitri\u00f3n. Tocar antes de tiempo cuesta ${S.early}.`); }
@@ -4832,7 +4883,7 @@ function startPlayer(code, name, test) {
     last = Date.now();
     if (d.t === 'hping') { sendToHost({ t: 'hpong', ts: d.ts }); return; }
     if (d.t === 'fjack') { const n = $('#fjNote'); if (n) n.textContent = 'w' in d ? T(`\u2714 Wager locked in: ${d.w}. Only the host can see it. You can change it until the clue is revealed.`, `\u2714 Apuesta confirmada: ${d.w}. Solo el anfitri\u00f3n puede verla. Puedes cambiarla hasta que se revele la pregunta.`) : T('\u2714 Answer sent. You can change it until time runs out.', '\u2714 Respuesta enviada. Puedes cambiarla hasta que se acabe el tiempo.'); return; }
-    if (d.t === 'pings') { const v = d.p && d.p[pid], el = $('#pingPill'); if (el && v != null) { el.textContent = T(`Ping ${v} ms`, `Ping ${v} ms`); el.className = 'pill ping ' + pingCls(v); } return; }
+    if (d.t === 'pings') { const v = d.p && d.p[pid], el = $('#pingPill'); if (el && v != null && S && S.pingPlayers) { el.textContent = T(`Ping ${v} ms`, `Ping ${v} ms`); el.className = 'pill ping ' + pingCls(v); } return; }
     if (d.t === 'jb' && d.s) { JBP.apply(d.s); renderJukebox(); }
     else if (d.t === 'chat' && d.m) addMsg(d.m);
     else if (d.t === 'secret' && d.text) showSecret(d);
