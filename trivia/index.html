@@ -774,6 +774,72 @@ html[data-themed] body:not(.is-screen)::after{background-image:linear-gradient(c
 .tm-custom label{display:flex;align-items:center;gap:6px;color:var(--ink-2);cursor:pointer}
 .tm-custom input[type=color]{width:30px;height:24px;padding:0;border:1px solid var(--wire);border-radius:5px;background:none;cursor:pointer}
 </style>
+<style id="final-jeopardy">
+.fjov{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:34px;padding:70px 110px;text-align:center;color:#fff;overflow:hidden;
+  background:radial-gradient(ellipse 70% 60% at 50% 42%,color-mix(in srgb,var(--blue-hi) 50%,transparent),transparent 70%),linear-gradient(color-mix(in srgb,var(--blue) 88%,#fff),var(--blue-deep))}
+.fjov>*{position:relative;z-index:1}.fjov>.beams{position:absolute;z-index:0}
+.fj-logo{font:400 230px/.92 var(--f-num);color:var(--gold);text-transform:uppercase;text-shadow:8px 8px 0 #000,0 0 60px color-mix(in srgb,var(--gold) 50%,transparent);animation:fjLogo 1.1s cubic-bezier(.2,.9,.3,1.25) both}
+@keyframes fjLogo{0%{transform:scale(.2) rotate(-8deg);opacity:0}70%{transform:scale(1.06) rotate(1deg);opacity:1}100%{transform:none}}
+.fj-kicker{font:700 44px/1 var(--f-cond);letter-spacing:.12em;text-transform:uppercase;color:var(--gold);text-shadow:3px 3px 0 #000}
+.fj-cat{width:100%;height:300px;display:flex;align-items:center;justify-content:center}
+.fj-cat span{display:block;width:100%;font:400 150px/1.02 var(--f-cond);text-transform:uppercase;text-shadow:6px 6px 0 #000;animation:fjIn .7s cubic-bezier(.2,.9,.3,1.2) both}
+.fj-clue{width:100%;height:520px;display:flex;align-items:center;justify-content:center}
+.fj-clue div{width:100%;font:700 84px/1.22 var(--f-clue);text-transform:uppercase;text-shadow:4px 4px 0 #000;animation:fjIn .5s both}
+.fj-sub{font:600 38px/1.25 var(--f-cond);color:#e3e7ff;text-shadow:2px 2px 0 #000}.fj-sub b{color:var(--gold)}
+.fj-sub.right{animation:fjIn .5s both}
+.fj-got{display:flex;flex-wrap:wrap;gap:12px;justify-content:center;min-height:48px}.fj-got span{padding:9px 20px;border-radius:999px;background:rgba(0,0,0,.42);font:700 30px/1 var(--f-cond);animation:fjIn .35s both}
+.fj-clock{width:1200px;height:40px;border-radius:999px;background:rgba(0,0,0,.45);overflow:hidden;box-shadow:0 0 0 3px rgba(255,255,255,.25)}
+.fj-clock i{position:absolute;inset:0 auto 0 0;width:100%;background:linear-gradient(90deg,var(--gold),#ff8f3d);transition:width .2s linear}
+.fj-clock b{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:400 32px/1 var(--f-num);color:#111}
+.fj-clock.over i{width:0}.fj-clock.over b{color:#fff}
+.fj-card{width:1360px;padding:46px 60px;border-radius:26px;background:rgba(3,6,30,.7);box-shadow:0 0 0 4px var(--gold),0 30px 80px rgba(0,0,0,.5);display:grid;grid-template-columns:1fr auto;grid-template-areas:"name mark" "ans mark" "wager score";gap:24px 40px;align-items:center;text-align:left}
+.fjc-name{grid-area:name;font:400 92px/1 var(--f-num);color:var(--gold);text-shadow:5px 5px 0 #000}
+.fjc-ans{grid-area:ans;height:150px;padding:0 30px;border-radius:16px;background:#fff;color:#111;display:flex;align-items:center}
+.fjc-ans div{width:100%;font:700 58px/1.15 var(--f-clue)}
+.fjc-mark{grid-area:mark;width:210px;height:210px;border-radius:50%;display:flex;align-items:center;justify-content:center;font:400 140px/1 var(--f-num);color:#fff}
+.fjc-mark.ok{background:#1faa59;box-shadow:0 0 60px #1faa59}.fjc-mark.no{background:#d93a3f;box-shadow:0 0 60px #d93a3f}
+.fjc-wager{grid-area:wager;font:600 52px/1 var(--f-cond)}.fjc-wager b{color:var(--gold)}
+.fjc-score{grid-area:score;display:flex;align-items:center;gap:18px;font:400 72px/1 var(--f-num)}.fjc-score span{opacity:.55}.fjc-score b{color:#fff}
+.fj-card.play .fjc-name{animation:fjIn .45s both}
+.fj-card.play .fjc-ans{animation:fjFlip .6s .5s both}
+.fj-card.play .fjc-mark{animation:fjStamp .45s 2.3s both}
+.fj-card.play .fjc-wager{animation:fjIn .4s 2.7s both}
+.fj-card.play .fjc-score{animation:fjIn .4s 3s both}
+@keyframes fjIn{from{opacity:0;transform:translateY(30px)}to{opacity:1;transform:none}}
+@keyframes fjFlip{from{opacity:0;transform:perspective(900px) rotateX(-90deg)}to{opacity:1;transform:none}}
+@keyframes fjStamp{0%{opacity:0;transform:scale(2.4) rotate(-20deg)}70%{opacity:1;transform:scale(.92)}100%{transform:none}}
+.fj-row{display:flex;flex-wrap:wrap;gap:12px;justify-content:center}.fj-row span{padding:9px 18px;border-radius:999px;font:700 28px/1 var(--f-cond);background:rgba(0,0,0,.42)}
+.fj-row .ok{box-shadow:inset 0 0 0 3px #1faa59}.fj-row .no{box-shadow:inset 0 0 0 3px #d93a3f}
+.final.seq ol li{animation:finRow .55s cubic-bezier(.2,.9,.3,1.2) both;animation-delay:var(--d,0s)}
+.final.seq ol li.win{animation-name:finWin;animation-duration:.8s}
+@keyframes finRow{from{opacity:0;transform:translateX(-120px) scale(.9)}to{opacity:1;transform:none}}
+@keyframes finWin{0%{opacity:0;transform:scale(.3)}65%{opacity:1;transform:scale(1.1)}100%{transform:none}}
+@media (prefers-reduced-motion:reduce){.fj-card.play *,.final.seq ol li,.fj-logo{animation:none!important}}
+/* host panel */
+.btn.fj-top{background:linear-gradient(var(--gold),#e0a800);color:#1b1400;border-color:transparent}
+.fj-sec{border:1px solid color-mix(in srgb,var(--gold) 55%,transparent)}
+.fj-in{display:flex;flex-direction:column;gap:5px;margin:8px 0;font:600 12.5px/1.2 var(--f-ui);color:var(--ink-2)}.fj-in .txt{width:100%}
+.fj-list{display:flex;flex-direction:column;gap:6px;margin:8px 0}
+.fj-pl{display:grid;grid-template-columns:minmax(0,1fr) auto 110px;align-items:center;gap:8px;padding:6px 8px;border-radius:8px;background:var(--desk-2)}
+.fj-pl b{font:700 14px/1.2 var(--f-ui);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.fj-pl>span{font:600 13px/1 var(--f-ui);color:var(--ink-3);font-variant-numeric:tabular-nums}
+.fj-pl .txt{width:100%;height:30px;padding:0 8px}
+.fj-pl.judge{grid-template-columns:minmax(0,.8fr) minmax(0,1.4fr) auto auto}
+.fj-pl .fj-ans{color:var(--ink);font:600 13px/1.25 var(--f-ui);overflow-wrap:anywhere}.fj-pl .fj-ans i{color:var(--ink-3)}
+.fj-ok{display:flex;gap:4px}
+/* editor */
+.fj-ed{margin-top:22px;padding:18px 20px;border:1px solid var(--wire);border-radius:12px;background:var(--desk)}
+.fj-ed h3{margin:0 0 4px;font:700 18px/1.2 var(--f-ui)}
+.fj-grid{display:grid;grid-template-columns:1fr 2fr 1fr;gap:12px;margin-top:10px}.fj-grid label{display:flex;flex-direction:column;gap:5px;font:600 12.5px/1.2 var(--f-ui);color:var(--ink-2)}
+.fj-grid .txt{width:100%}
+@media (max-width:800px){.fj-grid{grid-template-columns:1fr}}
+/* player: the private box */
+@media (min-width:901px){body:has(#chat:not(.hidden)) .fj-box{left:calc((100% - 330px) / 2)}}
+.fj-box{position:fixed;left:50%;bottom:104px;z-index:70;width:min(540px,calc(100vw - 20px));transform:translateX(-50%);padding:14px 16px;border-radius:14px;background:var(--desk);border:2px solid var(--gold);box-shadow:0 18px 50px rgba(0,0,0,.55);animation:fjIn .3s both}
+.fjb-h{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:8px}.fjb-h b{font:700 16px/1.2 var(--f-ui);color:var(--gold)}.fjb-h span{font:600 12px/1.2 var(--f-ui);color:var(--ink-3)}
+.fjb-cat{margin-bottom:8px;font:700 20px/1.2 var(--f-cond);text-transform:uppercase}
+.fjb-form{display:flex;gap:8px}.fjb-form .txt{flex:1;min-width:0;height:44px;font-size:18px}
+.fjb-note{margin-top:8px;font:500 13px/1.35 var(--f-ui);color:var(--ink-2)}
+</style>
 <style id="effects">
 /* ---- moving spotlights (home page) ---- */
 .spots{position:fixed;inset:0;z-index:-1;pointer-events:none;overflow:hidden;display:none}
@@ -1366,7 +1432,11 @@ const SFX = (() => {
     jester() { tone(196, 0, 0.4, 'sine', 0.5, 880); [1568, 1976, 2349, 1976, 2637, 3136].forEach((f, i) => tone(f, 0.32 + i * 0.07, 0.13, 'triangle', 0.24)); tone(330, 0.85, 0.35, 'square', 0.14, 165); },
     early() { tone(150, 0, 0.4, 'square', 0.32, 90); },
     fill() { for (let i = 0; i < 16; i++) tone(600 + Math.random() * 900, i * 0.06, 0.08, 'triangle', 0.22); },
-    win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, i === 5 ? 0.9 : 0.22, 'triangle', 0.5)); }
+    win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, i === 5 ? 0.9 : 0.22, 'triangle', 0.5)); },
+    fjstart() { [262, 330, 392, 523].forEach((f, i) => tone(f, i * 0.09, 0.55, 'triangle', 0.42)); tone(1047, 0.42, 0.95, 'triangle', 0.34); noise(0.36, 1.3, 0.34, 5200); tone(65, 0.36, 0.6, 'sine', 0.6, 40); },
+    drumroll() { const n = 36; for (let i = 0; i < n; i++) noise(i * 0.058, 0.06, 0.08 + 0.3 * i / n, 2400); noise(n * 0.058, 1.3, 0.5, 6200); tone(65, n * 0.058, 0.6, 'sine', 0.7, 42); },
+    fjtick() { tone(1250, 0, 0.035, 'square', 0.09); },
+    fjtock() { tone(880, 0, 0.06, 'square', 0.14); tone(440, 0, 0.14, 'triangle', 0.2); }
   };
   return { play(n) { try { if (lib[n]) lib[n](); } catch (e) {} }, unlock() { ac(); }, setVol(v) { if (out) out.gain.value = 0.62 * VOLX(v); } };
 })();
@@ -1634,7 +1704,8 @@ function normCell(x, trust) {
 
 function fixLive(g) {
   const L = g.live = Object.assign(freshLive(), g.live && typeof g.live === 'object' ? g.live : {});
-  if (!['intro', 'board', 'final'].includes(L.phase)) L.phase = 'intro';
+  if (!['intro', 'board', 'final', 'fj'].includes(L.phase)) L.phase = 'intro';
+  L.fj = L.fj && typeof L.fj === 'object' ? L.fj : null; if (L.phase === 'fj' && !L.fj) L.phase = 'board';
   L.players = (Array.isArray(L.players) ? L.players : []).filter(p => p && typeof p === 'object').slice(0, MAX_PLAYERS)
     .map(p => ({ id: String(p.id || uid()), name: String(p.name || 'Player').slice(0, 28), score: Math.round(+p.score || 0), pid: p.pid ? String(p.pid) : null, test: !!p.test }));
   L.history = Array.isArray(L.history) ? L.history.slice(-200) : [];
@@ -1648,6 +1719,7 @@ function fixLive(g) {
 }
 
 /* Accepts this app's own format (cats/rows) or the simple AI format (categories/clues). */
+function normFinal(f) { f = f && typeof f === 'object' ? f : {}; return { cat: String(f.cat || f.category || '').slice(0, 120), q: String(f.q || f.clue || '').slice(0, 600), a: String(f.a || f.answer || '').slice(0, 200) }; }
 function normalizeGame(o) {
   if (!o || typeof o !== 'object') throw new Error('That isn\u2019t a game file.');
   if (o.game && typeof o.game === 'object') o = o.game;
@@ -1661,6 +1733,7 @@ function normalizeGame(o) {
       for (const k of Object.keys(g.settings)) if (k !== 'v' && k in o.settings) g.settings[k] = k === 'prefix' ? String(o.settings[k] || '').slice(0, 3) : k === 'theme' ? normTheme(o.settings[k]) : k === 'texture' ? normTexture(o.settings[k]) : k === 'fx' ? normFx(o.settings[k]) : k === 'earlyAmt' ? Math.max(0, Math.min(10000, Math.round(+o.settings[k] || 0))) : !!o.settings[k];
     }
     if (!(o.settings && +o.settings.v >= 2)) g.settings.buzzers = true;
+    g.final = normFinal(o.final);
     g.settings.v = 2;
     if (o.id) g.id = String(o.id);
     if (o.created) g.created = +o.created || Date.now();
@@ -1685,6 +1758,7 @@ function normalizeGame(o) {
   if (!g.cats.length) throw new Error('That game has no categories.');
   g.cats = g.cats.slice(0, MAX_COLS);
   if (g.rows.length > MAX_ROWS) { g.rows = g.rows.slice(0, MAX_ROWS); g.cats.forEach(c => { c.cells = c.cells.slice(0, MAX_ROWS); }); }
+  if (!g.final) g.final = normFinal(o.final || o.finalJeopardy || null);
   fixLive(g);
   return g;
 }
@@ -1831,6 +1905,7 @@ function createScreen(container, opts = {}) {
     </div>
     <div class="ov dd hidden"><div class="rays"></div><h1>${T('Daily<br>Double', 'Apuesta<br>doble')}</h1><div class="ddcat"></div></div>
     <div class="ov final hidden"></div>
+    <div class="ov fjov hidden"></div>
     <div class="ov jest hidden"><div class="jest-bg"></div><div class="jest-hat">${icon('jester', 300)}</div><h1 class="jest-word">${T('JESTER!', '\u00a1BUF\u00d3N!').split('').map((ch, i) => `<span style="--i:${i}">${ch}</span>`).join('')}</h1><div class="jest-sub">${T('Surprise mini-game', 'Minijuego sorpresa')}</div></div>
     <div class="ov spin hidden"><div class="sp-title">${T('Who goes first?', '\u00bfQui\u00e9n empieza?')}</div><div class="sp-box"><div class="sp-name"></div></div><div class="sp-sub"></div></div>
     <div class="ov waiting">${BEAMS}${BULBS}<div class="w-title"></div><div class="w-sub"></div></div>
@@ -1843,7 +1918,7 @@ function createScreen(container, opts = {}) {
   const wrap = $('.stage-wrap', container), stage = $('.stage', container), q = s => $(s, stage);
   const el = {
     area: q('.board-area'), board: q('.board'), cats: q('.cats'), tiles: q('.tiles'), intro: q('.intro'), clue: q('.clue'),
-    dd: q('.dd'), final: q('.final'), waiting: q('.waiting'), paused: q('.paused'), timer: q('.timer'), bar: q('.timer i'),
+    dd: q('.dd'), final: q('.final'), fj: q('.fjov'), waiting: q('.waiting'), paused: q('.paused'), timer: q('.timer'), bar: q('.timer i'),
     cat: q('.ch-cat'), mid: q('.ch-mid'), time: q('.ch-time'), val: q('.ch-val'), text: q('.clue-text'), textIn: q('.clue-text > div'),
     media: q('.clue-media'), jest: q('.jest'), spin: q('.spin'), spName: q('.sp-name'), spSub: q('.sp-sub'), ans: q('.clue-ans'), ansIn: q('.clue-ans > div'), scores: q('.scores'), toasts: q('.toasts'), confetti: q('.confetti')
   };
@@ -1929,7 +2004,9 @@ function createScreen(container, opts = {}) {
     if (o && o.phase === 'clue' && !o.revealed && S.buzz && S.buzz.armed && !(p.buzz && p.buzz.armed && po && po.key === o.key)) out.push('go');
     const f = S.buzz && S.buzz.order && S.buzz.order[0], pf = p.buzz && p.buzz.order && p.buzz.order[0];
     if (f && (!pf || pf.pid !== f.pid)) out.push('buzz');
-    return out;
+    const fs = S.phase === 'fj' && S.fj ? S.fj.stage : '', ps = p.phase === 'fj' && p.fj ? p.fj.stage : '';
+    if (fs && fs !== ps) out.push(fs === 'title' ? 'fjstart' : fs === 'cat' ? 'reveal' : fs === 'clue' ? 'open' : fs === 'judge' ? 'timeup' : '');
+    return out.filter(Boolean);
   }
 
   function render() {
@@ -1937,14 +2014,16 @@ function createScreen(container, opts = {}) {
     if (!S) { el.waiting.classList.remove('hidden'); return; }
     el.waiting.classList.add('hidden');
     el.paused.classList.toggle('hidden', !S.paused);
-    const show = !!S.show && S.players.length > 0, sh = show ? 150 : 0;
+    const show = !!S.show && S.players.length > 0 && S.phase !== 'fj', sh = show ? 150 : 0;
     if (sh !== scoresH) { scoresH = sh; stage.style.setProperty('--scoresH', sh + 'px'); keys.board = keys.layout = null; }
     renderBoard();
     renderScores(show);
     el.intro.classList.toggle('hidden', S.phase !== 'intro');
     if (S.phase === 'intro') renderIntro();
     el.final.classList.toggle('hidden', S.phase !== 'final');
-    if (S.phase === 'final') renderFinal();
+    if (S.phase === 'final') renderFinal(); else keys.finSeq = false;
+    el.fj.classList.toggle('hidden', S.phase !== 'fj');
+    if (S.phase === 'fj') renderFJ(); else { keys.fj = null; keys.fjRev = 0; stopFJClock(); }
     const o = S.phase === 'board' ? S.open : null;
     if (o && o.phase === 'dd') renderDD(o);
     else { el.dd.classList.add('hidden'); if (!o) keys.dd = null; }
@@ -2001,17 +2080,82 @@ function createScreen(container, opts = {}) {
     fitText($('h1', el.intro), 170, 56, 1700, 380);
   }
 
+  /* ---------- Final Jeopardy on the big screen ---------- */
+  let fjClock = 0, fjSec = -1;
+  function stopFJClock() { clearInterval(fjClock); fjClock = 0; fjSec = -1; }
+  function renderFJ() {
+    const S = self.S, f = S.fj || {}, st = f.stage || 'title', rev = f.rev || [];
+    const k = JSON.stringify([st, f.cat, f.q, st === 'reveal' ? 0 : f.got, rev.length, f.right, S.prefix]);
+    if (k === keys.fj) return;
+    const prevRev = keys.fjRev || 0; keys.fj = k; keys.fjRev = rev.length;
+    const fmt = n => esc(fmtScore(n, S.prefix));
+    if (st !== 'clue') stopFJClock();
+    if (st === 'title') el.fj.innerHTML = `${BEAMS}<div class="fj-logo">${T('Final<br>Jeopardy!', 'Jeopardy<br>final')}</div><div class="fj-sub">${T('Get your wager ready', 'Prepara tu apuesta')}</div>`;
+    else if (st === 'cat') {
+      el.fj.innerHTML = `${BEAMS}<div class="fj-kicker">${T('Final Jeopardy', 'Jeopardy final')}</div><div class="fj-cat"><span>${esc(f.cat || '')}</span></div>
+        <div class="fj-sub">${T('Make your wager on your device. Only the host sees it.', 'Haz tu apuesta en tu dispositivo. Solo el anfitri\u00f3n la ve.')}</div>
+        <div class="fj-got">${(f.got || []).map(n => `<span>\u2714 ${esc(n)}</span>`).join('')}</div>`;
+      const sp = $('.fj-cat span', el.fj); if (sp) fitText(sp, 160, 50, sp.clientWidth || 1660, 300);
+    } else if (st === 'clue' || st === 'judge') {
+      el.fj.innerHTML = `<div class="fj-kicker">${esc(f.cat || '')}</div><div class="fj-clue"><div>${esc(f.q || '')}</div></div>
+        <div class="fj-clock${st === 'judge' ? ' over' : ''}"><i></i><b></b></div>
+        <div class="fj-sub">${st === 'judge' ? T('Time\u2019s up! The host is checking the answers.', '\u00a1Se acab\u00f3 el tiempo! El anfitri\u00f3n revisa las respuestas.') : T('Answer on your device, in the form of a question.', 'Responde en tu dispositivo, en forma de pregunta.')}</div>
+        <div class="fj-got">${st === 'clue' ? (f.got || []).map(n => `<span>\u270e ${esc(n)}</span>`).join('') : ''}</div>`;
+      const d = $('.fj-clue div', el.fj); if (d) fitText(d, 100, 40, d.clientWidth || 1660, 520);
+      if (st === 'clue') {
+        const skew = Date.now() - (f.now || Date.now()), tick = () => {
+          const left = Math.max(0, f.endsAt - (Date.now() - skew)), s = Math.ceil(left / 1000), bar = $('.fj-clock i', el.fj), lab = $('.fj-clock b', el.fj);
+          if (bar) bar.style.width = Math.min(100, left / 300) + '%'; if (lab) lab.textContent = s + 's';
+          if (s !== fjSec && fjSec !== -1 && s > 0 && self.primed && soundOn()) SFX.play(s <= 5 ? 'fjtock' : 'fjtick');
+          fjSec = s;
+        };
+        stopFJClock(); tick(); fjClock = setInterval(tick, 200);
+      } else { const lab = $('.fj-clock b', el.fj); if (lab) lab.textContent = T('Time\u2019s up', 'Se acab\u00f3'); }
+    } else if (st === 'reveal') {
+      const cur = rev[rev.length - 1], play = self.primed && rev.length > prevRev;
+      if (!cur) { el.fj.innerHTML = `${BEAMS}<div class="fj-kicker">${T('Final Jeopardy', 'Jeopardy final')}</div><div class="fj-sub">${T('Here come the answers', 'Aqu\u00ed vienen las respuestas')}</div>`; return; }
+      el.fj.innerHTML = `<div class="fj-kicker">${esc(f.cat || '')}</div>
+        <div class="fj-card ${play ? 'play' : 'shown'}">
+          <div class="fjc-name">${esc(cur.name)}</div>
+          <div class="fjc-ans"><div>${cur.ans ? esc(cur.ans) : T('(no answer)', '(sin respuesta)')}</div></div>
+          <div class="fjc-mark ${cur.ok ? 'ok' : 'no'}">${cur.ok ? '\u2714' : '\u2718'}</div>
+          <div class="fjc-wager">${T('Wagered', 'Apost\u00f3')} <b>${fmt(cur.w)}</b></div>
+          <div class="fjc-score"><span>${fmt(cur.before)}</span><i>\u2192</i><b>${fmt(play ? cur.before : cur.after)}</b></div>
+        </div>
+        <div class="fj-row">${rev.map(x => `<span class="${x.ok ? 'ok' : 'no'}">${esc(x.name)} \u00b7 ${fmt(x.after)}</span>`).join('')}</div>
+        ${f.right && rev.length && !play ? `<div class="fj-sub">${T('Correct response:', 'Respuesta correcta:')} <b>${esc(f.right)}</b></div>` : ''}`;
+      const a = $('.fjc-ans div', el.fj); if (a) fitText(a, 64, 26, a.clientWidth || 980, 150);
+      if (play) {
+        if (soundOn()) SFX.play('drumroll');
+        setTimeout(() => { if (soundOn()) SFX.play(cur.ok ? 'correct' : 'wrong'); }, 2300);
+        setTimeout(() => { const b = $('.fjc-score b', el.fj); if (!b) return; const t0 = performance.now(), d = 900;
+          const step = now => { const k2 = Math.min(1, (now - t0) / d); b.textContent = fmtScore(Math.round(cur.before + (cur.after - cur.before) * k2), S.prefix); if (k2 < 1) requestAnimationFrame(step); };
+          requestAnimationFrame(step); }, 3100);
+        if (f.right) setTimeout(() => { if (keys.fjRev === rev.length && !$('.fj-sub.right', el.fj)) el.fj.insertAdjacentHTML('beforeend', `<div class="fj-sub right">${T('Correct response:', 'Respuesta correcta:')} <b>${esc(f.right)}</b></div>`); }, 4200);
+      }
+    }
+  }
+
   function renderFinal() {
     const S = self.S, k = JSON.stringify([S.players, S.prefix]);
     if (k === keys.final) return;
     keys.final = k;
+    const seq = self.primed && !keys.finSeq; keys.finSeq = true;
     const ps = S.players.slice().sort((a, b) => b.score - a.score);
     const n = Math.max(1, ps.length), rowH = Math.min(118, Math.floor((H - 330) / n) - 14), fs = Math.round(rowH * 0.46);
     const top = ps.length ? ps[0].score : 0;
-    el.final.innerHTML = `${BEAMS}<h1>${T('Final scores', 'Puntajes finales')}</h1><ol>${ps.map(p => {
+    /* rows come in from last place to first, under a drum roll; the winner lands with a crash and confetti */
+    const step = 0.55, delay = i => (seq ? 0.5 + (ps.length - 1 - i) * step : 0).toFixed(2) + 's';
+    el.final.classList.toggle('seq', seq);
+    el.final.innerHTML = `${BEAMS}<h1>${T('Final scores', 'Puntajes finales')}</h1><ol>${ps.map((p, i) => {
       const rank = 1 + ps.filter(x => x.score > p.score).length;
-      return `<li class="${p.score === top ? 'win' : ''}" style="height:${rowH}px;font-size:${fs}px"><span class="rk">${rank}</span><span class="nm">${esc(p.name)}</span><span class="pt">${esc(fmtScore(p.score, S.prefix))}</span></li>`;
+      return `<li class="${p.score === top ? 'win' : ''}" style="height:${rowH}px;font-size:${fs}px;--d:${delay(i)}"><span class="rk">${rank}</span><span class="nm">${esc(p.name)}</span><span class="pt">${esc(fmtScore(p.score, S.prefix))}</span></li>`;
     }).join('')}</ol>`;
+    if (seq) {
+      if (soundOn()) SFX.play('drumroll');
+      const end = (0.5 + (ps.length - 1) * step) * 1000;
+      setTimeout(() => { if (soundOn()) { SFX.play('win'); } confetti(); }, Math.max(2150, end));
+    }
   }
 
   function zoomFrom(ov, c, r) {
@@ -2454,6 +2598,10 @@ function renderEditor() {
     <button class="btn sm" data-act="renumber">Renumber rows from the first value</button>
     <p class="hint">Click a tile to write its clue and answer. Games save in this browser on their own; to play from another computer, export the game and import it there.</p>
   </section>
+  <section class="fj-ed"><h3>Final Jeopardy</h3><p class="hint">One last clue for everyone at the end. Players wager privately, then answer privately. Start it from the host screen with the Final Jeopardy button at the top.</p>
+    <div class="fj-grid"><label><span>Category</span><input class="txt" data-fj="cat" maxlength="120" value="${esc((g.final || {}).cat || '')}" placeholder="Category"></label>
+    <label class="wide"><span>Clue</span><textarea class="txt" data-fj="q" rows="2" maxlength="600" placeholder="The clue, written as an answer">${esc((g.final || {}).q || '')}</textarea></label>
+    <label><span>Correct response</span><input class="txt" data-fj="a" maxlength="200" value="${esc((g.final || {}).a || '')}" placeholder="What is...?"></label></div></section>
 </main>`;
   app.onclick = e => { const b = e.target.closest('[data-act]'); if (b && !b.disabled) editAct(b.dataset.act, b.dataset, b); };
   app.oninput = onEditorInput;
@@ -2461,6 +2609,7 @@ function renderEditor() {
   app.onkeydown = e => { if (e.target.classList.contains('cat-in') && e.key === 'Enter') { e.preventDefault(); e.target.blur(); } };
   fitEditorGrid(nC);
   enableTileDrag();
+  $$('[data-fj]').forEach(i => { i.oninput = () => { G.final = Object.assign({ cat: '', q: '', a: '' }, G.final || {}); G.final[i.dataset.fj] = i.value; saveSoon(); }; });
 }
 let EG_RO = null;
 /* Dragging in the editor:
@@ -3187,7 +3336,7 @@ function pubState() {
     empty: G.cats.map(c => c.cells.map(x => !cellFilled(x))),
     done: G.cats.flatMap((c, ci) => c.cells.map((x, ri) => x.played ? ci + ',' + ri : null)).filter(Boolean),
     open: o ? { key: o.key, c: o.c, r: o.r, phase: o.phase, revealed: !!o.revealed, quiet: !!o.quiet, dd: !!o.dd, jester: !!o.jester, mime: !!o.mime, actorId: o.mime ? (o.actor || null) : null, actor: o.mime ? ((L.players.find(x => x.id === o.actor) || {}).name || null) : null, value: openValue() } : null,
-    players: L.players.map(p => ({ id: p.id, name: p.name, score: p.score, pid: p.pid || null })),
+    players: L.players.map(p => ({ id: p.id, name: p.name, score: p.score, pid: p.pid || null })), fj: L.phase === 'fj' && L.fj ? fjPub(L.fj) : null,
     picker: L.picker || null, pick: !!G.settings.pickOnScreen, chat: !!G.settings.chat,
     show: !!G.settings.showScores, sfx: !!G.settings.sfx, autoplay: !!G.settings.autoplay,
     buzz: { on: !!G.settings.buzzers, armed: !!b.armed, opened: !!b.openedAt, order: b.order.map(x => ({ pid: x.pid, name: x.name, ms: x.ms })), out: Array.from(b.out), early: b.early.map(x => ({ pid: x.pid, name: x.name })) },
@@ -3458,8 +3607,91 @@ function hostReplay() {
 }
 function hostFinal() {
   const L = G.live; L.open = null; RT.timer = null; resetBuzz(false); L.phase = 'final';
-  RT.outbox.push({ t: 'fx', sound: 'win', confetti: true });
+  commit();   /* every screen plays the drum roll, the rows and the winner's fanfare itself */
+}
+/* ---------- Final Jeopardy: title, category, private wagers, the clue with 30 seconds, private answers, judging, reveal ---------- */
+function fjPub(f) {
+  const F = G.final || {}, st = f.stage, ps = G.live.players, nm = id => (ps.find(p => p.id === id) || {}).name;
+  const got = st === 'cat' ? Object.keys(f.w || {}) : st === 'clue' ? Object.keys(f.a || {}).filter(id => (f.a[id] || '').trim()) : [];
+  const done = st === 'reveal' && f.order && f.revealed && f.revealed.length >= f.order.length;
+  return { stage: st, cat: st === 'title' ? '' : (F.cat || ''), q: ['clue', 'judge', 'reveal'].includes(st) ? (F.q || '') : '', endsAt: f.endsAt || 0, now: Date.now(),
+    got: got.map(nm).filter(Boolean), rev: (f.revealed || []).map(x => Object.assign({}, x)), right: done ? (F.a || '') : '' };
+}
+function fjLeftTiles() { return G.cats.reduce((n, c) => n + c.cells.filter(x => cellFilled(x) && !x.played).length, 0); }
+async function hostFJStart() {
+  if (!G) return; const L = G.live;
+  if (L.phase === 'fj') { flashMsg('Final Jeopardy is on. Use the panel on the right.'); return; }
+  const left = fjLeftTiles();
+  if (left) { const v = await choose('Start Final Jeopardy?', `There ${left === 1 ? 'is still 1 tile' : `are still ${left} tiles`} on the board. You can start Final Jeopardy anyway.`, [['go', 'Start Final Jeopardy', 'primary']]); if (v !== 'go') return; }
+  L.open = null; RT.timer = null; resetBuzz(false); L.phase = 'fj';
+  L.fj = { stage: 'title', w: {}, a: {}, ok: {}, cap: {}, order: [], revealed: [], endsAt: 0 };
   commit();
+}
+function hostFJ(act, d) {
+  const L = G.live, f = L.fj, F = G.final || {}; if (!f) return;
+  if (act === 'fjCat') { if (!(F.cat || '').trim()) { flashMsg('Write the category first'); return; } f.stage = 'cat'; }
+  else if (act === 'fjClue') {
+    if (!(F.q || '').trim()) { flashMsg('Write the clue first'); return; }
+    L.players.forEach(p => { f.cap[p.id] = Math.max(0, p.score); f.w[p.id] = Math.max(0, Math.min(f.w[p.id] | 0, f.cap[p.id])); });
+    f.stage = 'clue'; f.endsAt = Date.now() + 30000;
+  }
+  else if (act === 'fjMore') f.endsAt = Math.max(f.endsAt, Date.now()) + 15000;
+  else if (act === 'fjStop') fjToJudge(f);
+  else if (act === 'fjOk') f.ok[d.id] = d.v === '1';
+  else if (act === 'fjRev') {
+    if (f.stage !== 'reveal') { f.stage = 'reveal'; f.order = L.players.slice().sort((a, b) => a.score - b.score || a.name.localeCompare(b.name)).map(p => p.id); f.revealed = []; }
+    const id = f.order[f.revealed.length], p = L.players.find(x => x.id === id);
+    if (p) {
+      const w = Math.max(0, Math.min(f.w[id] | 0, f.cap[id] == null ? Math.max(0, p.score) : f.cap[id])), ok = f.ok[id] === true, before = p.score, dlt = ok ? w : -w;
+      p.score += dlt; if (dlt) { L.history.push({ id, d: dlt }); if (L.history.length > 200) L.history.shift(); }
+      f.revealed.push({ id, name: p.name, ans: (f.a[id] || '').trim(), ok, w, before, after: p.score });
+    }
+  }
+  else if (act === 'fjFinal') { L.fj = null; hostFinal(); return; }
+  else if (act === 'fjCancel') { L.phase = 'board'; L.fj = null; }
+  commit();
+}
+function fjToJudge(f) { f.stage = 'judge'; G.live.players.forEach(p => { if (!(f.a[p.id] || '').trim() && f.ok[p.id] == null) f.ok[p.id] = false; }); }
+function hostFJWager(rec, m) {
+  const L = G.live, f = L.fj; if (L.phase !== 'fj' || !f || f.stage !== 'cat') return;
+  const pi = playerByPid(rec.pid); if (pi < 0) return; const p = L.players[pi];
+  const w = Math.max(0, Math.min(Math.round(+m.w || 0), Math.max(0, p.score))); f.w[p.id] = w;
+  sendToPid(rec.pid, { t: 'fjack', w }); saveSoon(); broadcastSoon(); renderHostPanel();
+}
+function hostFJAnswer(rec, m) {
+  const L = G.live, f = L.fj; if (L.phase !== 'fj' || !f || f.stage !== 'clue' || Date.now() > f.endsAt + 1500) return;
+  const pi = playerByPid(rec.pid); if (pi < 0) return; const p = L.players[pi];
+  f.a[p.id] = String(m.a || '').slice(0, 200); sendToPid(rec.pid, { t: 'fjack', a: f.a[p.id] }); saveSoon(); broadcastSoon(); renderHostPanel();
+}
+setInterval(() => {
+  if (UI.mode !== 'host' || !G || G.live.phase !== 'fj' || !G.live.fj) return;
+  const f = G.live.fj, el = $('#fjLeft');
+  if (f.stage === 'clue') { const s = Math.max(0, Math.ceil((f.endsAt - Date.now()) / 1000)); if (el) el.textContent = s + 's'; if (Date.now() >= f.endsAt) { fjToJudge(f); commit(); } }
+}, 250);
+function fjSection() {
+  const L = G.live, f = L.fj, F = G.final || {}, ps = L.players, fmt = n => esc(fmtScore(n, G.settings.prefix));
+  let h = `<section class="hp-sec fj-sec"><div class="hp-h3row"><h3>Final Jeopardy</h3><button class="btn sm ghost" data-act="fjCancel">Back to the board</button></div>`;
+  if (!ps.length) h += `<p class="hp-muted">Add players first. People who join with the invite link show up in Scores.</p>`;
+  if (f.stage === 'title') h += `<p class="hp-muted">Everyone sees the Final Jeopardy title. Check the clue, then reveal the category.</p>
+      <label class="fj-in"><span>Category</span><input class="txt" data-input="fjtext" data-k="cat" maxlength="120" value="${esc(F.cat || '')}"></label>
+      <label class="fj-in"><span>Clue</span><textarea class="txt" data-input="fjtext" data-k="q" rows="3" maxlength="600">${esc(F.q || '')}</textarea></label>
+      <label class="fj-in"><span>Correct response</span><input class="txt" data-input="fjtext" data-k="a" maxlength="200" value="${esc(F.a || '')}"></label>
+      <div class="hp-btns"><button class="btn sm primary" data-act="fjCat">Reveal the category</button></div>`;
+  else if (f.stage === 'cat') h += `<p class="hp-muted">Players wager privately on their devices, from 0 to their score. Only you see the amounts. For anyone without a device, type it in.</p>
+      <div class="fj-list">${ps.map(p => `<div class="fj-pl"><b>${esc(p.name)}</b><span>${fmt(p.score)}</span><input class="txt" type="number" min="0" max="${Math.max(0, p.score)}" data-input="fjw" data-id="${p.id}" value="${p.id in f.w ? f.w[p.id] : ''}" placeholder="Wager" aria-label="Wager for ${esc(p.name)}"></div>`).join('')}</div>
+      <div class="hp-btns"><button class="btn sm primary" data-act="fjClue">Reveal the clue</button></div><p class="hp-muted small">Anyone who hasn\u2019t wagered when you reveal the clue wagers 0. Players at 0 or below can still answer, just for fun.</p>`;
+  else if (f.stage === 'clue') h += `<p class="hp-muted"><b id="fjLeft">${Math.max(0, Math.ceil((f.endsAt - Date.now()) / 1000))}s</b> left. Answers come in privately.</p>
+      <div class="fj-list">${ps.map(p => `<div class="fj-pl"><b>${esc(p.name)}</b><span>${fmt(f.w[p.id] || 0)}</span><input class="txt" data-input="fja" data-id="${p.id}" maxlength="200" value="${esc(f.a[p.id] || '')}" placeholder="Answer" aria-label="Answer for ${esc(p.name)}"></div>`).join('')}</div>
+      <div class="hp-btns"><button class="btn sm" data-act="fjMore">+15 seconds</button><button class="btn sm bad" data-act="fjStop">Stop answers now</button></div>`;
+  else if (f.stage === 'judge') { const all = ps.every(p => f.ok[p.id] === true || f.ok[p.id] === false);
+    h += `<p class="hp-muted">Mark every answer, then start the reveal. It goes from the lowest score to the highest.</p>
+      <div class="fj-list">${ps.map(p => `<div class="fj-pl judge"><b>${esc(p.name)}</b><span class="fj-ans">${(f.a[p.id] || '').trim() ? esc(f.a[p.id]) : '<i>No answer</i>'}</span><span>${fmt(f.w[p.id] || 0)}</span><span class="fj-ok"><button class="btn sm ${f.ok[p.id] === true ? 'ok' : 'ghost'}" data-act="fjOk" data-id="${p.id}" data-v="1">Right</button><button class="btn sm ${f.ok[p.id] === false ? 'bad' : 'ghost'}" data-act="fjOk" data-id="${p.id}" data-v="0">Wrong</button></span></div>`).join('')}</div>
+      ${F.a ? `<p class="hp-muted">Correct response: <b>${esc(F.a)}</b></p>` : ''}
+      <div class="hp-btns"><button class="btn sm primary" data-act="fjRev"${all && ps.length ? '' : ' disabled'}>Start the reveal</button></div>`; }
+  else if (f.stage === 'reveal') { const n = f.revealed.length, next = ps.find(p => p.id === f.order[n]);
+    h += `<p class="hp-muted">Revealed ${n} of ${f.order.length}. Each reveal plays a drum roll, then right or wrong, then the new score.</p>
+      <div class="hp-btns">${next ? `<button class="btn sm primary" data-act="fjRev">Reveal ${esc(next.name)}</button>` : `<button class="btn sm primary" data-act="fjFinal">${icon('trophy', 16)}Show final scores</button>`}</div>`; }
+  return h + '</section>';
 }
 function moveSel(dc, dr) {
   const nC = G.cats.length, nR = G.rows.length;
@@ -3566,7 +3798,7 @@ function renderHost() {
   app.onclick = app.oninput = app.onchange = app.onkeydown = null;
   app.innerHTML = `<div class="host">
   <div class="host-main">
-    <div class="host-top"><button class="btn sm ghost" id="homeBtn">Home</button><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><button class="btn sm ghost" id="themeTop" title="Colors for the board everyone sees">Theme</button><button class="btn sm" id="jbTop" title="Music for everyone">${icon('music', 16)}Jukebox</button><button class="btn sm ghost" id="buzzTop" disabled>${icon('bolt', 16)}Open buzzers</button><button class="btn sm" id="resetGameBtn" title="Start this game over">Reset game</button><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
+    <div class="host-top"><button class="btn sm ghost" id="homeBtn">Home</button><button class="btn sm ghost" id="exitHost">${icon('chevL', 16)}Edit game</button><div class="ht-title">${esc(G.title)}</div><div class="grow"></div><button class="btn sm ghost" id="themeTop" title="Colors for the board everyone sees">Theme</button><button class="btn sm" id="jbTop" title="Music for everyone">${icon('music', 16)}Jukebox</button><button class="btn sm ghost" id="buzzTop" disabled>${icon('bolt', 16)}Open buzzers</button><button class="btn sm fj-top" id="fjTop" title="Play the last clue: everyone wagers, then answers privately">${icon('trophy', 16)}Final Jeopardy</button><button class="btn sm" id="resetGameBtn" title="Start this game over">Reset game</button><span class="ht-hint">What everyone sees. Click a tile to open it.</span></div>
     <div class="monitor" id="monitor"></div>
   </div>
   <aside class="hside" aria-label="Host controls">
@@ -3582,6 +3814,7 @@ function renderHost() {
   Host.screen = createScreen($('#monitor'), { interactive: true, muted: !RT.hostSound, onTile: hostOpenTile, onStage: hostStage });
   $('#exitHost').onclick = () => exitHost();
   $('#themeTop').onclick = e => openThemePicker(e.currentTarget);
+  $('#fjTop').onclick = () => hostFJStart();
   applyLook(G.settings.theme, G.settings.texture, G.settings.fx);
   document.body.classList.toggle('testing', !!RT.testRun);
   if (RT.testRun) { $('.host-top').insertAdjacentHTML('afterbegin', '<span class="test-pill" title="Nothing here counts. Leave to put everything back.">Test run</span>'); $('#exitHost').innerHTML = icon('chevL', 16) + 'End test'; }
@@ -3718,6 +3951,7 @@ function renderHostPanel() {
   const viewers = allRecs(), on = Net.status === 'online' || relayOn();
   const badge = on ? '<span class="onair"><i></i>On air</span>' : Net.status === 'connecting' ? '<span class="onair off wait"><i></i>Connecting</span>' : `<span class="onair off"><i></i>${Net.status === 'error' ? 'Offline' : 'Not live'}</span>`;
   let h = '';
+  if (L.phase === 'fj' && L.fj) h += fjSection();
   if (o) h += clueCard(o);
   h += `<section class="hp-sec">
     <div class="hp-live">${badge}<span class="hp-viewers">${viewers.length === 0 ? 'Nobody joined yet' : viewers.length === 1 ? '1 person joined' : viewers.length + ' people joined'}${Net.locals.size ? '<br>Display tab open' : ''}</span></div>
@@ -3767,6 +4001,7 @@ function bindPanel(pane) {
       case 'showBoard': case 'backToBoard': G.live.phase = 'board'; commit(); break;
       case 'intro': G.live.phase = 'intro'; commit(); break;
       case 'final': hostFinal(); break;
+      case 'fjCat': case 'fjClue': case 'fjMore': case 'fjStop': case 'fjOk': case 'fjRev': case 'fjFinal': case 'fjCancel': hostFJ(d.act, d); break;
       case 'ddShow': hostShowDDClue(); break;
       case 'jesterShow': hostShowJester(); break;
       case 'mimeActor': hostMimeActor(d.id); break;
@@ -3804,6 +4039,9 @@ function bindPanel(pane) {
     if (t.dataset.input === 'pname' && p) { p.name = t.value.slice(0, 28); saveSoon(); broadcastSoon(); }
     else if (t.dataset.input === 'pscore' && p) { const v = parseInt(t.value, 10); if (!isNaN(v)) { p.score = v; saveSoon(); broadcastSoon(); } }
     else if (t.dataset.input === 'wager' && G.live.open) { G.live.open.wager = t.value === '' ? null : +t.value; saveSoon(); }
+    else if (t.dataset.input === 'fjtext') { G.final = Object.assign({ cat: '', q: '', a: '' }, G.final || {}); G.final[t.dataset.k] = t.value; saveSoon(); }
+    else if (t.dataset.input === 'fjw' && G.live.fj) { const v = parseInt(t.value, 10); if (isNaN(v)) delete G.live.fj.w[t.dataset.id]; else G.live.fj.w[t.dataset.id] = Math.max(0, v); saveSoon(); broadcastSoon(); }
+    else if (t.dataset.input === 'fja' && G.live.fj) { G.live.fj.a[t.dataset.id] = t.value.slice(0, 200); saveSoon(); broadcastSoon(); }
     else if (t.dataset.input === 'earlyAmt') { const v = parseInt(t.value, 10); if (!isNaN(v)) { G.settings.earlyAmt = Math.max(0, Math.min(10000, v)); saveSoon(); broadcastSoon(); } }
   });
   pane.addEventListener('change', e => {
@@ -4281,6 +4519,8 @@ function onScreenMsg(m, from) {
     } else renderHostPanel();
     if (UI.mode === 'host' && G && G.live.open && G.live.open.mime) setTimeout(mimeSend, 400);
   } else if (m.t === 'buzz') hostBuzz(rec.pid, rec.name);
+  else if (m.t === 'fjw') hostFJWager(rec, m);
+  else if (m.t === 'fja') hostFJAnswer(rec, m);
   else if (m.t === 'hpong') hostPong(rec, m);
   else if (m.t === 'mready') { (rec.ready = rec.ready || new Set()).add(String(m.key) + ':' + m.side); readySoon(); }
   else if (m.t === 'jbAdd' && UI.mode === 'host' && G) jbAddFrom(rec, m.url);
@@ -4349,6 +4589,7 @@ function startPlayer(code, name, test) {
       <div class="pb-side right">${langSwHTML()}<button class="pill" id="jbBtn" title="Jukebox">${icon('music', 16)}Music</button><button class="pill" id="chatBtn">${icon('chat', 16)}Chat<b class="unread hidden" id="unread"></b></button><button class="pill" id="muteBtn" title="Volume (V)" aria-label="Volume"></button><button class="pill" id="fsBtn" title="Full screen" aria-label="Full screen">${icon('full', 16)}</button></div>
     </div>
   </div>
+  <div class="fj-box hidden" id="fjBox" role="region" aria-label="Final Jeopardy"></div>
   <aside class="chat" id="chat" aria-label="Chat">
     <div class="chat-head"><b>Chat</b><button class="btn sm icon ghost" id="chatClose" title="Close chat" aria-label="Close chat">${icon('x', 16)}</button></div>
     <div class="chat-log" id="chatLog" aria-live="polite"></div>
@@ -4407,6 +4648,7 @@ function startPlayer(code, name, test) {
 
   function update() {
     if (!S) return;
+    renderFJBox();
     $('#chatBtn').classList.toggle('hidden', S.chat === false);
     chat.classList.toggle('hidden', !chatOpen || S.chat === false);
     const me = S.players.find(p => p.pid === pid), picker = S.players.find(p => p.id === S.picker);
@@ -4451,6 +4693,29 @@ function startPlayer(code, name, test) {
     buzz.disabled = true; bnote.textContent = T('Buzzed\u2026', 'Tocaste\u2026');
   };
   buzz.onclick = doBuzz;
+  /* Final Jeopardy: wager and answer privately; only the host sees them */
+  let fjKey = '';
+  function renderFJBox() {
+    const box = $('#fjBox'), f = S && S.phase === 'fj' ? S.fj : null;
+    if (!f) { box.classList.add('hidden'); fjKey = ''; return; }
+    const me = S.players.find(p => p.pid === pid), max = me ? Math.max(0, me.score) : 0, k = f.stage + '|' + (me ? me.id : '') + '|' + max;
+    box.classList.remove('hidden');
+    if (k === fjKey) return; fjKey = k;
+    const head = (t, s) => `<div class="fjb-h"><b>${t}</b><span>${s}</span></div>`;
+    if (f.stage === 'cat' && me) box.innerHTML = head(T('Final Jeopardy: your wager', 'Jeopardy final: tu apuesta'), T('Only the host sees it', 'Solo el anfitri\u00f3n la ve'))
+      + `<div class="fjb-cat">${esc(f.cat || '')}</div><form class="fjb-form" id="fjForm"><input class="txt" id="fjIn" type="number" min="0" max="${max}" step="1" inputmode="numeric" placeholder="0 to ${max}" aria-label="${T('Your wager', 'Tu apuesta')}"><button class="btn primary" type="submit">${T('Lock in', 'Confirmar')}</button></form>`
+      + `<div class="fjb-note" id="fjNote">${T(`Bet from 0 to ${max}. Right and your bet doubles; wrong and you lose it.`, `Apuesta de 0 a ${max}. Si aciertas tu apuesta se duplica; si fallas la pierdes.`)}</div>`;
+    else if (f.stage === 'clue' && me) box.innerHTML = head(T('Final Jeopardy: your answer', 'Jeopardy final: tu respuesta'), T('Only the host sees it', 'Solo el anfitri\u00f3n la ve'))
+      + `<form class="fjb-form" id="fjForm"><input class="txt" id="fjIn" maxlength="200" autocomplete="off" placeholder="${T('What is...?', '\u00bfQu\u00e9 es...?')}" aria-label="${T('Your answer', 'Tu respuesta')}"><button class="btn primary" type="submit">${T('Send', 'Enviar')}</button></form>`
+      + `<div class="fjb-note" id="fjNote">${T('You can change it until time runs out.', 'Puedes cambiarla hasta que se acabe el tiempo.')}</div>`;
+    else box.innerHTML = head(T('Final Jeopardy', 'Jeopardy final'), '') + `<div class="fjb-note">${f.stage === 'title' ? T('Coming up: get ready to wager.', 'Ya viene: prep\u00e1rate para apostar.')
+      : f.stage === 'cat' || f.stage === 'clue' ? T('Only players on the scoreboard can play this one.', 'Solo los jugadores del marcador pueden jugar esta.') : T('Answers are locked. Watch the reveal!', 'Las respuestas est\u00e1n cerradas. \u00a1Mira la revelaci\u00f3n!')}</div>`;
+    const form = $('#fjForm'), inp = $('#fjIn');
+    if (form) {
+      form.onsubmit = e => { e.preventDefault(); const v = inp.value.trim(); if (f.stage === 'cat') { const n = Math.max(0, Math.min(max, Math.round(+v || 0))); inp.value = n; sendToHost({ t: 'fjw', w: n }); } else if (v) sendToHost({ t: 'fja', a: v }); $('#fjNote').textContent = T('Sending\u2026', 'Enviando\u2026'); };
+      setTimeout(() => { try { inp.focus(); } catch (e) {} }, 50);
+    }
+  }
   /* keyboard shortcuts for players, when the host has them on: Space/Enter buzz, C chat, M mute, F full screen, J music, V volume */
   addEventListener('keydown', e => {
     if (!S || S.keys === false || e.ctrlKey || e.metaKey || e.altKey) return;
@@ -4501,6 +4766,7 @@ function startPlayer(code, name, test) {
     } else if (via === 'direct' ? src !== 'direct' : src !== relayActive) return;
     last = Date.now();
     if (d.t === 'hping') { sendToHost({ t: 'hpong', ts: d.ts }); return; }
+    if (d.t === 'fjack') { const n = $('#fjNote'); if (n) n.textContent = 'w' in d ? T(`\u2714 Wager locked in: ${d.w}. Only the host sees it.`, `\u2714 Apuesta confirmada: ${d.w}. Solo el anfitri\u00f3n la ve.`) : T('\u2714 Answer sent. You can change it until time runs out.', '\u2714 Respuesta enviada. Puedes cambiarla hasta que se acabe el tiempo.'); return; }
     if (d.t === 'pings') { const v = d.p && d.p[pid], el = $('#pingPill'); if (el && v != null) { el.textContent = T(`Ping ${v} ms`, `Ping ${v} ms`); el.className = 'pill ping ' + pingCls(v); } return; }
     if (d.t === 'jb' && d.s) { JBP.apply(d.s); renderJukebox(); }
     else if (d.t === 'chat' && d.m) addMsg(d.m);
