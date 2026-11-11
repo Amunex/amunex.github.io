@@ -774,6 +774,14 @@ html[data-themed] body:not(.is-screen)::after{background-image:linear-gradient(c
 .tm-custom label{display:flex;align-items:center;gap:6px;color:var(--ink-2);cursor:pointer}
 .tm-custom input[type=color]{width:30px;height:24px;padding:0;border:1px solid var(--wire);border-radius:5px;background:none;cursor:pointer}
 </style>
+<style id="settings-and-sound">
+.tgl-num input{width:86px;height:30px;padding:0 8px;border:1px solid var(--wire);border-radius:6px;background:var(--desk-2);color:var(--ink);font:600 14px/1 var(--f-ui);text-align:right}
+.in-rules.many{font-size:30px;gap:8px;padding:18px 40px}
+.myvol{width:260px;padding:12px}
+.mv-h{display:flex;flex-direction:column;gap:2px;margin-bottom:10px;font:700 15px/1.2 var(--f-ui)}.mv-h span{font:500 12px/1.3 var(--f-ui);color:var(--ink-3)}
+.mv-row{display:flex;align-items:center;gap:10px}.mv-row input{flex:1;accent-color:var(--gold)}.mv-row b{width:42px;text-align:right;font:700 13px/1 var(--f-ui);font-variant-numeric:tabular-nums}
+.mv-mute{display:flex;align-items:center;gap:8px;margin-top:10px;font:600 13px/1.2 var(--f-ui);color:var(--ink-2);cursor:pointer}.mv-mute input{width:16px;height:16px;accent-color:var(--gold)}
+</style>
 <style id="drag-and-look">
 .egrid .shift{transition:transform .2s cubic-bezier(.2,.8,.2,1)}
 .egrid .lift{position:relative;z-index:40;transition:none!important;box-shadow:0 16px 44px rgba(0,0,0,.6);filter:brightness(1.12)}
@@ -989,6 +997,9 @@ const HT = (en, es) => (LANG === 'es' ? es : en);
 let MASTER = 0.5;  /* master volume from the host, 0 to 1 */
 /* Loudness curve: ears hear volume logarithmically, so a straight 0-1 slider jumps too fast. Every sound goes through this. */
 const LOUD = v => Math.pow(Math.max(0, Math.min(1, +v || 0)), 1.6);
+/* Your own volume (players set it on their device); it multiplies the host's master, so the host's master still caps everyone. */
+let MYVOL = 1;
+const VOLX = v => LOUD(v) * MYVOL;
 const ES = {"Trivia Night": "Noche de Trivia", "Theme": "Tema", "Theme colors": "Colores del tema", "Theme textures": "Texturas del tema", "How the board and screens look, for everyone. Nothing moves.": "Cómo se ven el tablero y las pantallas, para todos. Nada cambia de lugar.", "Everyone sees these colors": "Todos ven estos colores", "Custom": "Personalizado", "Board": "Tablero", "Numbers": "Números", "Background": "Fondo", "Drag tiles to swap them. Drag a category or a points label to move the whole column or row.": "Arrastra las casillas para cambiarlas. Arrastra una categoría o un puntaje para mover toda la columna o fila.", "Moved the column": "Se movió la columna", "Moved the row": "Se movió la fila", "Only on my screen": "Solo en mi pantalla", "Swapped the two tiles": "Se cambiaron las dos casillas", "Test run": "Prueba", "End test": "Terminar prueba", "Your ping to the host": "Tu ping con el anfitrión", "Host a Jeopardy-style game. You get a room code and a link, and everyone else joins with it.": "Organiza un juego estilo Jeopardy. Recibes un código de sala y un link, y todos los demás se unen con él.", "Host one of your games": "Organiza uno de tus juegos", "Press Host. You get a room code and an invite link to send to everyone.": "Aprieta Organizar. Recibes un código de sala y un link de invitación para mandarle a todos.", "Host": "Organizar", "Edit": "Editar", "Your games": "Tus juegos", "Make a new game": "Crear un juego nuevo", "Start a blank board and write your clues.": "Empieza con un tablero en blanco y escribe tus preguntas.", "Join a game": "Unirse a un juego", "Join someone else’s game": "Unirse al juego de otra persona", "Got a room code from the host?": "¿Tienes un código de sala del anfitrión?", "Join": "Entrar", "Room code": "Código de sala", "Add the demo game": "Agregar el juego de ejemplo", "Games are saved in this browser. Players never see this page’s games; they only get what you show on screen.": "Los juegos se guardan en este navegador. Los jugadores nunca ven los juegos de esta página; solo ven lo que muestras en pantalla.", "Import a game": "Importar un juego", "Import": "Importar", "Export": "Exportar", "Untitled game": "Juego sin título", "New game": "Juego nuevo", "Save": "Guardar", "Save (Ctrl+S)": "Guardar (Ctrl+S)", "Host this game": "Organizar este juego", "More": "Más", "More options": "Más opciones", "Home": "Inicio", "Game title": "Título del juego", "Points": "Puntos", "Add a category": "Agregar una categoría", "Add a row": "Agregar una fila", "Category options": "Opciones de categoría", "Row options": "Opciones de fila", "Click a tile to write its clue and answer. Games save in this browser on their own; to play from another computer, export the game and import it there.": "Haz clic en una casilla para escribir su pregunta y respuesta. Los juegos se guardan solos en este navegador; para jugar desde otro computador, exporta el juego e impórtalo allá.", "Insert category left": "Insertar categoría a la izquierda", "Insert category right": "Insertar categoría a la derecha", "Move left": "Mover a la izquierda", "Move right": "Mover a la derecha", "Clear this category’s clues": "Borrar las preguntas de esta categoría", "Delete category": "Eliminar categoría", "Insert row above": "Insertar fila arriba", "Insert row below": "Insertar fila abajo", "Move clues up": "Subir preguntas", "Move clues down": "Bajar preguntas", "Delete row": "Eliminar fila", "Renumber rows from the first value": "Renumerar las filas desde el primer valor", "Duplicate this game": "Duplicar este juego", "Delete this game": "Eliminar este juego", "Copy a link that adds this game": "Copiar un link que agrega este juego", "Start this game over": "Empezar este juego de nuevo", "Import as a new game": "Importar como juego nuevo", "Paste a game you exported, or choose a .json file.": "Pega un juego que exportaste o elige un archivo .json.", "Choose file": "Elegir archivo", "Cancel": "Cancelar", "Close": "Cerrar", "Close (Esc)": "Cerrar (Esc)", "Done": "Listo", "Edit clue": "Editar pregunta", "Clue": "Pregunta", "Answer": "Respuesta", "Points for this clue": "Puntos de esta pregunta", "Everyone sees this when the tile opens.": "Todos ven esto cuando se abre la casilla.", "Only you see this until you reveal it.": "Solo tú ves esto hasta que lo reveles.", "Add to this clue": "Agregar a esta pregunta", "Add a picture or file": "Agregar una imagen o archivo", "Drop it here, paste it with Ctrl+V, or click to choose. Big pictures shrink automatically.": "Suéltalo aquí, pégalo con Ctrl+V o haz clic para elegir. Las imágenes grandes se achican solas.", "Or paste a YouTube, Drive, image, audio or video link": "O pega un link de YouTube, Drive, imagen, audio o video", "Paste a YouTube link": "Pega un link de YouTube", "Paste picture": "Pegar imagen", "Paste a picture you copied": "Pega una imagen que copiaste", "Add": "Agregar", "Image": "Imagen", "Audio file": "Archivo de audio", "Video file": "Archivo de video", "YouTube, sound only": "YouTube, solo sonido", "YouTube video": "Video de YouTube", "Web embed": "Página web", "Uploaded file": "Archivo subido", "Media type": "Tipo de archivo", "Remove": "Quitar", "Remove media": "Quitar archivo", "Zoom in": "Acercar", "Zoom in on the picture": "Hacer zoom en la imagen", "Show a close-up first": "Mostrar un acercamiento primero", "No zoom": "Sin zoom", "Save zoom": "Guardar zoom", "Click or drag on the picture to move the box onto the detail players should see. When you reveal the answer, it zooms out to the full picture.": "Haz clic o arrastra sobre la imagen para mover el recuadro al detalle que deben ver los jugadores. Cuando reveles la respuesta, se aleja y muestra la imagen completa.", "Daily Double": "Apuesta doble", "only the player who picks it answers, and they bet points before seeing the clue": "solo responde quien la elige, y apuesta puntos antes de ver la pregunta", "Jester": "Bufón", "Jester mini-game": "Minijuego bufón", "a surprise mini-game that has nothing to do with the category": "un minijuego sorpresa que no tiene nada que ver con la categoría", "the player who picked it sees the answer on their own screen and acts it out, everyone else guesses": "quien la elige ve la respuesta en su propia pantalla y la actúa, y el resto adivina", "Everyone sees this. Say what kind of thing it is, like “Mímica: película”.": "Todos ven esto. Di qué tipo de cosa es, como “Mímica: película”.", "What they act out": "Lo que actúa", "Only the actor sees this on their phone. Everyone sees it when you reveal.": "Solo quien actúa lo ve en su celular. Todos lo ven cuando lo revelas.", "Mini-game": "Minijuego", "Notes": "Notas", "Describe the mini-game. Everyone sees it right after the Jester animation.": "Describe el minijuego. Todos lo ven justo después de la animación del bufón.", "Only you see this, like how to pick the winner. Optional.": "Solo tú ves esto, por ejemplo cómo elegir al ganador. Opcional.", "Clear this clue": "Borrar esta pregunta", "Previous clue": "Pregunta anterior", "Next clue": "Pregunta siguiente", "Previous clue (Ctrl+Up)": "Pregunta anterior (Ctrl+↑)", "Next clue (Ctrl+Down)": "Pregunta siguiente (Ctrl+↓)", "To start a YouTube video at a certain second, add": "Para que un video de YouTube empiece en un segundo exacto, agrega", "to the end of the link (or": "al final del link (o", "on a youtu.be link). This example starts at 0:45:": "en un link youtu.be). Este ejemplo empieza en 0:45:", "Copy": "Copiar", "Example link copied": "Link de ejemplo copiado", "Listen": "Escuchar", "Media clue": "Pregunta con archivo", "No answer written": "Sin respuesta escrita", "No notes": "Sin notas", "Write at least one clue first": "Escribe al menos una pregunta primero", "Edit game": "Editar juego", "Saved game": "Juego guardado", "Game duplicated": "Juego duplicado", "Imported game": "Juego importado", "Jukebox": "Rocola", "Music for everyone": "Música para todos", "Open buzzers": "Activar botones", "Lock buzzers": "Cerrar botones", "Reset game": "Reiniciar juego", "Host controls": "Controles del anfitrión", "Hide": "Ocultar", "Show": "Mostrar", "Message everyone (Esc to leave chat)": "Mensaje para todos (Esc para salir del chat)", "Send": "Enviar", "Title screen": "Pantalla de título", "Everyone sees the game title and the join link. Decide who goes first, then show the board.": "Todos ven el título del juego y el link para unirse. Decide quién empieza y después muestra el tablero.", "Pick someone at random": "Elegir a alguien al azar", "Show the board": "Mostrar el tablero", "What everyone sees. Click a tile to open it.": "Lo que todos ven. Haz clic en una casilla para abrirla.", "Pick a tile": "Elige una casilla", "Who picks the next tile": "Quién elige la próxima casilla", "Whoever answers correctly picks next.": "Quien responde bien elige la siguiente.", "Nobody yet": "Nadie todavía", "Show final scores": "Mostrar puntajes finales", "Scores": "Puntajes", "Undo": "Deshacer", "People who join with the invite link show up here. You can also add players or teams by hand.": "Quienes se unen con el link de invitación aparecen aquí. También puedes agregar jugadores o equipos a mano.", "You can also add players or teams by hand.": "También puedes agregar jugadores o equipos a mano.", "Add player or team": "Agregar jugador o equipo", "Remove test players": "Quitar jugadores de prueba", "Settings": "Ajustes", "Buzzers for people who joined": "Botones para quienes se unieron", "Picker can tap a tile on their screen": "Quien elige puede tocar una casilla en su pantalla", "Chat for people who joined": "Chat para quienes se unieron", "Add people to scores when they join": "Agregar a los puntajes a quienes se unen", "Show scores on screen": "Mostrar puntajes en pantalla", "Sound effects": "Efectos de sonido", "Play media when a clue opens": "Reproducir archivos al abrir una pregunta", "Sound on this page": "Sonido en esta página", "Symbol before points": "Símbolo antes de los puntos", "Keys: arrows pick a tile, Enter opens it, Y and N mark the first buzzer right or wrong, R plays the sound or video again, Space reveals, Esc closes. Press 1 to 9 to pick a player, then up or down to add or take away the clue’s points.": "Teclas: las flechas eligen una casilla, Enter la abre, Y y N marcan bien o mal a quien tocó primero, R vuelve a reproducir el sonido o video, Espacio revela, Esc cierra. Aprieta del 1 al 9 para elegir un jugador y después arriba o abajo para sumarle o restarle los puntos de la pregunta.", "On air": "Al aire", "Not live": "Fuera del aire", "Nobody joined yet": "Nadie se ha unido todavía", "Copy invite link": "Copiar link de invitación", "Open display tab": "Abrir pestaña de pantalla", "Test player": "Jugador de prueba", "Opens a pretend player in a new tab so you can try the buzzers yourself": "Abre un jugador de prueba en otra pestaña para que pruebes los botones", "New room code": "Nuevo código de sala", "Room": "Sala", "Backup route is on, for anyone whose network blocks direct connections.": "La ruta de respaldo está activa, para quien tenga una red que bloquee conexiones directas.", "Read this out loud": "Lee esto en voz alta", "The clue (hidden until they bet)": "La pregunta (oculta hasta que apueste)", "The mini-game (hidden until you show it)": "El minijuego (oculto hasta que lo muestres)", "Reveal answer": "Revelar respuesta", "Nobody got it: reveal": "Nadie acertó: revelar", "Back to the board": "Volver al tablero", "Done, back to the board": "Listo, volver al tablero", "Show the clue": "Mostrar la pregunta", "Show the mini-game": "Mostrar el minijuego", "Timer": "Temporizador", "Stop": "Detener", "Close and keep this tile on the board": "Cerrar y dejar esta casilla en el tablero", "Clear buzzes and lockouts": "Limpiar toques y bloqueos", "Read the clue first, then open the buzzers. They show up on everyone’s phone right away.": "Lee la pregunta primero y después activa los botones. Aparecen al tiro en el celular de todos.", "Buzzers are locked.": "Los botones están cerrados.", "Buzzers are open. Waiting for someone to buzz…": "Los botones están activos. Esperando que alguien toque…", "buzzed first": "tocó primero", "Right": "Correcto", "Wrong": "Incorrecto", "Play it again for everyone": "Volver a reproducir para todos", "Playing it again": "Reproduciendo de nuevo", "Play": "Reproducir", "Pause": "Pausa", "Restart": "Desde el inicio", "sees the answer on their screen and acts it out": "ve la respuesta en su pantalla y la actúa", "choose who acts it out": "elige quién actúa", "Add players first": "Agrega jugadores primero", "Send again": "Enviar de nuevo", "Sent again": "Enviado de nuevo", "They haven’t joined on their own screen, so show them the answer yourself.": "No se unió desde su propia pantalla, así que muéstrale tú la respuesta.", "No talking or sounds. Start the 60s timer. When someone guesses it, give the points to the guesser and to the actor with the green buttons under Scores.": "Sin hablar ni hacer ruidos. Inicia el temporizador de 60 s. Cuando alguien adivine, dale los puntos a quien adivinó y a quien actuó con los botones verdes de Puntajes.", "Their bet": "Su apuesta", "answers the Daily Double": "responde la apuesta doble", "Final scores are on screen": "Los puntajes finales están en pantalla", "Every clue has been played.": "Ya se jugaron todas las preguntas.", "Reset board": "Reiniciar tablero", "Reset scores": "Reiniciar puntajes", "Reset the game?": "¿Reiniciar el juego?", "Every clue goes back on the board, all scores go to 0, and everyone sees the title screen again. Players stay in the game.": "Todas las preguntas vuelven al tablero, los puntajes vuelven a 0 y todos ven de nuevo la pantalla de título. Los jugadores siguen en el juego.", "Yes, reset the game": "Sí, reiniciar el juego", "Game reset": "Juego reiniciado", "Put every clue back on the board?": "¿Volver a poner todas las preguntas en el tablero?", "Set every score back to 0?": "¿Volver todos los puntajes a 0?", "This clue was already played. Open it again?": "Esta pregunta ya se jugó. ¿Abrirla de nuevo?", "Make a new room code? People who already joined will need the new invite link.": "¿Crear un nuevo código de sala? Quienes ya se unieron van a necesitar el nuevo link de invitación.", "Invite link copied": "Link de invitación copiado", "Link copied. It includes the answers, so only send it to co-hosts.": "Link copiado. Incluye las respuestas, así que solo mándaselo a co-anfitriones.", "Master volume": "Volumen general", "Language": "Idioma", "Everyone is watching the Jester animation. Show the mini-game when you’re ready. Give points to whoever wins with the green buttons under Scores.": "Todos están viendo la animación del bufón. Muestra el minijuego cuando quieras. Dale puntos a quien gane con los botones verdes de Puntajes.", "Music": "Música", "Anyone can add songs. You run play, skip and the volume. It gets quieter by itself while a clue plays a sound.": "Cualquiera puede agregar canciones. Tú manejas reproducir, saltar y el volumen. Baja solo mientras una pregunta reproduce un sonido.", "Add a YouTube link and it plays for everyone. The host runs play and skip.": "Agrega un link de YouTube y suena para todos. El anfitrión maneja reproducir y saltar.", "Add a YouTube link below.": "Agrega un link de YouTube abajo.", "YouTube link": "Link de YouTube", "No songs yet.": "Todavía no hay canciones.", "Nothing playing": "No suena nada", "Your speakers": "Tus parlantes", "Your volume": "Tu volumen", "Volume for everyone": "Volumen para todos", "Back 15 seconds": "Atrás 15 segundos", "Forward 15 seconds": "Adelante 15 segundos", "Restart the song": "Reiniciar la canción", "Skip": "Saltar", "Play now": "Reproducir ahora", "Added to the playlist.": "Agregada a la lista.", "The playlist is full. Remove a few songs first.": "La lista está llena. Quita algunas canciones primero.", "Press Play to start.": "Aprieta Reproducir para empezar.", "Sent. It shows up below in a second.": "Enviado. Aparece abajo en un segundo.", "Connecting": "Conectando", "Reconnecting": "Reconectando", "Retry": "Reintentar", "Buzz": "Tocar", "Mute": "Silenciar", "Unmute": "Activar sonido", "Full screen": "Pantalla completa", "Say something": "Escribe algo", "Close chat": "Cerrar chat", "New messages": "Mensajes nuevos", "Accept": "Aceptar", "Live": "En vivo", "Live (backup route)": "En vivo (ruta de respaldo)", "Trying another route": "Probando otra ruta", "Waiting for the host": "Esperando al anfitrión", "Can’t reach the host": "No se encuentra al anfitrión", "Connecting to the host": "Conectando con el anfitrión", "Can’t reach the host yet. Check with the host that they pressed Host and that your link matches theirs. Turning off a VPN or switching networks can help. Still trying…": "Todavía no se encuentra al anfitrión. Revisa con el anfitrión que haya apretado Organizar y que tu link sea el mismo. Apagar una VPN o cambiar de red puede ayudar. Seguimos intentando…", "Join the game": "Únete al juego", "Your name": "Tu nombre", "Name for the scoreboard": "Nombre para el marcador", "You’ll see the board here while the host runs the game.": "Aquí vas a ver el tablero mientras el anfitrión dirige el juego.", "Turn on sound": "Activar sonido", "Start the display": "Iniciar la pantalla", "Click once so videos and sounds can play. Then screen-share this tab, or drag it to the screen everyone watches. Answers never show here until you reveal them.": "Haz clic una vez para que los videos y sonidos puedan sonar. Después comparte esta pestaña o arrástrala a la pantalla que todos ven. Las respuestas nunca aparecen aquí hasta que las reveles.", "Waiting for the host tab": "Esperando la pestaña del anfitrión", "That game couldn’t be opened.": "No se pudo abrir ese juego.", "That isn’t a game file.": "Ese no es un archivo de juego.", "Paste the game JSON first.": "Pega primero el JSON del juego.", "That game has no categories.": "Ese juego no tiene categorías.", "No categories found. The JSON needs a \"categories\" list.": "No se encontraron categorías. El JSON necesita una lista \"categories\".", "Not saved: browser storage is full. Export a backup.": "No se guardó: el almacenamiento del navegador está lleno. Exporta un respaldo.", "Couldn’t save. Export a backup.": "No se pudo guardar. Exporta un respaldo.", "This browser isn’t saving games (private window?). Export before you close it.": "Este navegador no está guardando juegos (¿ventana privada?). Exporta antes de cerrarlo.", "Update this game?": "¿Actualizar este juego?", "Keep mine": "Dejar el mío", "Replace it": "Reemplazarlo", "Keep both": "Dejar los dos", "Replace your current copy?": "¿Reemplazar tu copia actual?", "That game link didn’t work. Try opening it in Chrome or Edge.": "Ese link de juego no funcionó. Prueba abrirlo en Chrome o Edge.", "That update link didn’t work. Try opening it in Chrome or Edge.": "Ese link de actualización no funcionó. Prueba abrirlo en Chrome o Edge.", "Open the full game link first, then this update link.": "Abre primero el link del juego completo y después este link de actualización.", "This game was updated from a link": "Este juego se actualizó desde un link", "This game has big uploaded files, so the link would be too long. Use Export instead.": "Este juego tiene archivos grandes, así que el link sería demasiado largo. Usa Exportar.", "The browser blocked the new tab. Allow pop-ups for this site.": "El navegador bloqueó la pestaña nueva. Permite ventanas emergentes para este sitio.", "There’s no picture on the clipboard yet. Right-click a picture, choose Copy image, then press Paste picture again.": "Todavía no hay una imagen copiada. Haz clic derecho en una imagen, elige Copiar imagen y vuelve a apretar Pegar imagen.", "That isn’t a link. Paste a full address that starts with https://": "Eso no es un link. Pega una dirección completa que empiece con https://", "Copy a picture, then press Ctrl+V here.": "Copia una imagen y después aprieta Ctrl+V aquí.", "Pick up where you left off?": "¿Seguir donde quedaste?", "Some clues in this game were already played or scored.": "Algunas preguntas de este juego ya se jugaron o tienen puntaje.", "Start fresh": "Empezar de cero", "This room code is open in another tab. Close it or make a new room code.": "Este código de sala está abierto en otra pestaña. Ciérrala o crea un nuevo código.", "Room code busy, trying again…": "Código de sala ocupado, intentando de nuevo…", "Connection dropped, trying again…": "Se cortó la conexión, intentando de nuevo…", "This browser can’t host invite links. Use Chrome or Edge.": "Este navegador no puede crear links de invitación. Usa Chrome o Edge.", "Invite links aren’t available (the connection library didn’t load). You can still screen-share the display tab.": "Los links de invitación no están disponibles (no cargó la librería de conexión). Igual puedes compartir la pestaña de pantalla.", "This page was opened as a file. Invite links work once it’s on your website.": "Esta página se abrió como archivo. Los links de invitación funcionan cuando está en tu sitio web.", "This browser can’t run the display tab. Use Chrome, Edge or Firefox.": "Este navegador no puede abrir la pestaña de pantalla. Usa Chrome, Edge o Firefox.", "Clear every clue in this category?": "¿Borrar todas las preguntas de esta categoría?", "Clear this clue, its answer and its media?": "¿Borrar esta pregunta, su respuesta y sus archivos?", "Every screen has the picture.": "Todas las pantallas tienen la imagen.", "Every screen has the sound.": "Todas las pantallas tienen el sonido.", "Every screen has the picture and sound.": "Todas las pantallas tienen la imagen y el sonido.", "Loading the picture:": "Cargando la imagen:", "Loading the sound:": "Cargando el sonido:", "Loading the picture and sound:": "Cargando la imagen y el sonido:", "The buzzers are closed": "Los botones están cerrados"};
 const ORD = s => s.replace(/\b(\d+)(st|nd|rd|th)\b/g, '$1.\u00ba');
 const ES_RX = [
@@ -1245,7 +1256,7 @@ const SFX = (() => {
   function ac() {
     if (!ctx) {
       const C = window.AudioContext || window.webkitAudioContext; if (!C) return null;
-      ctx = new C(); out = ctx.createGain(); out.gain.value = 0.62 * LOUD(MASTER);
+      ctx = new C(); out = ctx.createGain(); out.gain.value = 0.62 * VOLX(MASTER);
       const lim = ctx.createDynamicsCompressor(); lim.threshold.value = -16; lim.knee.value = 10; lim.ratio.value = 6; lim.attack.value = 0.003; lim.release.value = 0.18;
       out.connect(lim); lim.connect(ctx.destination);
     }
@@ -1283,7 +1294,7 @@ const SFX = (() => {
     fill() { for (let i = 0; i < 16; i++) tone(600 + Math.random() * 900, i * 0.06, 0.08, 'triangle', 0.22); },
     win() { [523, 659, 784, 1047, 784, 1047].forEach((f, i) => tone(f, i * 0.13, i === 5 ? 0.9 : 0.22, 'triangle', 0.5)); }
   };
-  return { play(n) { try { if (lib[n]) lib[n](); } catch (e) {} }, unlock() { ac(); }, setVol(v) { if (out) out.gain.value = 0.62 * LOUD(v); } };
+  return { play(n) { try { if (lib[n]) lib[n](); } catch (e) {} }, unlock() { ac(); }, setVol(v) { if (out) out.gain.value = 0.62 * VOLX(v); } };
 })();
 
 /* ---------- themes: board colors everyone sees ---------- */
@@ -1435,7 +1446,7 @@ document.addEventListener('click', e => {
 /* ---------- game model ---------- */
 const emptyCell = () => ({ q: '', a: '', qm: [], am: [], dd: false, jester: false, mime: false, pts: null, played: false });
 const freshLive = () => ({ phase: 'intro', players: [], open: null, seq: 0, history: [], picker: null, chat: [] });
-const defaultSettings = () => ({ theme: null, texture: null, prefix: '', sfx: true, showScores: true, buzzers: true, autoAdd: true, autoplay: true, pickOnScreen: true, chat: true, es: false, v: 2 });
+const defaultSettings = () => ({ theme: null, texture: null, keys: true, earlyPen: false, earlyAmt: 50, prefix: '', sfx: true, showScores: true, buzzers: true, autoAdd: true, autoplay: true, pickOnScreen: true, chat: true, es: false, v: 2 });
 
 function newGame(nC = 6, nR = 5, title = 'Untitled game') {
   return {
@@ -1522,7 +1533,7 @@ function normalizeGame(o) {
     g.rows = rows.map((v, i) => isNaN(+v) ? (i + 1) * 100 : +v);
     g.cats = o.cats.map(c => ({ name: String((c && c.name) || ''), cells: g.rows.map((_, r) => normCell(c && Array.isArray(c.cells) ? c.cells[r] : null, true)) }));
     if (o.settings && typeof o.settings === 'object') {
-      for (const k of Object.keys(g.settings)) if (k !== 'v' && k in o.settings) g.settings[k] = k === 'prefix' ? String(o.settings[k] || '').slice(0, 3) : k === 'theme' ? normTheme(o.settings[k]) : k === 'texture' ? normTexture(o.settings[k]) : !!o.settings[k];
+      for (const k of Object.keys(g.settings)) if (k !== 'v' && k in o.settings) g.settings[k] = k === 'prefix' ? String(o.settings[k] || '').slice(0, 3) : k === 'theme' ? normTheme(o.settings[k]) : k === 'texture' ? normTexture(o.settings[k]) : k === 'earlyAmt' ? Math.max(0, Math.min(10000, Math.round(+o.settings[k] || 0))) : !!o.settings[k];
     }
     if (!(o.settings && +o.settings.v >= 2)) g.settings.buzzers = true;
     g.settings.v = 2;
@@ -1762,13 +1773,14 @@ function createScreen(container, opts = {}) {
 
   self.relang = () => { keys.lang = null; if (self.S) handle({ t: 'state', s: self.S }); };
   function volFrame(f) {
-    if (f.dataset.kind === 'youtube') postTo(f, { event: 'command', func: 'setVolume', args: [Math.round(LOUD(self.vol) * 100)], id: 1, channel: 'widget' });
-    else if (f.dataset.kind === 'vimeo') postTo(f, { method: 'setVolume', value: self.muted ? 0 : LOUD(self.vol) });
+    if (f.dataset.kind === 'youtube') postTo(f, { event: 'command', func: 'setVolume', args: [Math.round(VOLX(self.vol) * 100)], id: 1, channel: 'widget' });
+    else if (f.dataset.kind === 'vimeo') postTo(f, { method: 'setVolume', value: self.muted ? 0 : VOLX(self.vol) });
   }
+  function revol() { const v = self.vol; self.vol = -1; setVol(v); }
   function setVol(v) {
     v = Math.max(0, Math.min(1, +v || 0)); if (v === self.vol && v === MASTER) return;
     self.vol = v; MASTER = v; SFX.setVol(v);
-    $$('video,audio', el.media).forEach(x => { x.volume = LOUD(v); });
+    $$('video,audio', el.media).forEach(x => { x.volume = VOLX(v); });
     $$('iframe[data-kind="youtube"],iframe[data-kind="vimeo"]', el.media).forEach(f => { if (f._ready || f.dataset.kind === 'vimeo') volFrame(f); });
     if (typeof JBP !== 'undefined' && JBP.refresh) JBP.refresh();
   }
@@ -1857,10 +1869,10 @@ function createScreen(container, opts = {}) {
   }
 
   function renderIntro() {
-    const S = self.S, k = JSON.stringify([S.title, S.join]);
+    const S = self.S, k = JSON.stringify([S.title, S.join, S.early, S.keys, S.prefix]);
     if (k === keys.intro) return;
     keys.intro = k;
-    el.intro.innerHTML = `${BEAMS}${BULBS}<div class="in-title"><h1>${esc(S.title || T('Trivia Night', 'Noche de Trivia'))}</h1></div><p class="in-sub">${T('The board opens soon', 'El tablero se abre pronto')}</p><div class="in-rules"><div><b>${T('Buzz in to answer.', 'Toca el bot\u00f3n para responder.')}</b> ${T('Right adds the points, wrong takes them away, so you can go negative.', 'Si aciertas sumas los puntos y si fallas los pierdes, as\u00ed que puedes quedar en negativo.')}</div><div><b>${T('Get it right and you pick the next question.', 'Si aciertas, eliges la siguiente pregunta.')}</b> ${T('If nobody gets it, the same person picks again.', 'Si nadie acierta, vuelve a elegir la misma persona.')}</div></div>${S.join ? `<div class="in-join">${T('Play along on your own screen:', 'Juega desde tu propia pantalla:')} <b>${esc(S.join.url)}</b></div>` : ''}`;
+    el.intro.innerHTML = `${BEAMS}${BULBS}<div class="in-title"><h1>${esc(S.title || T('Trivia Night', 'Noche de Trivia'))}</h1></div><p class="in-sub">${T('The board opens soon', 'El tablero se abre pronto')}</p><div class="in-rules${S.early || S.keys ? ' many' : ''}"><div><b>${T('Buzz in to answer.', 'Toca el bot\u00f3n para responder.')}</b> ${T('Right adds the points, wrong takes them away, so you can go negative.', 'Si aciertas sumas los puntos y si fallas los pierdes, as\u00ed que puedes quedar en negativo.')}</div><div><b>${T('Get it right and you pick the next question.', 'Si aciertas, eliges la siguiente pregunta.')}</b> ${T('If nobody gets it, the same person picks again.', 'Si nadie acierta, vuelve a elegir la misma persona.')}</div>${S.early ? `<div><b>${T('Don\u2019t buzz early.', 'No toques antes de tiempo.')}</b> ${T(`Buzzing before the buzzers open costs ${esc(S.prefix || '')}${S.early} and locks you out of that clue.`, `Tocar antes de que se activen los botones cuesta ${esc(S.prefix || '')}${S.early} y te deja fuera de esa pregunta.`)}</div>` : ''}${S.keys ? `<div><b>${T('Shortcuts:', 'Atajos:')}</b> ${T('Space to buzz, C for chat, M to mute, F for full screen.', 'Espacio para tocar, C para el chat, M para silenciar, F para pantalla completa.')}</div>` : ''}</div>${S.join ? `<div class="in-join">${T('Play along on your own screen:', 'Juega desde tu propia pantalla:')} <b>${esc(S.join.url)}</b></div>` : ''}`;
     fitText($('h1', el.intro), 170, 56, 1700, 380);
   }
 
@@ -2023,7 +2035,7 @@ function createScreen(container, opts = {}) {
     });
     if (key && opts.onReady && nodes.some(n => n.querySelector && n.querySelector('img,audio,video'))) Promise.all(all).then(() => opts.onReady(key, side));
     nodes.forEach(n => {
-      $$('video,audio', n).forEach(v => { v.muted = self.muted; v.volume = LOUD(self.vol); if (auto) playEl(v); });
+      $$('video,audio', n).forEach(v => { v.muted = self.muted; v.volume = VOLX(self.vol); if (auto) playEl(v); });
       $$('iframe[data-kind]', n).forEach(f => f.addEventListener('load', () => {
         if (f.dataset.kind === 'youtube') {
           let tries = 0; clearInterval(f._hs);
@@ -2082,7 +2094,7 @@ function createScreen(container, opts = {}) {
       const cmd = (func, args) => postTo(f, { event: 'command', func, args: args || [], id: 1, channel: 'widget' });
       if (action === 'pause') { clearTimeout(f._rt); cmd('pauseVideo'); }
       else if (action === 'mute') cmd('mute');
-      else if (action === 'unmute') { cmd('unMute'); cmd('setVolume', [Math.round(LOUD(self.vol) * 100)]); }
+      else if (action === 'unmute') { cmd('unMute'); cmd('setVolume', [Math.round(VOLX(self.vol) * 100)]); }
       else {
         if (action === 'restart') cmd('seekTo', [+f.dataset.start || 0, true]);
         cmd('playVideo');
@@ -2093,7 +2105,7 @@ function createScreen(container, opts = {}) {
     } else if (k === 'vimeo') {
       if (action === 'pause') postTo(f, { method: 'pause' });
       else if (action === 'mute') postTo(f, { method: 'setVolume', value: 0 });
-      else if (action === 'unmute') postTo(f, { method: 'setVolume', value: LOUD(self.vol) });
+      else if (action === 'unmute') postTo(f, { method: 'setVolume', value: VOLX(self.vol) });
       else { if (action === 'restart') postTo(f, { method: 'setCurrentTime', value: 0 }); postTo(f, { method: 'play' }); }
     }
   }
@@ -2216,7 +2228,7 @@ function createScreen(container, opts = {}) {
   }
 
   const api = {
-    handle, setMuted, relang: () => self.relang(),
+    handle, setMuted, revol, relang: () => self.relang(),
     setSel(s) { self.sel = s; markSel(); },
     setPickable(v) { self.pickable = !!v; stage.classList.toggle('pickable', self.pickable); },
     setWait(t) { $('.w-sub', el.waiting).textContent = t; },
@@ -3044,7 +3056,7 @@ function openValue() {
 function pubState() {
   const L = G.live, o = L.open, b = RT.buzz;
   return {
-    v: 1, lang: LANG, vol: typeof RT.vol === 'number' ? RT.vol : 50, theme: G.settings.theme || null, texture: G.settings.texture || null, title: G.title, phase: L.phase, prefix: G.settings.prefix || '',
+    v: 1, lang: LANG, vol: typeof RT.vol === 'number' ? RT.vol : 50, theme: G.settings.theme || null, texture: G.settings.texture || null, keys: G.settings.keys !== false, early: G.settings.earlyPen ? Math.max(0, G.settings.earlyAmt | 0) : 0, title: G.title, phase: L.phase, prefix: G.settings.prefix || '',
     cats: G.cats.map(c => c.name), rows: G.rows.slice(),
     vals: G.cats.map((c, ci) => c.cells.map((_, ri) => cellValue(G, ci, ri))),
     empty: G.cats.map(c => c.cells.map(x => !cellFilled(x))),
@@ -3216,8 +3228,11 @@ function hostBuzz(pid, fallbackName) {
   if (!b.armed) {
     if (b.openedAt) return; /* locked again after opening: ignore, no penalty */
     b.out.add(pid); b.early.push({ pid, name });
-    RT.outbox.push({ t: 'fx', sound: 'early', toast: HT(`${name} buzzed too early`, `${name} toc\u00f3 antes de tiempo`), tone: 'bad' });
-    sysChat(HT(`${name} buzzed too early and is locked out of this clue`, `${name} toc\u00f3 antes de tiempo y queda fuera de esta pregunta`));
+    const pen = G.settings.earlyPen ? Math.max(0, G.settings.earlyAmt | 0) : 0, L = G.live;
+    if (pen && pl) { pl.score -= pen; L.history.push({ id: pl.id, d: -pen }); if (L.history.length > 200) L.history.shift(); }
+    const lost = pen && pl ? ` \u2212${G.settings.prefix || ''}${pen.toLocaleString('en-US')}` : '';
+    RT.outbox.push({ t: 'fx', sound: 'early', toast: HT(`${name} buzzed too early`, `${name} toc\u00f3 antes de tiempo`) + lost, tone: 'bad', flash: lost ? pl.id : undefined });
+    sysChat(HT(`${name} buzzed too early and is locked out of this clue`, `${name} toc\u00f3 antes de tiempo y queda fuera de esta pregunta`) + (lost ? ` (${lost.trim()})` : ''));
     broadcast(); renderHostPanel();
     return;
   }
@@ -3609,7 +3624,7 @@ function renderHostPanel() {
     </div>`; }).join('')}</div>
     <div class="hp-btns"><button class="btn sm" data-act="addPlayer">${icon('plus', 16)}Add player or team</button>${L.players.some(p => p.test) ? '<button class="btn sm ghost" data-act="rmTests">Remove test players</button>' : ''}</div></section>
   <section class="hp-sec"><h3>Settings</h3>
-    ${tgl('buzzers', 'Buzzers for people who joined')}${tgl('pickOnScreen', 'Picker can tap a tile on their screen')}${tgl('chat', 'Chat for people who joined')}${tgl('autoAdd', 'Add people to scores when they join')}${tgl('showScores', 'Show scores on screen')}${tgl('sfx', 'Sound effects')}${tgl('autoplay', 'Play media when a clue opens')}
+    ${tgl('buzzers', 'Buzzers for people who joined')}${tgl('keys', 'Keyboard shortcuts for players (Space to buzz)')}${tgl('earlyPen', 'Buzzing early costs points')}${G.settings.earlyPen ? `<label class="tgl tgl-num"><span>Points lost for buzzing early</span><input type="number" min="0" max="10000" step="10" data-input="earlyAmt" value="${G.settings.earlyAmt | 0}" aria-label="Points lost for buzzing early"></label>` : ''}${tgl('pickOnScreen', 'Picker can tap a tile on their screen')}${tgl('chat', 'Chat for people who joined')}${tgl('autoAdd', 'Add people to scores when they join')}${tgl('showScores', 'Show scores on screen')}${tgl('sfx', 'Sound effects')}${tgl('autoplay', 'Play media when a clue opens')}
     <label class="tgl"><span>Sound on this page</span><input type="checkbox" data-hostsound${RT.hostSound ? ' checked' : ''}><i></i></label>
     <div class="hp-btns"><button class="btn sm ghost" data-act="resetBoard">Reset board</button><button class="btn sm ghost" data-act="resetScores">Reset scores</button><button class="btn sm ghost" data-act="newCode">New room code</button></div>
     <p class="hp-muted small">Keys: arrows pick a tile, Enter opens it, Y and N mark the first buzzer right or wrong, R plays the sound or video again, Space reveals, Esc closes. Press 1 to 9 to pick a player, then up or down to add or take away the clue\u2019s points.</p>
@@ -3664,6 +3679,7 @@ function bindPanel(pane) {
     if (t.dataset.input === 'pname' && p) { p.name = t.value.slice(0, 28); saveSoon(); broadcastSoon(); }
     else if (t.dataset.input === 'pscore' && p) { const v = parseInt(t.value, 10); if (!isNaN(v)) { p.score = v; saveSoon(); broadcastSoon(); } }
     else if (t.dataset.input === 'wager' && G.live.open) { G.live.open.wager = t.value === '' ? null : +t.value; saveSoon(); }
+    else if (t.dataset.input === 'earlyAmt') { const v = parseInt(t.value, 10); if (!isNaN(v)) { G.settings.earlyAmt = Math.max(0, Math.min(10000, v)); saveSoon(); broadcastSoon(); } }
   });
   pane.addEventListener('change', e => {
     const t = e.target;
@@ -3853,7 +3869,7 @@ const JBP = (() => {
     }
     if (infoFn) infoFn({ state, time: ctime, title: ytitle, key: curKey });
   }
-  const target = () => st ? Math.round((st.vol ?? 70) * localVol / 100 * (st.duck ? 0.15 : 1) * LOUD(MASTER) * 0.9) : 0;
+  const target = () => st ? Math.round((st.vol ?? 70) * localVol / 100 * (st.duck ? 0.15 : 1) * VOLX(MASTER) * 0.9) : 0;
   function applyVol(now) {
     const goal = target(), muted = localMute || hostMuted || goal < 1;
     clearInterval(fadeT);
@@ -4205,7 +4221,7 @@ function startPlayer(code, name, test) {
     <div class="pbar">
       <div class="pb-side"><span class="pill" id="pst"><i class="dot"></i><span>Connecting</span></span><span class="pill ping hidden" id="pingPill" title="Your ping to the host"></span><button class="pill hidden" id="retryBtn" onclick="location.reload()">Retry</button></div>
       <div class="pb-center"><button class="buzzbtn idle" id="buzz" disabled>Buzz</button><div class="pbar-note" id="bnote"></div></div>
-      <div class="pb-side right">${langSwHTML()}<button class="pill" id="jbBtn" title="Jukebox">${icon('music', 16)}Music</button><button class="pill" id="chatBtn">${icon('chat', 16)}Chat<b class="unread hidden" id="unread"></b></button><button class="pill" id="muteBtn" title="Mute" aria-label="Mute"></button><button class="pill" id="fsBtn" title="Full screen" aria-label="Full screen">${icon('full', 16)}</button></div>
+      <div class="pb-side right">${langSwHTML()}<button class="pill" id="jbBtn" title="Jukebox">${icon('music', 16)}Music</button><button class="pill" id="chatBtn">${icon('chat', 16)}Chat<b class="unread hidden" id="unread"></b></button><button class="pill" id="muteBtn" title="Volume (V)" aria-label="Volume"></button><button class="pill" id="fsBtn" title="Full screen" aria-label="Full screen">${icon('full', 16)}</button></div>
     </div>
   </div>
   <aside class="chat" id="chat" aria-label="Chat">
@@ -4247,7 +4263,7 @@ function startPlayer(code, name, test) {
   $('#scHide').onclick = () => { secretEl.classList.add('hidden'); peekEl.classList.remove('hidden'); };
   peekEl.onclick = () => { secretEl.classList.remove('hidden'); peekEl.classList.add('hidden'); };
   window.__onLang = () => { scr.relang(); update(); if (secret) { $('#scLbl').textContent = T('You\u2019re acting! No talking or sounds', '\u00a1Te toca actuar! Sin hablar ni hacer ruidos'); $('#scHide').textContent = T('Accept', 'Aceptar'); peekEl.textContent = T('\u{1F3AD} Show my word', '\u{1F3AD} Ver mi palabra'); } };
-  $('#muteBtn').onclick = () => { muted = !muted; lsSet('tn.mute', muted); scr.setMuted(muted); setMuteIcon(); };
+  $('#muteBtn').onclick = () => openMyVol();
   $('#fsBtn').onclick = toggleFullscreen;
   $('#chatBtn').onclick = () => showChat(!chatOpen);
   $('#chatClose').onclick = () => showChat(false);
@@ -4287,10 +4303,12 @@ function startPlayer(code, name, test) {
     else if (out) { label = T('Locked', 'Bloqueado'); cls = 'out'; note = T('You already answered this one', 'Ya respondiste esta'); }
     else if (idx === 0) { label = T('You\u2019re first', '\u00a1Primero!'); cls = 'first'; note = T('Answer now!', '\u00a1Responde ahora!'); }
     else if (idx > 0) { label = `#${idx + 1}`; cls = 'queued'; note = T(`You\u2019re number ${idx + 1} in line`, `Eres el n\u00famero ${idx + 1} en la fila`); }
+    else if (!b.armed && !b.opened && S.early > 0) { label = T('Wait\u2026', 'Espera\u2026'); cls = 'wait'; enabled = true; note = T(`Wait for the host. Buzzing early costs ${S.early}.`, `Espera al anfitri\u00f3n. Tocar antes de tiempo cuesta ${S.early}.`); }
     else if (!b.armed) { note = b.opened ? T('The buzzers are closed', 'Los botones est\u00e1n cerrados') : T('The buzzer shows up here when the host opens it', 'El bot\u00f3n aparece aqu\u00ed cuando el anfitri\u00f3n lo active'); }
     else { label = T('Buzz!', '\u00a1Tocar!'); cls = 'go'; enabled = true; note = T('Buzz now!', '\u00a1Toca ahora!'); }
     if (inClue && buzzedKey === o.key + ':' + (b.opened ? 1 : 0) && idx < 0 && !out) { enabled = false; note = T('Buzzed\u2026', 'Tocaste\u2026'); }
-    const showBuzz = !!b.on && inClue && !mimeOpen && (!!b.armed || idx >= 0 || out || early);
+    if (cls === 'go' && S.keys !== false && matchMedia('(pointer:fine)').matches) note = T('Buzz now! (Space)', '\u00a1Toca ahora! (Espacio)');
+    const showBuzz = !!b.on && inClue && !mimeOpen && (!!b.armed || idx >= 0 || out || early || (S.early > 0 && !b.opened));
     if (showBuzz && !buzzShown) popUntil = Date.now() + 600;
     buzzShown = showBuzz;
     buzz.textContent = label; buzz.disabled = !enabled;
@@ -4298,12 +4316,46 @@ function startPlayer(code, name, test) {
     bnote.textContent = note;
   }
   const doBuzz = () => {
-    if (buzz.disabled || !S || !S.open || !(S.buzz && S.buzz.armed)) return;
+    if (!S || !S.open || buzz.disabled) return;
+    if (!(S.buzz && S.buzz.armed)) {   /* an early press only counts when the host made early buzzing cost points */
+      if (!(S.early > 0) || (S.buzz && S.buzz.opened) || !S.buzz || !S.buzz.on || S.open.phase !== 'clue' || S.open.revealed) return;
+      sendToHost({ t: 'buzz', pid }); buzz.disabled = true; bnote.textContent = T('Too early!', '\u00a1Muy pronto!'); return;
+    }
     sendToHost({ t: 'buzz', pid });
     buzzedKey = S.open.key + ':' + (S.buzz && S.buzz.opened ? 1 : 0);
     buzz.disabled = true; bnote.textContent = T('Buzzed\u2026', 'Tocaste\u2026');
   };
   buzz.onclick = doBuzz;
+  /* keyboard shortcuts for players, when the host has them on: Space/Enter buzz, C chat, M mute, F full screen, J music, V volume */
+  addEventListener('keydown', e => {
+    if (!S || S.keys === false || e.ctrlKey || e.metaKey || e.altKey) return;
+    const t = e.target; if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) { if (e.key === 'Escape') t.blur(); return; }
+    const k = (e.key || '').toLowerCase();
+    if (e.code === 'Space' || k === 'enter') { e.preventDefault(); if (!e.repeat) doBuzz(); }
+    else if (k === 'c') { e.preventDefault(); showChat(!chatOpen); if (chatOpen) setTimeout(() => { const i = $('#chatIn'); if (i) i.focus(); }, 0); }
+    else if (k === 'm') { muted = !muted; lsSet('tn.mute', muted); scr.setMuted(muted); setMuteIcon(); syncMyVol(); }
+    else if (k === 'f') toggleFullscreen();
+    else if (k === 'j') $('#jbBtn').click();
+    else if (k === 'v') openMyVol();
+  });
+  /* your own volume: the host's master volume still caps it */
+  MYVOL = Math.max(0, Math.min(1, (+lsGet('tn.myVol', 100) || 0) / 100));
+  const syncMyVol = () => { const c = $('.myvol input[type=checkbox]'); if (c) c.checked = muted; };
+  function openMyVol() {
+    const old = $('.myvol'); if (old) { old.remove(); return; }
+    const m = document.createElement('div'); m.className = 'menu myvol';
+    m.innerHTML = `<div class="mv-h">${T('Your volume', 'Tu volumen')}<span>${T('The host\u2019s master volume still applies', 'El volumen general del anfitri\u00f3n tambi\u00e9n cuenta')}</span></div>
+      <div class="mv-row"><input type="range" min="0" max="100" step="5" value="${Math.round(MYVOL * 100)}" aria-label="${T('Your volume', 'Tu volumen')}"><b>${Math.round(MYVOL * 100)}%</b></div>
+      <label class="mv-mute"><input type="checkbox"${muted ? ' checked' : ''}><span>${T('Mute this device', 'Silenciar este dispositivo')}</span></label>`;
+    document.body.appendChild(m);
+    const a = $('#muteBtn').getBoundingClientRect(), mw = m.offsetWidth, mh = m.offsetHeight;
+    m.style.left = clamp(a.right - mw, 8, innerWidth - mw - 8) + 'px'; m.style.top = Math.max(8, a.top - mh - 8) + 'px';
+    const r = $('input[type=range]', m), lab = $('b', m), c = $('input[type=checkbox]', m);
+    r.oninput = () => { MYVOL = +r.value / 100; lab.textContent = r.value + '%'; lsSet('tn.myVol', +r.value); scr.revol(); };
+    c.onchange = () => { muted = c.checked; lsSet('tn.mute', muted); scr.setMuted(muted); setMuteIcon(); };
+    const away = e => { if (!m.contains(e.target) && !e.target.closest('#muteBtn')) { m.remove(); removeEventListener('pointerdown', away, true); } };
+    setTimeout(() => addEventListener('pointerdown', away, true), 0);
+  }
 
   /* connect: direct link first, then the backup relay if that doesn't come through */
   let via = null, relayActive = null, relayStarted = false, gaveUp = false, directRetry = () => {};
