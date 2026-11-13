@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='8' fill='%230a1fd4'/%3E%3Ctext x='32' y='48' font-family='Impact,Arial Narrow,sans-serif' font-size='44' text-anchor='middle' fill='%23ffc72c'%3E%3F%3C/text%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&family=Merriweather:wght@700;900&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600;700&family=Merriweather:wght@700;900&family=Bricolage+Grotesque:opsz,wdth,wght@12..96,75..100,400..800&display=swap">
 <style>
 :root{
   --blue:#0a1fd4;--blue-deep:#06127e;--blue-hi:#2440ff;--gold:#ffc72c;
@@ -1127,6 +1127,86 @@ body.testing .monitor{box-shadow:0 0 0 3px #7a22e0,0 24px 70px rgba(0,0,0,.5)}
 .egrid-wrap.stack .eg-add[data-act="addRow"]{order:99999;grid-column:1/-1!important}
 .egrid-wrap.stack .ecell{min-height:100px}
 </style>
+<style id="skin-show">
+/* ===== The show's own look. Out front (home): a stage curtain and the title on board tiles.
+   Backstage (editor, host): flat matte surfaces, keys you press, no outlines or glows.
+   The board keeps its colours; they are the brand. ===== */
+html:not([data-themed]) body:not(.is-screen){--room:#2b0c14;--desk:#3b131d;--desk-2:#4d1b27;--desk-3:#602633;--wire:rgba(255,255,255,.07);--ink:#fff6ec;--ink-2:#eccfc8;--ink-3:#c09a95}
+html:not([data-themed]) body.is-home{--room:#5c1020}
+body:not(.is-screen){--f-ui:"Bricolage Grotesque","Barlow",system-ui,sans-serif;font-stretch:90%;
+  --c1:#ff5a36;--c2:#ffb400;--c3:#a5d22b;--c4:#23c483;--c5:#18b7c9;--c6:#4a94ff;--c7:#8f7bff;--c8:#c45cf0;--c9:#ff5ea8;--c10:#ff8a3d;--c11:#d9c63f;--c12:#9fb0c4}
+body:not(.is-screen) .stage{--f-ui:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;font-stretch:normal}
+html body:not(.is-screen)::before,html[data-themed] body:not(.is-screen)::before{background:var(--room)}
+html body:not(.is-screen)::after,html[data-themed] body:not(.is-screen)::after{background-image:none}
+html body.is-home::before,html[data-themed] body.is-home::before{background:
+  linear-gradient(rgba(0,0,0,.62),rgba(0,0,0,0) 18%,rgba(0,0,0,0) 60%,rgba(0,0,0,.6)),
+  repeating-linear-gradient(90deg,rgba(0,0,0,.3) 0,rgba(255,255,255,.055) 22px,rgba(0,0,0,.2) 52px,rgba(255,255,255,.03) 80px,rgba(0,0,0,.3) 112px),
+  var(--room)}
+
+/* keys */
+body:is(:not(.is-screen),.is-player) .btn{border:0;border-radius:6px;background:var(--desk-3);color:var(--ink);font-weight:650;box-shadow:0 3px 0 rgba(0,0,0,.45);transition:transform .05s,box-shadow .05s}
+body:is(:not(.is-screen),.is-player) .btn:hover{filter:brightness(1.12)}
+body:is(:not(.is-screen),.is-player) .btn:active{transform:translateY(2px);box-shadow:0 1px 0 rgba(0,0,0,.45)}
+body:is(:not(.is-screen),.is-player) .btn.primary{background:var(--gold);color:#221700;box-shadow:0 3px 0 color-mix(in srgb,var(--gold) 58%,#000)}
+body:is(:not(.is-screen),.is-player) .btn.ghost{background:transparent;box-shadow:none;color:var(--ink-2)}
+body:is(:not(.is-screen),.is-player) .btn.ghost:hover{background:rgba(255,255,255,.09);color:var(--ink);filter:none}
+body:is(:not(.is-screen),.is-player) .btn:disabled{box-shadow:none;transform:none;filter:none}
+body:is(:not(.is-screen),.is-player) .btn:focus-visible,body:not(.is-screen) .hcard:focus-visible{outline:3px solid #fff;outline-offset:2px}
+
+/* surfaces: fills, not rims */
+body:not(.is-screen) .topbar{background:var(--desk);-webkit-backdrop-filter:none;backdrop-filter:none;border:0}
+body:is(:not(.is-screen),.is-player) :is(.menu,.modal){border:0;border-radius:8px;box-shadow:0 26px 70px rgba(0,0,0,.6)}
+body:is(:not(.is-screen),.is-player) .txt{background:#fff3e4;color:#2a1014;border:0;border-radius:4px;box-shadow:inset 0 2px 0 rgba(0,0,0,.14)}
+body:is(:not(.is-screen),.is-player) .txt::placeholder{color:#9a7b73;opacity:1}
+body:is(:not(.is-screen),.is-player) .txt:focus{outline:3px solid var(--gold);outline-offset:1px}
+body:not(.is-screen) .brand{display:inline-block;padding:7px 10px 5px;background:var(--blue);color:var(--gold);font:400 20px/1 var(--f-num);text-shadow:2px 2px 0 #000;box-shadow:0 0 0 2px #000}
+body:not(.is-screen) :is(h2,h3){letter-spacing:-.01em}
+
+/* home */
+.home{max-width:1040px;padding:46px 28px 96px}
+.home-head{display:block;text-align:left;margin:0 0 34px}
+.tiles-mark{display:inline-flex;flex-direction:column;gap:6px;margin:0 0 24px;padding:8px;background:#000;box-shadow:0 18px 40px rgba(0,0,0,.45)}
+.tm-row{display:flex;gap:6px}
+.tm-row i{display:grid;place-items:center;width:clamp(38px,8.2vw,100px);height:clamp(42px,8.9vw,108px);background:var(--blue);color:var(--gold);font:400 clamp(28px,6.3vw,78px)/1 var(--f-num);font-style:normal;text-shadow:.05em .05em 0 #000;animation:tmOn .42s steps(2,end) both;animation-delay:calc(var(--i,0) * 70ms + 180ms)}
+.tm-row i.sp{background:transparent;animation:none}
+@keyframes tmOn{0%{background:#000;color:transparent;text-shadow:none}50%{background:var(--blue-hi);color:transparent;text-shadow:none}100%{}}
+@media (prefers-reduced-motion:reduce){.tm-row i{animation:none}}
+html[data-fx-still] .tm-row i{animation:none}
+.home-head p{max-width:50ch;margin:0;font:500 20px/1.42 var(--f-ui);color:var(--ink)}
+.home-actions{grid-template-columns:minmax(0,5fr) minmax(0,7fr);gap:16px;margin-bottom:48px}
+body:not(.is-screen) .hcard{border:0;border-radius:6px;background:var(--desk);-webkit-backdrop-filter:none;backdrop-filter:none;box-shadow:0 5px 0 rgba(0,0,0,.4)}
+body:not(.is-screen) .hcard b{font:800 26px/1.1 var(--f-ui);letter-spacing:-.02em}
+body:not(.is-screen) button.hcard{background:var(--gold);box-shadow:0 5px 0 color-mix(in srgb,var(--gold) 58%,#000);transition:transform .05s,box-shadow .05s}
+body:not(.is-screen) button.hcard b{color:#221700}
+body:not(.is-screen) button.hcard span{color:#4d3900}
+body:not(.is-screen) button.hcard:active{transform:translateY(3px);box-shadow:0 2px 0 color-mix(in srgb,var(--gold) 58%,#000)}
+.home-games h2{font:800 30px/1.1 var(--f-ui);letter-spacing:-.02em}
+body:not(.is-screen) .gitem{position:relative;border:0;border-radius:6px;background:var(--desk);padding-left:28px;overflow:hidden}
+body:not(.is-screen) .gi-main b{font:750 21px/1.2 var(--f-ui);letter-spacing:-.01em}
+.g-bands{position:absolute;left:0;top:0;bottom:0;width:12px;display:flex;flex-direction:column}
+.g-bands i{flex:1;background:var(--c1)}.g-bands i:nth-child(2){background:var(--c2)}.g-bands i:nth-child(3){background:var(--c3)}.g-bands i:nth-child(4){background:var(--c4)}.g-bands i:nth-child(5){background:var(--c5)}.g-bands i:nth-child(6){background:var(--c6)}.g-bands i:nth-child(7){background:var(--c7)}.g-bands i:nth-child(8){background:var(--c8)}.g-bands i:nth-child(9){background:var(--c9)}.g-bands i:nth-child(10){background:var(--c10)}.g-bands i:nth-child(11){background:var(--c11)}.g-bands i:nth-child(12){background:var(--c12)}
+@media (max-width:700px){.home-actions{grid-template-columns:1fr}}
+
+/* host side, chat, settings and jukebox: same matte backstage surface */
+body:not(.is-screen) .hside{background:var(--desk);border:0;-webkit-backdrop-filter:none;backdrop-filter:none}
+body:not(.is-screen) .hp-chat{background:color-mix(in srgb,var(--desk) 62%,#000);border-top:0}
+body:not(.is-screen) :is(.ed-settings,.jb){background:var(--desk)}
+body:not(.is-screen) :is(.eg-add,.dropzone){border-color:rgba(255,255,255,.28)}
+body:is(:not(.is-screen),.is-player) .btn:hover{border-color:transparent}
+/* editor: the board sits on black; each category carries its colour */
+body.is-editor .egrid{background:#000;box-shadow:0 0 0 10px #000}
+.eg-cat{box-shadow:inset 0 6px 0 var(--cat,transparent)}
+.eg-cat:has(.cat-in[data-c="0"]){--cat:var(--c1)}.eg-cat:has(.cat-in[data-c="1"]){--cat:var(--c2)}.eg-cat:has(.cat-in[data-c="2"]){--cat:var(--c3)}.eg-cat:has(.cat-in[data-c="3"]){--cat:var(--c4)}.eg-cat:has(.cat-in[data-c="4"]){--cat:var(--c5)}.eg-cat:has(.cat-in[data-c="5"]){--cat:var(--c6)}.eg-cat:has(.cat-in[data-c="6"]){--cat:var(--c7)}.eg-cat:has(.cat-in[data-c="7"]){--cat:var(--c8)}.eg-cat:has(.cat-in[data-c="8"]){--cat:var(--c9)}.eg-cat:has(.cat-in[data-c="9"]){--cat:var(--c10)}.eg-cat:has(.cat-in[data-c="10"]){--cat:var(--c11)}.eg-cat:has(.cat-in[data-c="11"]){--cat:var(--c12)}
+
+/* what players see around the game screen: same backstage surface and keys */
+html:not([data-themed]) body.is-player{--desk:#3b131d;--desk-2:#4d1b27;--desk-3:#602633;--wire:rgba(255,255,255,.07)}
+body.is-player{--f-ui:"Bricolage Grotesque","Barlow",system-ui,sans-serif}
+body.is-player .stage{--f-ui:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body.is-player .pbar{background:color-mix(in srgb,var(--desk) 55%,#000);border-top:0}
+body.is-player .chat{background:var(--desk);border-left:0}
+body.is-player .pill{border:0;border-radius:6px;background:var(--desk-3);box-shadow:0 3px 0 rgba(0,0,0,.45)}
+</style>
+
 </head>
 <body>
 <div id="app"><div class="boot">Loading</div></div>
@@ -2870,6 +2950,10 @@ function editAct(a, d, btn) {
 }
 
 /* ---------- home ---------- */
+function tilesMark() {
+  let i = 0;
+  return T('TRIVIA|NIGHT', 'NOCHE DE|TRIVIA').split('|').map(r => `<span class="tm-row">${r.split('').map(ch => ch === ' ' ? '<i class="sp"></i>' : `<i style="--i:${i++}">${ch}</i>`).join('')}</span>`).join('');
+}
 function renderHome() {
   applyLook(null, null, null);
   UI.mode = 'home'; lsSet('tn.mode', 'home');
@@ -2879,13 +2963,13 @@ function renderHome() {
   const app = $('#app');
   app.innerHTML = `<main class="home">
   <div class="home-lang"><button class="btn sm ghost" id="homeTheme" type="button" title="How the app looks on this device">Theme</button>${langSwHTML()}</div>
-  <header class="home-head"><div class="brand big">Trivia Night</div><p>Host a Jeopardy-style game. You get a room code and a link, and everyone else joins with it.</p></header>
+  <header class="home-head"><h1 class="tiles-mark" aria-label="${T('Trivia Night', 'Noche de Trivia')}">${tilesMark()}</h1><p>Host a Jeopardy-style game. You get a room code and a link, and everyone else joins with it.</p></header>
   <div class="home-actions">
     <button class="hcard" data-act="newGame"><b>${icon('plus', 26)}Make a new game</b><span>Start a blank board and write your clues.</span></button>
     <div class="hcard"><b>${icon('link', 26)}Join a game</b><span>Got a room code from the host?</span><form id="joinForm" class="hc-join"><input class="txt" id="joinCode" maxlength="10" placeholder="Room code" autocomplete="off" aria-label="Room code"><button class="btn primary" type="submit">Join</button></form></div>
   </div>
   <section class="home-games"><h2>Host one of your games</h2><p class="hint">Press Host. You get a room code and an invite link to send to everyone.</p>
-    <div class="glist">${list.map(x => `<div class="gitem"><div class="gi-main"><b>${esc(x.title || 'Untitled game')}</b><span>${x.size ? `${esc(x.size)} board, ${plural(x.clues || 0, 'clue')}` : 'Saved game'}${x.updated ? `, edited ${esc(new Date(x.updated).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}` : ''}</span></div><button class="btn sm" data-act="editGame" data-id="${esc(x.id)}">Edit</button><button class="btn primary" data-act="hostGame" data-id="${esc(x.id)}">${icon('play', 16)}Host</button></div>`).join('')}</div>
+    <div class="glist">${list.map(x => `<div class="gitem"><span class="g-bands" aria-hidden="true">${'<i></i>'.repeat(Math.max(1, Math.min(12, parseInt(x.size, 10) || 1)))}</span><div class="gi-main"><b>${esc(x.title || 'Untitled game')}</b><span>${x.size ? `${esc(x.size)} board, ${plural(x.clues || 0, 'clue')}` : 'Saved game'}${x.updated ? `, edited ${esc(new Date(x.updated).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }))}` : ''}</span></div><button class="btn sm" data-act="editGame" data-id="${esc(x.id)}">Edit</button><button class="btn primary" data-act="hostGame" data-id="${esc(x.id)}">${icon('play', 16)}Host</button></div>`).join('')}</div>
     <p class="hint small">Games are saved in this browser. Players never see this page\u2019s games; they only get what you show on screen.</p>
   </section>
 </main>`;
