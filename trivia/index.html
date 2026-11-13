@@ -1205,6 +1205,9 @@ body.is-player .stage{--f-ui:"Barlow",system-ui,-apple-system,"Segoe UI",Roboto,
 body.is-player .pbar{background:color-mix(in srgb,var(--desk) 55%,#000);border-top:0}
 body.is-player .chat{background:var(--desk);border-left:0}
 body.is-player .pill{border:0;border-radius:6px;background:var(--desk-3);box-shadow:0 3px 0 rgba(0,0,0,.45)}
+
+/* category names shrink to fit instead of breaking a word in half */
+.cat span{overflow-wrap:normal;word-break:normal;hyphens:none}
 </style>
 
 </head>
