@@ -12,7 +12,7 @@
    usable with no signal (new entries wait in a queue and are sent later), and is how the app
    notices when an entry was removed or changed behind its back: a missing entry is put back from
    the phone's copy, a changed one is reported in the log. */
-import { readEntry, newEntryId, newCode, newId } from './core.js';
+import { readEntry, newEntryId, newCode, newId } from './core.js?v=2';
 
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {
@@ -26,7 +26,7 @@ const FB_CONFIG = {
 };
 export const SERVER_TS = { '.sv': 'timestamp' };          // the database swaps this for its own clock
 const ROOM = code => `rooms/split-${code}`;
-const ENTRY_FIELDS = ['t', 'd', 'ts', 'ct', 'by', 'dev', 'uid', 'v'];
+const ENTRY_FIELDS = ['t', 'd', 'ts', 'ct', 'by', 'dev', 'uid', 'gn', 'v'];
 const MAX_PHOTO_CHARS = 420000;                            // about 300 KB of picture
 const TEST = globalThis.__SPLIT_TEST__ || null;            // set only by the automated tests
 
@@ -69,8 +69,19 @@ export function browserDisk(ns = '') {
 }
 
 /* ---------- the database ---------- */
+/* "an•••@gmail.com": enough to tell friends' accounts apart without publishing the whole address. */
+export function maskMail(mail) {
+  const m = String(mail || '').match(/^([^@]{1,64})@(.+)$/);
+  return m ? m[1].slice(0, 2) + '•••@' + m[2] : '';
+}
 function firebaseBackend() {
-  let loading = null;
+  let loading = null, lib = null;
+  const subs = new Set();
+  const who = () => {
+    const u = lib && lib.auth.currentUser; if (!u) return null;
+    const google = u.providerData.some(p => p.providerId === 'google.com');
+    return { uid: u.uid, google, name: google ? u.displayName || '' : '', mail: google ? maskMail(u.email) : '' };
+  };
   const load = () => {
     if (loading) return loading;
     loading = (async () => {
@@ -82,7 +93,9 @@ function firebaseBackend() {
       if (TEST) TEST.net = { off: () => D.goOffline(db), on: () => D.goOnline(db) };     // lets the tests cut the connection
       await auth.authStateReady();
       if (!auth.currentUser) await Au.signInAnonymously(auth);
-      return { D, db, uid: auth.currentUser.uid };
+      lib = { D, db, Au, auth };
+      Au.onAuthStateChanged(auth, () => { for (const cb of subs) cb(who()); });
+      return lib;
     })();
     loading.catch(() => { loading = null; });                // no signal at start: try again later
     return loading;
@@ -93,7 +106,30 @@ function firebaseBackend() {
     return () => { stopped = true; if (off) off(); };
   };
   return {
-    ready: async () => ({ uid: (await load()).uid }),
+    ready: async () => ({ uid: (await load()).auth.currentUser.uid }),
+    /* Who this phone is signed in as: { uid, google, name, mail }. Null until the library has loaded. */
+    account: who,
+    onAccount(cb) { subs.add(cb); return () => subs.delete(cb); },
+    preload: () => load().then(() => true, () => false),
+    /* Opens Google's sign-in window. Call it straight from a tap (after preload), or browsers block the window. */
+    async signInGoogle() {
+      if (!lib) throw Object.assign(new Error('not ready'), { code: 'split/not-ready' });
+      const provider = new lib.Au.GoogleAuthProvider(); provider.setCustomParameters({ prompt: 'select_account' });
+      await lib.Au.signInWithPopup(lib.auth, provider);
+      return who();
+    },
+    async signOut() { const f = await load(); await f.Au.signOut(f.auth); await f.Au.signInAnonymously(f.auth); return who(); },
+    /* Is Google sign-in switched on for this Firebase project? true, false, or null when it can't be checked right now. */
+    async googleAvailable() {
+      if (TEST && TEST.emu) return TEST.google !== false;
+      try {
+        const r = await fetch(`https://identitytoolkit.googleapis.com/v1/accounts:createAuthUri?key=${FB_CONFIG.apiKey}`, { method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ providerId: 'google.com', continueUri: location.origin + location.pathname }) });
+        if (r.ok) return true;
+        const why = await r.json().then(j => String((j.error && j.error.message) || ''), () => '');
+        return /OPERATION_NOT_ALLOWED/.test(why) ? false : null;   // any other answer: can't tell right now
+      } catch (_) { return null; }
+    },
     async get(path) { const f = await load(); const s = await f.D.get(f.D.ref(f.db, path)); return s.exists() ? s.val() : null; },
     async update(path, obj) { const f = await load(); await f.D.update(f.D.ref(f.db, path), obj); },
     watch: listen,
@@ -103,7 +139,7 @@ function firebaseBackend() {
 
 /* A stand-in database that lives in memory. The tests use it, and so does the sample trip. */
 export function memoryServer() {
-  return { data: {}, subs: new Set(), clock: () => Date.now(), failWrites: false };
+  return { data: {}, subs: new Set(), clock: () => Date.now(), failWrites: false, rule: null };   // rule(path, value, already there) === false refuses a write
 }
 export function memoryBackend(server, uid = 'u' + newId('', 8)) {
   let online = true; const conn = new Set(); const waiting = [];
@@ -119,12 +155,21 @@ export function memoryBackend(server, uid = 'u' + newId('', 8)) {
   const tell = () => { for (const s of [...server.subs]) if (s.online()) s.cb(clone(getAt(s.path))); };
   const write = (path, obj) => {
     if (server.failWrites) throw new Error('PERMISSION_DENIED');
+    if (server.rule && Object.entries(obj).some(([k, v]) => server.rule(path + '/' + k, v, getAt(path + '/' + k)) === false)) throw new Error('PERMISSION_DENIED');
     for (const [k, v] of Object.entries(obj)) setAt(path + '/' + k, stamp(clone(v)));
     tell();
   };
+  let acct = { uid, google: false, name: '', mail: '' }; const accSubs = new Set();
+  const setAcct = a => { acct = a; uid = a.uid; for (const cb of accSubs) cb(acct); return acct; };
   return {
-    uid,
+    get uid() { return uid; },
     ready: async () => ({ uid }),
+    account: () => acct,
+    onAccount(cb) { accSubs.add(cb); return () => accSubs.delete(cb); },
+    preload: async () => true,
+    signInGoogle: async () => setAcct(server.google || { uid: 'G-' + uid, google: true, name: 'Sample Person', mail: 'sa•••@gmail.com' }),
+    signOut: async () => setAcct({ uid: 'u' + newId('', 8), google: false, name: '', mail: '' }),
+    googleAvailable: async () => !!server.googleOn,
     async get(path) { if (!online) throw new Error('offline'); return clone(getAt(path)); },
     update(path, obj) {
       return new Promise((res, rej) => {
@@ -167,9 +212,14 @@ export function makeStore(opts = {}) {
   if (!dev) { dev = newId('d', 11); prefs.set('dev', dev); }
 
   function envelopes(items, now = Date.now()) {
-    return items.map((it, i) => ({ id: newEntryId(now + i), env: { t: it.t, d: JSON.stringify(it.d || {}), ct: now + i, by: it.by || undefined, dev, v: 1 } }));
+    return items.map((it, i) => ({ id: newEntryId(now + i), env: { t: it.t, d: JSON.stringify(it.d || {}), ct: now + i, by: it.by || undefined, dev, v: 1, ...(it.signed ? { g: 1 } : {}) } }));
   }
-  const wire = (env, uid) => pickEntry({ ...env, uid, ts: SERVER_TS });
+  /* What goes to the database. An entry marked as signed carries the Google name of whoever is signed in when it is sent;
+     with the stricter database rules, the database checks that name against the sign-in itself. */
+  const wire = (env, uid) => {
+    const a = env.g && backend.account ? backend.account() : null;
+    return pickEntry({ ...env, uid, ts: SERVER_TS, gn: a && a.google && a.name ? a.name : undefined });
+  };
 
   /* Starts a trip: needs a connection, because the code has to be free and everyone must be able to find it. */
   async function createTrip(meta, items) {
@@ -194,6 +244,7 @@ export function makeStore(opts = {}) {
   function openTrip(code, onChange, metaHint = null) {
     const room = ROOM(code);
     let meta = metaHint, known = {}, sent = {}, lastSrv = undefined, closed = false, loaded = false;
+    let olderCopy = false;                                  // this phone's copy was saved before entries could carry a Google name
     let out = prefs.get('out.' + code, []), photosOut = prefs.get('pout.' + code, []);
     let alerts = prefs.get('alerts.' + code, []);
     const inflight = new Set(), restoring = new Set();
@@ -208,7 +259,7 @@ export function makeStore(opts = {}) {
       return { code, meta, entries: list, status: { ...status, waiting: out.length + photosOut.length, loaded }, alerts: alerts.slice() };
     };
     const emit = () => { if (emitQueued || closed) return; emitQueued = true; queueMicrotask(() => { emitQueued = false; if (!closed) onChange(view()); }); };
-    const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { if (meta) disk.set('ev:' + code, { meta, entries: known }); }, 250); };
+    const saveSoon = () => { clearTimeout(saveTimer); saveTimer = setTimeout(() => { if (meta) disk.set('ev:' + code, { v: 2, meta, entries: known }); }, 250); };
     const saveOut = () => { prefs.set('out.' + code, out); prefs.set('pout.' + code, photosOut); };
     const alert = a => { alerts = [{ ...a, at: Date.now() }, ...alerts].slice(0, 20); prefs.set('alerts.' + code, alerts); };
 
@@ -220,7 +271,8 @@ export function makeStore(opts = {}) {
         const now = srv[id];
         if (!now) { missing.push(id); next[id] = was; continue; }
         // Only the content counts. The time stamp alone can move when a phone re-sends an entry after a dropped connection.
-        if (!sameEntry({ ...was, ts: 0 }, { ...now, ts: 0 }) && !alerts.some(a => a.kind === 'changed' && a.id === id && sameEntry(a.now, now))) {
+        // (a copy saved by the first version of the app never kept the Google name, so its absence there is not a change)
+        if (!sameEntry({ ...was, ts: 0 }, { ...now, ts: 0, gn: olderCopy && !was.gn ? undefined : now.gn }) && !alerts.some(a => a.kind === 'changed' && a.id === id && sameEntry(a.now, now))) {
           alert({ kind: 'changed', id, was: pickEntry(was), now: pickEntry(now) });
         }
       }
@@ -237,6 +289,7 @@ export function makeStore(opts = {}) {
       const first = !status.live;
       status.live = true; status.unreadable = false;
       if (meta) status.notFound = false;
+      olderCopy = false;                                     // from here on the copy holds exactly what the server sent
       const lost = missing.filter(id => !restoring.has(id));
       if (lost.length) restore(lost);
       saveSoon(); emit();
@@ -271,16 +324,27 @@ export function makeStore(opts = {}) {
           const batch = out.filter(o => !inflight.has(o.id)).slice(0, 25);
           if (!batch.length) break;
           const { uid } = await backend.ready();
-          const upd = {};
-          for (const o of batch) { inflight.add(o.id); upd['events/' + o.id] = wire(o.env, uid); }
+          const upd = {}, wired = {};
+          for (const o of batch) { inflight.add(o.id); wired[o.id] = wire(o.env, uid); upd['events/' + o.id] = wired[o.id]; }
           let failed = 0;
-          const done = o => { inflight.delete(o.id); sent[o.id] = { ...o.env, uid, ts: null }; out = out.filter(x => x.id !== o.id); };
+          const done = o => { inflight.delete(o.id); sent[o.id] = { ...wired[o.id], ts: null }; out = out.filter(x => x.id !== o.id); };
           try { await backend.update(room, upd); batch.forEach(done); }
           catch (e) {
-            // a write can fail because the entry is already there (sent just before the app was closed)
+            // A write can fail because an entry is already there (sent just before the app was closed), or because the
+            // database refuses one of them. Go through them one at a time, so one entry can't hold up the rest.
+            const refused = err => /permission/i.test(String(err && (err.code || err.message)));
             for (const o of batch) {
               let there = null; try { there = await backend.get(room + '/events/' + o.id); } catch (_) { /* can't tell */ }
-              if (there) done(o); else { inflight.delete(o.id); failed++; }
+              if (there) { done(o); continue; }
+              try { await backend.update(room, { ['events/' + o.id]: wired[o.id] }); done(o); continue; }
+              catch (err) {
+                // the stricter rules check a Google name against the sign-in: if that is what was refused, send the entry without it
+                if (refused(err) && wired[o.id].gn) {
+                  const plain = { ...wired[o.id] }; delete plain.gn;
+                  try { await backend.update(room, { ['events/' + o.id]: plain }); wired[o.id] = plain; done(o); continue; } catch (_) { /* counted below */ }
+                }
+              }
+              inflight.delete(o.id); failed++;
             }
             if (failed) status.error = 'Could not save ' + (failed === 1 ? 'an entry' : failed + ' entries') + '. Trying again.';
           }
@@ -294,14 +358,21 @@ export function makeStore(opts = {}) {
     }
     async function flushPhotos() {
       if (closed || flushingPhotos || !status.online) return;
-      flushingPhotos = true;
+      flushingPhotos = true; let stuck = 0;
+      /* A picture's id is its fingerprint, so the same picture used twice (one receipt for two expenses, or sent just
+         before the app was closed) is already in the trip: nothing to send. */
+      const there = async rid => { try { return !!(await backend.get(room + '/receipts/' + rid + '/ts')); } catch (_) { return false; } };
       try {
         for (const rid of photosOut.slice()) {
           const img = await disk.get('rc:' + code + ':' + rid);
-          if (img) { const { uid } = await backend.ready(); await backend.update(room, { ['receipts/' + rid]: { img, uid, ts: SERVER_TS } }); }
+          if (img && !(await there(rid))) {
+            try { const { uid } = await backend.ready(); await backend.update(room, { ['receipts/' + rid]: { img, uid, ts: SERVER_TS } }); }
+            catch (_) { if (!(await there(rid))) { stuck++; continue; } }      // one picture that won't go must not hold up the rest
+          }
           photosOut = photosOut.filter(x => x !== rid); saveOut(); emit();
         }
-      } catch (_) { retryLater(); } finally { flushingPhotos = false; }
+      } catch (_) { stuck++; } finally { flushingPhotos = false; }
+      if (stuck) retryLater();
     }
     function retryLater() { clearTimeout(retryTimer); if (!closed) retryTimer = setTimeout(() => { connect(); flush(); }, retryMs); }
 
@@ -323,7 +394,7 @@ export function makeStore(opts = {}) {
     (async () => {
       const cached = await disk.get('ev:' + code);
       if (closed) return;
-      if (cached && cached.entries) known = cached.entries;
+      if (cached && cached.entries) { known = cached.entries; olderCopy = cached.v !== 2; }
       if (cached && cached.meta && !meta) meta = cached.meta;
       loaded = true; emit();
       if (lastSrv !== undefined) onServer(lastSrv);            // the server answered before the disk did: compare now
@@ -364,7 +435,7 @@ export function makeStore(opts = {}) {
       retry() { connect(); flush(); },
       close() {
         closed = true; clearTimeout(retryTimer); clearTimeout(saveTimer);
-        if (meta) disk.set('ev:' + code, { meta, entries: known });
+        if (meta) disk.set('ev:' + code, { v: 2, meta, entries: known });
         if (stopEvents) stopEvents(); if (stopConn) stopConn();
         if (globalThis.removeEventListener) globalThis.removeEventListener('online', onOnline);
       },
@@ -377,5 +448,17 @@ export function makeStore(opts = {}) {
     prefs.del('out.' + code); prefs.del('pout.' + code); prefs.del('alerts.' + code);
   }
 
-  return { dev, prefs, disk, createTrip, fetchMeta, openTrip, forgetTrip, ready: () => backend.ready() };
+  /* Google sign-in: is it switched on? Checked once and remembered for a while. */
+  async function googleAvailable() {
+    const seen = prefs.get('google');
+    if (seen && Date.now() - seen.at < (seen.on ? 24 : 0.25) * 3600000) return seen.on;
+    const on = await backend.googleAvailable();
+    if (on === null) return seen ? seen.on : false;
+    prefs.set('google', { on, at: Date.now() });
+    return on;
+  }
+
+  return { dev, prefs, disk, createTrip, fetchMeta, openTrip, forgetTrip, ready: () => backend.ready(), googleAvailable,
+    account: () => (backend.account ? backend.account() : null), onAccount: cb => backend.onAccount(cb), preload: () => backend.preload(),
+    signInGoogle: () => backend.signInGoogle(), signOut: () => backend.signOut() };
 }

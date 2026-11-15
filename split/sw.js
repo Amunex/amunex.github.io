@@ -1,8 +1,8 @@
 /* Split: lets the app open with no signal. It only looks after this folder (/split/), nothing else on the site.
    The page and its files are fetched fresh whenever there's a connection; the saved copies are for when there isn't. */
-const CACHE = 'split-v1';
+const CACHE = 'split-v2';
 const HOME = new URL('./', self.location).href;
-const SHELL = ['./', 'style.css?v=1', 'app.js?v=1', 'core.js', 'store.js', 'rates.js', 'lib/qr.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png',
+const SHELL = ['./', 'style.css?v=2', 'app.js?v=2', 'core.js?v=2', 'store.js?v=2', 'rates.js?v=2', 'lib/qr.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png',
   'fonts/recursive-sans-casual-latin.woff2', 'fonts/recursive-mono-casual-latin.woff2'];
 /* The Firebase library, same version as FB_VERSION in store.js. Saved up front so the app opens offline after one visit. */
 const LIBRARY = ['app', 'auth', 'database'].map(n => `https://www.gstatic.com/firebasejs/12.19.0/firebase-${n}.js`);
@@ -21,9 +21,10 @@ async function savedFirst(req) {
   const hit = await caches.match(req);
   return hit || keep(req, await fetch(req));
 }
-/* Network first; the saved copy if there's no connection, or if the connection takes longer than three seconds. */
+/* Network first; the saved copy if there's no connection, or if the connection takes longer than three seconds.
+   Files are matched by their full address, ?v= number included, so one version's page never gets another version's code. */
 async function freshFirst(req, key) {
-  const hit = await caches.match(key, { ignoreSearch: true });
+  const hit = await caches.match(key);
   const net = fetch(req).then(res => keep(key, res));
   if (!hit) return net;
   return Promise.race([net.catch(() => hit), new Promise(done => setTimeout(() => done(hit), 3000))]);

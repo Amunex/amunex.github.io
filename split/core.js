@@ -137,9 +137,12 @@ export function expenseShares(x, tripDec) {
 
 /* ---------- replaying the entries ---------- */
 export const TYPES = ['member.add', 'member.rename', 'member.remove', 'claim', 'expense.add', 'expense.edit',
-  'expense.delete', 'expense.restore', 'pay.add', 'pay.delete', 'trip.rename', 'trip.color'];
-export const COLORS = ['mango', 'lime', 'aqua', 'sky', 'lilac', 'flamingo'];
-const EXPENSE_FIELDS = ['title', 'amt', 'cur', 'cd', 'rate', 'rsrc', 'rdate', 'mkt', 'date', 'payer', 'mode', 'parts', 'note', 'rc'];
+  'expense.delete', 'expense.restore', 'pay.add', 'pay.delete', 'trip.rename', 'trip.color', 'trip.policy', 'group.set', 'group.remove'];
+export const COLORS = ['night', 'pine', 'royal', 'plum', 'ember', 'coal'];
+/* Trips started before the colours were redone keep working: each old colour maps to a new one. */
+const OLD_COLORS = { mango: 'night', lime: 'pine', aqua: 'pine', sky: 'royal', lilac: 'plum', flamingo: 'ember' };
+export const colorOf = c => (COLORS.includes(c) ? c : OLD_COLORS[c] || null);
+const EXPENSE_FIELDS = ['title', 'amt', 'cur', 'cd', 'rate', 'rsrc', 'rdate', 'mkt', 'date', 'payer', 'mode', 'parts', 'tag', 'note', 'rc'];
 const LATE_MS = 24 * 3600 * 1000;
 
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -168,6 +171,7 @@ export function cleanExpense(d) {
     rdate: isDate(d.rdate) ? d.rdate : '', mkt: Number.isFinite(Number(d.mkt)) && Number(d.mkt) > 0 ? Number(d.mkt) : 0,
     date: isDate(d.date) ? d.date : '', payer: d.payer,
     mode: SPLIT_MODES.includes(d.mode) ? d.mode : 'equal', parts: cleanParts(d.parts),
+    tag: str(d.tag, 30),                                   // the group it was split with ("Alcohol"), if one was picked
     note: str(d.note, 300), rc: Array.isArray(d.rc) ? d.rc.filter(isId).slice(0, 4) : [],
   };
   return x;
@@ -179,7 +183,8 @@ export function cleanPayment(d) {
   const cd = [0, 2, 3].includes(d.cd) ? d.cd : curDecimals(d.cur);
   const rate = Number(d.rate);
   return { id: d.id, from: d.from, to: d.to, amt: roundTo(amt, cd), cur: d.cur, cd, rate: Number.isFinite(rate) && rate > 0 ? rate : 1,
-    rsrc: ['same', 'live', 'saved', 'manual'].includes(d.rsrc) ? d.rsrc : 'manual', date: isDate(d.date) ? d.date : '', note: str(d.note, 300) };
+    rsrc: ['same', 'live', 'saved', 'manual'].includes(d.rsrc) ? d.rsrc : 'manual', date: isDate(d.date) ? d.date : '', note: str(d.note, 300),
+    rc: Array.isArray(d.rc) ? d.rc.filter(isId).slice(0, 4) : [] };
 }
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -195,6 +200,7 @@ export function readEntry(id, raw) {
     ts: Number.isFinite(raw.ts) ? raw.ts : null,          // the server's clock: when it was saved
     ct: Number.isFinite(raw.ct) ? raw.ct : 0,             // the phone's clock: when it was made
     by: isId(raw.by) ? raw.by : null, dev: isId(raw.dev) ? raw.dev : null, uid: typeof raw.uid === 'string' ? raw.uid : null,
+    gn: typeof raw.gn === 'string' ? raw.gn.trim().slice(0, 80) : '',     // the Google account name the entry was written under, if signed in
     pending: !!raw.pending,
   };
 }
@@ -211,8 +217,9 @@ export function sortEntries(list) {
 export function replay(meta, entries) {
   const st = {
     name: str(meta && meta.name, 60) || 'Trip', base: isCurrencyCode(meta && meta.base) ? meta.base : 'EUR',
-    dec: [0, 2, 3].includes(meta && meta.dec) ? meta.dec : 2, color: COLORS.includes(meta && meta.color) ? meta.color : COLORS[0],
-    members: new Map(), expenses: new Map(), payments: new Map(), devices: new Map(), log: [],
+    dec: [0, 2, 3].includes(meta && meta.dec) ? meta.dec : 2, color: colorOf(meta && meta.color) || COLORS[0],
+    members: new Map(), expenses: new Map(), payments: new Map(), devices: new Map(), groups: new Map(), accounts: new Map(), log: [],
+    signin: 'any',                                         // 'google': new people must sign in with Google to join
   };
   const used = id => {
     for (const x of st.expenses.values()) if (x.payer === id || id in x.parts) return true;
@@ -230,7 +237,7 @@ export function replay(meta, entries) {
       case 'member.add': {
         const name = str(d.name, 40);
         if (!isId(d.id) || !name || st.members.has(d.id)) { line.ok = false; break; }
-        st.members.set(d.id, { id: d.id, name, addedBy: e.by, at, gone: false });
+        st.members.set(d.id, { id: d.id, name, addedBy: e.by, at, gone: false, accounts: {} });
         line.ref = d.id; line.name = name;
         break;
       }
@@ -252,9 +259,21 @@ export function replay(meta, entries) {
         if (!m || !e.dev) { line.ok = false; break; }
         const cur = st.devices.get(e.dev);
         line.ref = m.id; line.name = m.name;
+        // A Google account. Its name is the entry's own `gn` field (not something inside d), because that is the
+        // one place the stricter database rules can check against the real sign-in.
+        const acctName = e.uid ? e.gn : '', linked = acctName ? st.accounts.get(e.uid) : null;
+        const newAcct = !!(acctName && !(e.uid in m.accounts));
+        if (newAcct) {
+          m.accounts[e.uid] = { name: acctName, mail: str(d.acct && d.acct.e, 60), at };
+          line.acct = m.accounts[e.uid];
+          if (linked && linked !== m.id) { line.flags.push('switched'); line.changes.push({ f: 'who', from: linked, to: m.id }); }
+          st.accounts.set(e.uid, m.id);
+        } else if (acctName) line.sameAcct = true;           // an account this person already uses
         if (!cur) st.devices.set(e.dev, { first: m.id, now: m.id });
-        else if (cur.now !== m.id) { line.changes.push({ f: 'who', from: cur.now, to: m.id }); line.flags.push('switched'); cur.now = m.id; }
+        else if (cur.now !== m.id) { if (!line.flags.includes('switched')) { line.changes.push({ f: 'who', from: cur.now, to: m.id }); line.flags.push('switched'); } cur.now = m.id; }
+        else if (newAcct) line.signedIn = true;              // same phone, same person, now signed in
         else line.ok = false;                                // same phone, same person: nothing happened
+        if (line.ok && !acctName && st.signin === 'google') line.flags.push('nosign');     // the trip asks for a sign-in and this join has none
         break;
       }
       case 'expense.add': {
@@ -312,8 +331,33 @@ export function replay(meta, entries) {
         break;
       }
       case 'trip.color': {
-        if (!COLORS.includes(d.color) || d.color === st.color) { line.ok = false; break; }
-        st.color = d.color;
+        if (!colorOf(d.color) || colorOf(d.color) === st.color) { line.ok = false; break; }
+        st.color = colorOf(d.color);
+        break;
+      }
+      case 'trip.policy': {
+        const v = d.signin === 'google' ? 'google' : 'any';
+        if (v === st.signin) { line.ok = false; break; }
+        st.signin = v; line.signin = v;
+        break;
+      }
+      case 'group.set': {
+        const name = str(d.name, 30), old = st.groups.get(d.id);
+        const members = [...new Set(Array.isArray(d.members) ? d.members : [])].filter(id => st.members.has(id)).sort();
+        if (!isId(d.id) || !name || (old && old.gone)) { line.ok = false; break; }
+        line.ref = d.id; line.name = name; line.members = members;
+        if (!old) { st.groups.set(d.id, { id: d.id, name, members, by: e.by, at, gone: false }); line.made = true; break; }
+        if (old.name !== name) line.changes.push({ f: 'name', from: old.name, to: name });
+        const added = members.filter(id => !old.members.includes(id)), removed = old.members.filter(id => !members.includes(id));
+        if (added.length || removed.length) line.changes.push({ f: 'members', added, removed });
+        if (!line.changes.length) { line.ok = false; break; }
+        old.name = name; old.members = members;
+        break;
+      }
+      case 'group.remove': {
+        const g = st.groups.get(d.id);
+        if (!g || g.gone) { line.ok = false; break; }
+        g.gone = true; line.ref = g.id; line.name = g.name;
         break;
       }
       default: line.ok = false;
@@ -345,8 +389,10 @@ export function balances(st) {
   return { net, paid, share, total };
 }
 
-/* The fewest payments that clear every balance: the person who owes most pays the person owed most. */
-export function settleUp(net) {
+/* A short list of payments that clears every balance: the person who owes most pays the person owed most,
+   then again with whoever is left. Never more payments than people minus one.
+   Each step also says what both people still owed or were owed before and after, for the explanation. */
+export function settleSteps(net) {
   const debt = [], cred = [];
   for (const [id, v] of Object.entries(net)) { if (v < 0) debt.push({ id, v: -v }); else if (v > 0) cred.push({ id, v }); }
   const order = (a, b) => b.v - a.v || (a.id < b.id ? -1 : 1);
@@ -354,12 +400,40 @@ export function settleUp(net) {
   while (debt.length && cred.length) {
     debt.sort(order); cred.sort(order);
     const d = debt[0], c = cred[0], amt = Math.min(d.v, c.v);
-    out.push({ from: d.id, to: c.id, amt });
+    out.push({ from: d.id, to: c.id, amt, owed: d.v, due: c.v, owedAfter: d.v - amt, dueAfter: c.v - amt });
     d.v -= amt; c.v -= amt;
     if (!d.v) debt.shift();
     if (!c.v) cred.shift();
   }
   return out;
+}
+export const settleUp = net => settleSteps(net).map(({ from, to, amt }) => ({ from, to, amt }));
+
+/* Why one person's balance is what it is: what they paid, their part of each expense, and money
+   already handed over. The screens turn these numbers into sentences. net = paid - share + gave - got. */
+export function explain(st, id) {
+  const paid = [], share = [], gave = [], got = [];
+  for (const x of st.expenses.values()) {
+    if (x.gone) continue;
+    const total = baseMinor(x, st.dec), sh = expenseShares(x, st.dec), ids = Object.keys(sh);
+    if (x.payer === id) paid.push({ id: x.id, title: x.title, amt: total, date: x.date, at: x.at });
+    if (id in sh) {
+      const w = ids.map(i => (x.mode === 'equal' ? 1 : Number(x.parts[i]) || 0));
+      share.push({ id: x.id, title: x.title, total, mine: sh[id], people: ids.length, mode: ids.length === 1 ? 'alone' : x.mode,
+        weight: x.mode === 'equal' ? 1 : Number(x.parts[id]) || 0, weights: w.reduce((a, b) => a + b, 0), tag: x.tag, cur: x.cur, cd: x.cd, date: x.date, at: x.at });
+    }
+  }
+  for (const p of st.payments.values()) {
+    if (p.gone) continue;
+    const amt = baseMinor(p, st.dec);
+    if (p.from === id) gave.push({ id: p.id, who: p.to, amt, date: p.date });
+    if (p.to === id) got.push({ id: p.id, who: p.from, amt, date: p.date });
+  }
+  const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.at || 0) - (b.at || 0));
+  paid.sort(byDate); share.sort(byDate);
+  const sum = (a, k = 'amt') => a.reduce((t, v) => t + v[k], 0);
+  const paidTotal = sum(paid), shareTotal = sum(share, 'mine'), gaveTotal = sum(gave), gotTotal = sum(got);
+  return { paid, share, gave, got, paidTotal, shareTotal, gaveTotal, gotTotal, net: paidTotal - shareTotal + gaveTotal - gotTotal };
 }
 
 /* ---------- dates ---------- */

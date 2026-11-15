@@ -10,23 +10,31 @@
 <meta property="og:description" content="Open the link, pick your name, add what you paid.">
 <meta property="og:image" content="https://amunexanimation.com/split/share.png">
 <meta property="og:type" content="website">
-<meta name="theme-color" content="#ffb52e">
+<meta name="theme-color" content="#151a3a">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Split">
-<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-180.png">
 <link rel="preload" href="fonts/recursive-sans-casual-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/recursive-mono-casual-latin.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="style.css?v=1">
+<link rel="stylesheet" href="style.css?v=2">
 </head>
-<body class="c-mango">
+<body class="c-night">
 <div id="app" class="app"><p class="boot">Opening Split…</p></div>
 <div id="sheets"></div>
 <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 <noscript><p style="padding:24px">Split needs JavaScript turned on.</p></noscript>
-<script type="module" src="app.js?v=1"></script>
+<script>
+/* If the app can't start (most often: a phone holding half of an old version right after an update), offer a reload instead of a blank page. */
+addEventListener('error', function (e) {
+  if (window.splitStarted || (e.target !== window && !(e.target && e.target.tagName === 'SCRIPT'))) return;
+  var b = document.querySelector('.boot');
+  if (b) b.innerHTML = 'Split was just updated.<br><a href="">Tap here to load the new version</a>';
+}, true);
+</script>
+<script type="module" src="app.js?v=2"></script>
 </body>
 </html>
