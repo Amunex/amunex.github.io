@@ -12,7 +12,7 @@
    usable with no signal (new entries wait in a queue and are sent later), and is how the app
    notices when an entry was removed or changed behind its back: a missing entry is put back from
    the phone's copy, a changed one is reported in the log. */
-import { readEntry, newEntryId, newCode, newId } from './core.js?v=2';
+import { readEntry, newEntryId, newCode, newId } from './core.js?v=3';
 
 const FB_VERSION = '12.19.0';
 const FB_CONFIG = {

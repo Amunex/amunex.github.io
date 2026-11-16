@@ -26,6 +26,46 @@ export function cleanCode(s) {
 }
 export const fmtCode = c => (c ? c.slice(0, 4) + '-' + c.slice(4) : '');
 
+/* Characters people mix up when they read a code off a screen. O and 0 are never in a code,
+   so a typed one stands for the round letter it was mistaken for. */
+const LOOKALIKE = { S: '5', 5: 'S', Z: '2', 2: 'Z', B: '8', 8: 'B', G: '6', 6: 'G', U: 'V', V: 'U', O: 'QD', 0: 'QD' };
+function nearCodes(raw, maxCost = 2) {
+  const opts = [...raw].map(ch => (CODE_CHARS.includes(ch) ? ch : '') + (LOOKALIKE[ch] || ''));
+  const out = [];
+  if (opts.some(o => !o)) return out;
+  (function walk(i, acc, cost) {
+    if (i === opts.length) { out.push({ cost, code: acc }); return; }
+    for (let k = 0; k < opts[i].length && cost + k <= maxCost; k++) walk(i + 1, acc + opts[i][k], cost + k);
+  })(0, '', 0);
+  return out;
+}
+/* The trip codes that could be meant by whatever was typed or pasted into the code box: the code
+   itself (any case, with or without the dash), an invite link, or a whole invite message.
+   Best guess first; after it come the codes that differ only by look-alike characters. Empty when there is no code in it. */
+export function codeGuesses(text, max = 40) {
+  let s = String(text == null ? '' : text);
+  try { s = s.normalize('NFKC'); } catch (_) { /* very old browsers */ }
+  s = s.toUpperCase();
+  const raws = [];
+  const push = r => { r = r.replace(/[^A-Z0-9]/g, ''); if (r.length === CODE_LEN && !raws.includes(r)) raws.push(r); };
+  const link = /[?&]T=([^&#\s]*)/.exec(s);
+  if (link) push(link[1]);
+  push(s);
+  const parts = s.split(/([^A-Z0-9]+)/);                     // words at even places, what stands between them at odd ones
+  const dashed = [], whole = [], spaced = [];
+  for (let i = 0; i < parts.length; i += 2) {
+    if (parts[i].length === CODE_LEN) whole.push(parts[i]);
+    if (parts[i].length === 4 && (parts[i + 2] || '').length === 4) (/^\s*[-\u2010-\u2015\u2212]\s*$/.test(parts[i + 1]) ? dashed : /^\s+$/.test(parts[i + 1]) ? spaced : []).push(parts[i] + parts[i + 2]);
+  }
+  [...dashed, ...whole, ...spaced].forEach(push);
+  const all = [];
+  raws.forEach((r, pri) => { for (const g of nearCodes(r)) all.push({ ...g, pri }); });
+  all.sort((a, b) => a.cost - b.cost || a.pri - b.pri);
+  const out = [];
+  for (const g of all) if (!out.includes(g.code)) out.push(g.code);
+  return out.slice(0, max);
+}
+
 const B36 = '0123456789abcdefghijklmnopqrstuvwxyz';
 export const newId = (prefix = '', n = 9) => prefix + randomString(n, B36);
 /* Entry ids sort by the time they were made, so the database returns them in order. */
@@ -137,12 +177,25 @@ export function expenseShares(x, tripDec) {
 
 /* ---------- replaying the entries ---------- */
 export const TYPES = ['member.add', 'member.rename', 'member.remove', 'claim', 'expense.add', 'expense.edit',
-  'expense.delete', 'expense.restore', 'pay.add', 'pay.delete', 'trip.rename', 'trip.color', 'trip.policy', 'group.set', 'group.remove'];
+  'expense.delete', 'expense.restore', 'pay.add', 'pay.delete', 'trip.rename', 'trip.color', 'trip.policy', 'trip.final', 'group.set', 'group.remove'];
 export const COLORS = ['night', 'pine', 'royal', 'plum', 'ember', 'coal'];
 /* Trips started before the colours were redone keep working: each old colour maps to a new one. */
 const OLD_COLORS = { mango: 'night', lime: 'pine', aqua: 'pine', sky: 'royal', lilac: 'plum', flamingo: 'ember' };
-export const colorOf = c => (COLORS.includes(c) ? c : OLD_COLORS[c] || null);
+/* Besides the six ready-made colours a trip can have its own pair: "x-" + background + "-" + buttons, as hex ("x-151a3a-f6c453"). */
+const CUSTOM = /^x-([0-9a-f]{6})-([0-9a-f]{6})$/;
+export const colorOf = c => (COLORS.includes(c) ? c : typeof c === 'string' && CUSTOM.test(c) ? c : OLD_COLORS[c] || null);
+export const customColor = (field, accent) => { const c = `x-${String(field).replace('#', '').toLowerCase()}-${String(accent).replace('#', '').toLowerCase()}`; return CUSTOM.test(c) ? c : null; };
+export const customParts = c => { const m = typeof c === 'string' && c.match(CUSTOM); return m ? { field: '#' + m[1], accent: '#' + m[2] } : null; };
+/* How bright a colour is (0 black to 1 white) and how well two colours read on each other (1 to 21), the standard way. */
+export function luminance(hex) {
+  const n = parseInt(String(hex).replace('#', ''), 16), ch = v => { const c = v / 255; return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  return 0.2126 * ch((n >> 16) & 255) + 0.7152 * ch((n >> 8) & 255) + 0.0722 * ch(n & 255);
+}
+export const contrast = (a, b) => { const x = luminance(a), y = luminance(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+export const inkOn = hex => (contrast(hex, '#000000') >= contrast(hex, '#ffffff') ? '#000000' : '#ffffff');
 const EXPENSE_FIELDS = ['title', 'amt', 'cur', 'cd', 'rate', 'rsrc', 'rdate', 'mkt', 'date', 'payer', 'mode', 'parts', 'tag', 'note', 'rc'];
+const MONEY_FIELDS = ['amt', 'cur', 'cd', 'rate', 'payer', 'mode', 'parts'];       // the ones that move a balance
+const PAY_FIELDS = ['from', 'to', 'amt', 'cur', 'cd', 'rate', 'rsrc', 'date', 'x', 'via', 'rc'];
 const LATE_MS = 24 * 3600 * 1000;
 
 const str = (v, max) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
@@ -184,7 +237,10 @@ export function cleanPayment(d) {
   const rate = Number(d.rate);
   return { id: d.id, from: d.from, to: d.to, amt: roundTo(amt, cd), cur: d.cur, cd, rate: Number.isFinite(rate) && rate > 0 ? rate : 1,
     rsrc: ['same', 'live', 'saved', 'manual'].includes(d.rsrc) ? d.rsrc : 'manual', date: isDate(d.date) ? d.date : '', note: str(d.note, 300),
-    rc: Array.isArray(d.rc) ? d.rc.filter(isId).slice(0, 4) : [] };
+    rc: Array.isArray(d.rc) ? d.rc.filter(isId).slice(0, 4) : [],
+    x: isId(d.x) ? d.x : '',                               // the expense it was for, when someone paid their part of one
+    via: str(d.via, 30),                                   // how: "cash", "PayPal", ...
+    re: isId(d.re) ? d.re : '' };                          // the payment this one takes the place of (an edit)
 }
 
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -220,7 +276,10 @@ export function replay(meta, entries) {
     dec: [0, 2, 3].includes(meta && meta.dec) ? meta.dec : 2, color: colorOf(meta && meta.color) || COLORS[0],
     members: new Map(), expenses: new Map(), payments: new Map(), devices: new Map(), groups: new Map(), accounts: new Map(), log: [],
     signin: 'any',                                         // 'google': new people must sign in with Google to join
+    final: null,                                           // { by, at } once someone has finalized the trip
+    newer: false,                                          // an entry this version of the app doesn't know: time to reload
   };
+  const delLines = new Map();                              // payment id -> the log line that took it off
   const used = id => {
     for (const x of st.expenses.values()) if (x.payer === id || id in x.parts) return true;
     for (const p of st.payments.values()) if (p.from === id || p.to === id) return true;
@@ -282,6 +341,7 @@ export function replay(meta, entries) {
         x.parts = sortedParts(x.parts);
         st.expenses.set(x.id, { ...x, at, by: e.by, edits: 0, editedAt: 0, gone: false, goneBy: null, pending: e.pending, entries: [e.id] });
         line.ref = x.id; line.snap = { ...x };
+        if (st.final) line.flags.push('final');
         if (x.rsrc === 'manual' && x.mkt && Math.abs(x.rate / x.mkt - 1) > 0.02) line.flags.push('rate');
         break;
       }
@@ -298,6 +358,7 @@ export function replay(meta, entries) {
         line.ref = x.id; line.before = pick(x, EXPENSE_FIELDS); line.snap = { ...next };
         if (line.changes.some(c => ['amt', 'cur', 'rate'].includes(c.f))) line.flags.push('amount');
         if (at - x.at > LATE_MS) line.flags.push('late');
+        if (st.final && line.changes.some(c => MONEY_FIELDS.includes(c.f))) line.flags.push('final');
         if (next.rsrc === 'manual' && next.mkt && Math.abs(next.rate / next.mkt - 1) > 0.02 && line.changes.some(c => c.f === 'rate')) line.flags.push('rate');
         Object.assign(x, next); x.edits++; x.editedAt = at; x.pending = x.pending || e.pending; x.entries.push(e.id);
         break;
@@ -309,19 +370,35 @@ export function replay(meta, entries) {
         x.gone = del; x.goneBy = del ? e.by : null; x.goneAt = del ? at : 0; x.entries.push(e.id);
         line.ref = x.id; line.snap = pick(x, EXPENSE_FIELDS);
         if (del && at - x.at > LATE_MS) line.flags.push('late');
+        if (st.final) line.flags.push('final');
         break;
       }
       case 'pay.add': {
         const p = cleanPayment(d);
         if (!p || st.payments.has(p.id)) { line.ok = false; break; }
-        st.payments.set(p.id, { ...p, at, by: e.by, gone: false, pending: e.pending });
+        const rec = { ...p, at, by: e.by, gone: false, pending: e.pending, first: null, edits: 0, next: '' };
         line.ref = p.id; line.snap = { ...p };
+        /* An edit is written as two entries every version of the app understands: the old payment is taken off and a
+           new one, pointing back at it, is put in. When both come from the same person in one go, the log shows them
+           as one change. */
+        const old = p.re ? st.payments.get(p.re) : null, del = old ? delLines.get(old.id) : null;
+        if (old && old.gone && !old.next && del && del.by === e.by && del.dev === e.dev && Math.abs(at - del.at) < 120000) {
+          old.next = p.id; rec.first = old.first || { by: old.by, at: old.at }; rec.edits = old.edits + 1;
+          for (const f of PAY_FIELDS) if (!same(old[f], p[f])) line.changes.push({ f, from: old[f], to: p[f] });
+          line.edit = true; line.before = pick(old, PAY_FIELDS); del.merged = true;
+          if (!line.changes.length) line.merged = true;      // put back exactly as it was: nothing to tell
+          if (line.changes.some(c => ['amt', 'cur', 'rate'].includes(c.f))) line.flags.push('amount');
+          if (at - rec.first.at > LATE_MS) line.flags.push('late');
+        } else rec.re = '';
+        st.payments.set(p.id, rec);
         break;
       }
       case 'pay.delete': {
         const p = st.payments.get(d.id);
         if (!p || p.gone) { line.ok = false; break; }
-        p.gone = true; p.goneBy = e.by; line.ref = p.id; line.snap = { ...p };
+        line.ref = p.id; line.snap = pick(p, ['id', ...PAY_FIELDS]);
+        p.gone = true; p.goneBy = e.by; p.goneAt = at; delLines.set(p.id, line);
+        if (at - ((p.first && p.first.at) || p.at) > LATE_MS) line.flags.push('late');
         break;
       }
       case 'trip.rename': {
@@ -333,6 +410,13 @@ export function replay(meta, entries) {
       case 'trip.color': {
         if (!colorOf(d.color) || colorOf(d.color) === st.color) { line.ok = false; break; }
         st.color = colorOf(d.color);
+        break;
+      }
+      case 'trip.final': {
+        const on = d.on !== false;
+        if (on === !!st.final) { line.ok = false; break; }
+        st.final = on ? { by: e.by, at } : null; line.on = on;
+        if (on) { const b = balances(st); line.total = b.total; line.left = settleSteps(b.net).length; }
         break;
       }
       case 'trip.policy': {
@@ -360,7 +444,7 @@ export function replay(meta, entries) {
         g.gone = true; line.ref = g.id; line.name = g.name;
         break;
       }
-      default: line.ok = false;
+      default: line.ok = false; if (typeof e.t === 'string' && !TYPES.includes(e.t)) st.newer = true;
     }
     if (line.ok) st.log.push(line);
   }
@@ -426,14 +510,53 @@ export function explain(st, id) {
   for (const p of st.payments.values()) {
     if (p.gone) continue;
     const amt = baseMinor(p, st.dec);
-    if (p.from === id) gave.push({ id: p.id, who: p.to, amt, date: p.date });
-    if (p.to === id) got.push({ id: p.id, who: p.from, amt, date: p.date });
+    if (p.from === id) gave.push({ id: p.id, who: p.to, amt, date: p.date, x: p.x, via: p.via });
+    if (p.to === id) got.push({ id: p.id, who: p.from, amt, date: p.date, x: p.x, via: p.via });
   }
   const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (a.at || 0) - (b.at || 0));
   paid.sort(byDate); share.sort(byDate);
   const sum = (a, k = 'amt') => a.reduce((t, v) => t + v[k], 0);
   const paidTotal = sum(paid), shareTotal = sum(share, 'mine'), gaveTotal = sum(gave), gotTotal = sum(got);
   return { paid, share, gave, got, paidTotal, shareTotal, gaveTotal, gotTotal, net: paidTotal - shareTotal + gaveTotal - gotTotal };
+}
+
+/* ---------- paying your part of one expense ---------- */
+/* Money already handed to the payer for one expense: expense id -> { who gave it: cents }. */
+export function paidFor(st) {
+  const out = new Map();
+  for (const p of st.payments.values()) {
+    if (p.gone || !p.x) continue;
+    const o = out.get(p.x) || {}; o[p.from] = (o[p.from] || 0) + baseMinor(p, st.dec); out.set(p.x, o);
+  }
+  return out;
+}
+/* One expense, person by person: their part, what they already paid towards it, what is left.
+   `back` is what the payer is owed for it in all, `left` what is still to come. */
+export function partStatus(st, x) {
+  const shares = expenseShares(x, st.dec), pays = {};
+  for (const p of st.payments.values()) if (!p.gone && p.x === x.id) (pays[p.from] = pays[p.from] || []).push(p);
+  const order = [...st.members.keys()], ids = [...new Set([...Object.keys(shares), ...Object.keys(pays)])].sort((a, b) => order.indexOf(a) - order.indexOf(b));
+  const rows = ids.map(id => {
+    const part = shares[id] || 0, list = (pays[id] || []).slice().sort((a, b) => a.at - b.at || (a.id < b.id ? -1 : 1));
+    const paid = list.reduce((t, p) => t + baseMinor(p, st.dec), 0), payer = id === x.payer;
+    return { id, part, paid, left: payer ? 0 : Math.max(0, part - paid), over: payer ? 0 : Math.max(0, paid - part), pays: list, payer };
+  });
+  const back = baseMinor(x, st.dec) - (shares[x.payer] || 0), got = rows.reduce((t, r) => t + (r.payer ? 0 : r.paid), 0);
+  return { rows, back, got, left: Math.max(0, back - got) };
+}
+
+/* ---------- the final bill ---------- */
+/* Where the whole trip stands: each person's numbers, the payments still to make, and how much of
+   what was owed has been paid back so far. */
+export function summary(st) {
+  const b = balances(st), gave = {}, got = {};
+  for (const p of st.payments.values()) if (!p.gone) { const a = baseMinor(p, st.dec); gave[p.from] = (gave[p.from] || 0) + a; got[p.to] = (got[p.to] || 0) + a; }
+  const people = [...st.members.values()].filter(m => !m.gone || b.net[m.id] || b.paid[m.id] || b.share[m.id])
+    .map(m => ({ id: m.id, paid: b.paid[m.id] || 0, share: b.share[m.id] || 0, gave: gave[m.id] || 0, got: got[m.id] || 0, net: b.net[m.id] || 0 }));
+  const owedAtStart = people.reduce((t, p) => t + Math.max(0, p.share - p.paid), 0);      // before anyone paid anyone back
+  const owedNow = people.reduce((t, p) => t + Math.max(0, -p.net), 0);
+  return { total: b.total, count: [...st.expenses.values()].filter(x => !x.gone).length, people, plan: settleSteps(b.net),
+    owedAtStart, owedNow, paidBack: Math.max(0, owedAtStart - owedNow), settled: people.filter(p => !p.net).length };
 }
 
 /* ---------- dates ---------- */

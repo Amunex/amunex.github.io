@@ -1,8 +1,8 @@
 /* Split: lets the app open with no signal. It only looks after this folder (/split/), nothing else on the site.
    The page and its files are fetched fresh whenever there's a connection; the saved copies are for when there isn't. */
-const CACHE = 'split-v2';
+const CACHE = 'split-v3';
 const HOME = new URL('./', self.location).href;
-const SHELL = ['./', 'style.css?v=2', 'app.js?v=2', 'core.js?v=2', 'store.js?v=2', 'rates.js?v=2', 'lib/qr.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png',
+const SHELL = ['./', 'style.css?v=3', 'app.js?v=3', 'core.js?v=3', 'store.js?v=3', 'rates.js?v=3', 'lib/qr.js', 'manifest.webmanifest', 'icon.svg', 'icon-192.png',
   'fonts/recursive-sans-casual-latin.woff2', 'fonts/recursive-mono-casual-latin.woff2'];
 /* The Firebase library, same version as FB_VERSION in store.js. Saved up front so the app opens offline after one visit. */
 const LIBRARY = ['app', 'auth', 'database'].map(n => `https://www.gstatic.com/firebasejs/12.19.0/firebase-${n}.js`);

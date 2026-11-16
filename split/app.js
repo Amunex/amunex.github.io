@@ -2,9 +2,9 @@
    core.js   the money logic (splits, balances, the log)
    store.js  where trips are kept (the drafters' Firebase database + a copy on the phone)
    rates.js  live exchange rates */
-import * as C from './core.js?v=2';
-import { makeStore, memoryBackend, memoryServer, browserPrefs, browserDisk } from './store.js?v=2';
-import { makeRates, currencyName, guessCurrency } from './rates.js?v=2';
+import * as C from './core.js?v=3';
+import { makeStore, memoryBackend, memoryServer, browserPrefs, browserDisk } from './store.js?v=3';
+import { makeRates, currencyName, guessCurrency } from './rates.js?v=3';
 import { qrcode } from './lib/qr.js';
 
 const TEST = globalThis.__SPLIT_TEST__ || null;
@@ -15,6 +15,7 @@ const store = DEMO ? makeStore({ backend: memoryBackend(demoServer), prefs: brow
 const prefs = store.prefs;
 const rates = makeRates({ prefs });
 const HEX = { night: '#151a3a', pine: '#0f3a2d', royal: '#0c2296', plum: '#3b1447', ember: '#5a1524', coal: '#1d1d1d' };
+const ACCENT = { night: '#f6c453', pine: '#f3c969', royal: '#ffc72c', plum: '#ffb26b', ember: '#ffc978', coal: '#ffffff' };
 const COLOR_NAMES = { night: 'Night blue', pine: 'Pine green', royal: 'Royal blue', plum: 'Plum', ember: 'Dark red', coal: 'Charcoal' };
 
 /* ---------- small helpers ---------- */
@@ -37,7 +38,8 @@ const IC = {
   clip: raw('<svg class="clip" viewBox="0 0 11 13" role="img" aria-label="has a photo"><path d="M1 1h9v11l-1.5-1.2L7 12l-1.5-1.2L4 12l-1.5-1.2L1 12z" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/><path d="M3.3 4.2h4.4M3.3 6.8h4.4" stroke="currentColor" stroke-width="1.3"/></svg>'),
 };
 
-const S = { view: 'boot', tab: 'expenses', code: null, trip: null, v: null, st: null, bal: null, me: null, filter: 'all', showGone: false, homeErr: '', fresh: null, asked: false,
+const S = { view: 'boot', tab: 'expenses', code: null, trip: null, v: null, st: null, bal: null, paid: new Map(), me: null, filter: 'all', showGone: false, homeErr: '', homeCode: '', fresh: null, asked: false, mixing: false,
+  guesses: [], looking: false,                             // other codes the typed one could stand for, and whether they're being checked
   google: false };                                         // is Google sign-in switched on for this site?
 let googleReady = Promise.resolve(false);                   // settles once we know whether it is
 
@@ -80,6 +82,13 @@ function voice(id) {
   return { N: me ? 'You' : n, n: me ? 'you' : n, P: me ? 'Your' : n + '’s', p: me ? 'your' : n + '’s', s: w => (me ? w : third[w] || w + 's') };
 }
 const cap = t => t.charAt(0).toUpperCase() + t.slice(1);
+const VIA = [['cash', 'Cash'], ['PayPal', 'PayPal'], ['bank transfer', 'Bank transfer']];       // what is stored, and what the button says
+const viaSay = v => (!v ? '' : v === 'cash' ? 'in cash' : 'by ' + v);                            // "in cash", "by PayPal", "by Revolut"
+/* ", for Airbnb, in cash": what a payment was for and how it was made, when that is known. */
+function payFor(p, st = S.st) {
+  const x = p.x ? st.expenses.get(p.x) : null;
+  return `${x ? `, for ${x.title}` : ''}${p.via ? `, ${viaSay(p.via)}` : ''}`;
+}
 const activeMembers = (st = S.st) => [...st.members.values()].filter(m => !m.gone);       // in the order they were added
 const meFirst = list => [...list.filter(m => m.id === S.me), ...list.filter(m => m.id !== S.me)];
 
@@ -101,10 +110,52 @@ function rateText(cur, base, rate) {
   if (!rate || cur === base) return '';
   return rate < 1 ? `1 ${base} = ${C.fmtRate(1 / rate)} ${cur}` : `1 ${cur} = ${C.fmtRate(rate)} ${base}`;
 }
+/* The two colours of a look, ready-made or someone's own. */
+const lookParts = c => C.customParts(c) || { field: HEX[c] || HEX[C.COLORS[0]], accent: ACCENT[c] || ACCENT[C.COLORS[0]] };
+/* A phone can have its own colours for a trip, which nobody else sees. */
+const ownLook = code => C.colorOf(prefs.get('look.' + code)) || null;
 function setColor(c) {
-  const col = C.colorOf(c) || C.COLORS[0];
-  document.body.className = 'c-' + col;
-  const m = $('meta[name="theme-color"]'); if (m) m.content = HEX[col];
+  const col = C.colorOf(c) || C.COLORS[0], own = C.customParts(col), b = document.body;
+  b.className = own ? 'c-own' : 'c-' + col;
+  for (const v of ['--field', '--on', '--accent', '--accent-ink', '--glow', '--mark']) b.style.removeProperty(v);
+  if (own) {
+    /* Someone's own two colours. Everything written on them switches to black or white, whichever reads better, and
+       the small marks that sit on white paper or on the black bar fall back to a colour that shows up there. */
+    const set = (k, v) => b.style.setProperty(k, v);
+    set('--field', own.field); set('--on', C.inkOn(own.field)); set('--accent', own.accent); set('--accent-ink', C.inkOn(own.accent));
+    set('--glow', C.contrast(own.accent, '#ffffff') >= 1.5 ? own.accent : C.contrast(own.field, '#ffffff') >= 1.5 ? own.field : '#a8a8a8');
+    set('--mark', C.contrast(own.accent, '#000000') >= 3 ? own.accent : '#ffffff');
+    if (C.contrast(own.accent, own.field) < 1.6) b.classList.add('c-flat');             // buttons the colour of the background get an outline
+    if (C.contrast(own.field, '#ffffff') < 1.2) b.classList.add('c-pale');               // a background as pale as the paper: the paper gets edges
+  }
+  const m = $('meta[name="theme-color"]'); if (m) m.content = lookParts(col).field;
+}
+/* The colour chooser: six ready-made looks, or two colours of your own. get() is the look in use; pick(look, done) hears
+   about every change, with done = false while a colour is still being dragged around in the phone's picker. */
+function colorPicker(host, get, pick) {
+  const draw = () => {
+    const cur = get(), own = C.customParts(cur);
+    host.innerHTML = html`<div class="swatches" role="radiogroup" aria-label="Colour">${C.COLORS.map(c => html`<button class="sw" type="button" role="radio" aria-checked="${String(cur === c)}" aria-label="${COLOR_NAMES[c]}" data-col="${c}" style="background:${HEX[c]}"></button>`)}
+        <button class="sw own" type="button" role="radio" aria-checked="${String(!!own)}" aria-label="Your own colours" data-col="own" style="${own ? `background:linear-gradient(135deg,${own.field} 50%,${own.accent} 50%)` : ''}">${own ? '' : IC.plus}</button></div>
+      ${own ? html`<div class="mix"><label>Background<input type="color" value="${own.field}" data-mix="field"></label><label>Buttons<input type="color" value="${own.accent}" data-mix="accent"></label></div>
+        <p class="note">Any two colours. The writing turns black or white by itself so it stays readable.</p>` : ''}`;
+  };
+  host.addEventListener('click', e => {
+    const b = e.target.closest('[data-col]'); if (!b) return;
+    if (b.dataset.col !== 'own') pick(b.dataset.col, true);
+    else if (!C.customParts(get())) { const last = C.colorOf(prefs.get('lastown')), now = lookParts(get()); pick(C.customParts(last) ? last : C.customColor(now.field, now.accent), true); }
+    draw();
+  });
+  const mixed = done => {
+    const f = $('[data-mix=field]', host), a = $('[data-mix=accent]', host), c = f && a ? C.customColor(f.value, a.value) : null;
+    if (!c) return;
+    prefs.set('lastown', c); pick(c, done);
+    const sw = $('.sw.own', host); if (sw) sw.style.background = `linear-gradient(135deg,${f.value} 50%,${a.value} 50%)`;
+  };
+  host.addEventListener('input', e => { if (e.target.dataset.mix) mixed(false); });
+  host.addEventListener('change', e => { if (e.target.dataset.mix) mixed(true); });
+  draw();
+  return draw;
 }
 
 let toastTimer = 0;
@@ -198,28 +249,41 @@ function confirmSheet({ title, text, yes, danger }) {
 function route() {
   const t = new URLSearchParams(location.search).get('t');
   if (t == null) return showHome();
-  const code = C.cleanCode(t);
-  if (code) return showTrip(code);
+  const g = C.codeGuesses(t);
+  if (g.length) {
+    if (g[0] !== C.cleanCode(t)) history.replaceState(history.state, '', pageUrl(g[0]));
+    return showTrip(g[0], g.slice(1));
+  }
   history.replaceState({ v: 'home' }, '', pageUrl());
   showHome('That link doesn’t hold a valid trip code. Codes look like ABCD-EFGH.');
 }
-function go(code) { history.pushState({ v: 'trip', fromHome: true }, '', pageUrl(code)); showTrip(code); }
+function go(code, guesses = []) { history.pushState({ v: 'trip', fromHome: true }, '', pageUrl(code)); showTrip(code, guesses); }
+/* Opens whatever was put into the code box. g is what core.js made of it: the best guess first. */
+function openCode(g) {
+  S.homeCode = '';
+  if (S.view !== 'trip') return go(g[0], g.slice(1));
+  if (S.code === g[0] && !S.st) leaveTrip();                // the same code again: look it up afresh
+  history.replaceState(history.state, '', pageUrl(g[0])); showTrip(g[0], g.slice(1));
+}
+/* The box a trip code goes into. A pasted invite link or message works as well. */
+const codeBox = (value = '') => html`<form class="joinbox" id="joinForm"><input id="joinCode" aria-label="Trip code" placeholder="Have a code? Type it here" value="${value}" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go"><button class="btn">Join</button></form>`;
 function goHome() {
   if (history.state && history.state.fromHome) history.back();
   else { history.replaceState({ v: 'home' }, '', pageUrl()); showHome(); }
 }
 function leaveTrip() {
   if (S.trip) S.trip.close();
-  Object.assign(S, { trip: null, code: null, v: null, st: null, bal: null, me: null, asked: false, showGone: false, filter: 'all', fresh: null });
+  Object.assign(S, { trip: null, code: null, v: null, st: null, bal: null, paid: new Map(), me: null, asked: false, showGone: false, filter: 'all', fresh: null, mixing: false, guesses: [], looking: false });
 }
 function showHome(err = '') {
   leaveTrip(); S.view = 'home'; S.homeErr = err; setColor(C.COLORS[0]); document.title = 'Split';
+  if (!err) S.homeCode = '';
   const trips = Trips.all();
   $('#app').innerHTML = html`<div class="home">
     <h1>Split</h1>
     <p class="lede">Trip costs, shared and settled. Everyone adds what they paid; the app works out who owes who.</p>
     <button class="btn big start" type="button" data-act="new">Start a trip</button>
-    <form class="joinbox" id="joinForm"><input id="joinCode" aria-label="Trip code" placeholder="Have a code? Type it here" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="12" enterkeyhint="go"><button class="btn">Join</button></form>
+    ${codeBox(S.homeCode)}
     ${err ? html`<p class="err" role="alert">${err}</p>` : ''}
     ${trips.length ? html`<h2>Your trips</h2><div class="paper trips">${trips.map((t, i) => {
       const net = t.net || 0, st = { base: t.base || 'EUR', dec: t.dec == null ? 2 : t.dec };
@@ -230,20 +294,35 @@ function showHome(err = '') {
   </div>`;
   window.scrollTo(0, 0);
 }
-function showTrip(code) {
+function showTrip(code, guesses = []) {
   if (S.code === code && S.trip) { S.view = 'trip'; renderTrip(); return; }
   leaveTrip();
   const rec = Trips.get(code);
-  Object.assign(S, { view: 'trip', code, tab: 'expenses', me: rec ? rec.me : null });
-  setColor(rec ? rec.color : C.COLORS[0]);
+  Object.assign(S, { view: 'trip', code, tab: 'expenses', me: rec ? rec.me : null, guesses });
+  setColor(ownLook(code) || (rec ? rec.color : C.COLORS[0]));
   if (rec) Trips.touch(code);
   renderTrip(); window.scrollTo(0, 0);
   S.trip = store.openTrip(code, onTrip);
 }
+/* No trip under the code as typed: maybe one letter was read wrong. Codes that differ only by look-alike
+   characters (S and 5, U and V, Q read as O...) are checked, and if a trip is there, it opens. */
+async function lookNear() {
+  const code = S.code, list = S.guesses;
+  S.guesses = []; S.looking = true;
+  const found = await Promise.all(list.map(c => store.fetchMeta(c).then(m => (m ? c : null), () => null)));
+  if (S.code !== code) return;                                // moved on in the meantime
+  S.looking = false;
+  if (S.st) return;
+  const hit = found.find(Boolean);
+  if (!hit) return renderTrip();
+  history.replaceState(history.state, '', pageUrl(hit));
+  showTrip(hit); toast(`Found it: the code is ${C.fmtCode(hit)}`);
+}
 function onTrip(v) {
   if (v.code !== S.code) return;
   S.v = v;
-  if (v.meta) { S.st = C.replay(v.meta, v.entries); S.bal = C.balances(S.st); }
+  if (!v.meta && v.status.notFound && S.guesses.length && !S.looking) lookNear();
+  if (v.meta) { S.st = C.replay(v.meta, v.entries); S.bal = C.balances(S.st); S.paid = C.paidFor(S.st); }
   const st = S.st;
   if (st) {
     if (S.me && v.status.live && !st.members.has(S.me)) S.me = null;        // this phone's person is not in the trip any more
@@ -252,7 +331,8 @@ function onTrip(v) {
       S.me = known; S.trip.add([{ t: 'claim', d: { m: known, acct: acctOf(acct) }, by: known, signed: true }]);
       Trips.put(S.code, { me: known, g: true }); toast(`Welcome back, ${nameOf(known)}`);
     }
-    setColor(st.color); document.title = st.name + ' - Split';
+    if (!S.mixing) setColor(ownLook(S.code) || st.color);
+    document.title = st.name + ' - Split';
     if (S.me) Trips.put(S.code, { name: st.name, color: st.color, me: S.me, net: S.bal.net[S.me] || 0, base: st.base, dec: st.dec, people: activeMembers().length });
     if (!S.me && !S.asked && v.status.live && !sheets.length) {
       S.asked = true; const code = S.code;
@@ -265,6 +345,13 @@ function onTrip(v) {
 /* Things only someone in the trip can do. */
 function needMe() { if (S.me) return true; if (S.st) sheetJoin(); return false; }
 function add(items) { return S.trip.add(items.map(it => ({ ...it, by: S.me }))); }
+/* Expenses can't change on a finalized trip: offer to reopen it first. Gives back whether to go ahead. */
+async function unlocked(what) {
+  if (!S.st.final) return true;
+  if (!(await confirmSheet({ title: 'The trip is finalized', text: `${what} means reopening the trip. Everyone sees that on the log, and it can be finalized again afterwards.`, yes: 'Reopen the trip' }))) return false;
+  if (S.st.final) { add([{ t: 'trip.final', d: { on: false } }]); toast('Trip reopened'); }
+  return true;
+}
 
 /* ---------- the trip page ---------- */
 function syncInfo() {
@@ -278,21 +365,25 @@ function syncInfo() {
 function renderTrip() {
   const app = $('#app'), v = S.v, st = S.st;
   if (!st) {
-    const gone = v && v.status.notFound, stuck = v && v.status.loaded && !v.status.online && !gone;
+    const gone = v && v.status.notFound && !S.looking && !S.guesses.length, stuck = v && v.status.loaded && !v.status.online && !gone;
     app.innerHTML = html`<div class="top"><button class="back" type="button" data-act="home">${IC.back}Trips</button></div>
       <header class="head"><h1>${gone ? 'No trip with that code' : 'Opening the trip…'}</h1>
-      <p class="sub">${gone ? html`<span class="who">There’s no trip called ${C.fmtCode(S.code)}. Check the link, or ask whoever sent it for a new one.</span>` : stuck ? html`<span class="who">No connection. A trip opens without signal once this phone has loaded it before.</span>` : ''}</p>
-      ${gone ? html`<button class="btn" type="button" data-act="home">Back to Split</button>` : ''}</header>`;
+      <p class="sub">${gone ? html`<span class="who">Nothing is saved under ${C.fmtCode(S.code)}. Check it letter by letter, or ask for the invite link instead.</span>` : stuck ? html`<span class="who">No connection. A trip opens without signal once this phone has loaded it before.</span>` : ''}</p>
+      ${gone ? codeBox(C.fmtCode(S.code)) : ''}</header>`;
     return;
   }
   const y = window.scrollY, sync = syncInfo(), n = activeMembers().length;
   app.innerHTML = html`<div class="top"><button class="back" type="button" data-act="home">${IC.back}Trips</button>
       <button class="sync ${sync.cls}" type="button" data-act="retry"><i></i><span>${sync.text}</span></button></div>
-    <header class="head"><h1 class="${st.name.length > 20 ? 'long' : ''}">${st.name}</h1>
+    <header class="head"><h1 class="${st.name.length > 20 ? 'long' : ''}">${S.me ? html`<button type="button" data-act="rename-trip" aria-label="${st.name}. Tap to rename the trip">${st.name}</button>` : st.name}</h1>
       <div class="sub"><button class="who" type="button" data-act="more">${S.me ? html`<span>${people(n)}, you’re&nbsp;<b>${nameOf(S.me)}</b></span>` : html`<span>${people(n)}</span>`}</button>
       ${S.me ? html`<button class="btn small" type="button" data-act="invite">Invite</button><button class="btn small line" type="button" data-act="more">More</button>` : html`<button class="btn small" type="button" data-act="join">Join this trip</button>`}</div>
       ${wantsSignIn() ? html`<div class="nudge"><span>${st.signin === 'google' ? 'This trip asks everyone to sign in, so friends know it’s really you.' : 'Sign in so friends know it’s really you.'}</span>
-        <button class="btn small" type="button" data-act="signin">Continue with Google</button><button class="link" type="button" data-act="nonudge">Not now</button></div>` : ''}</header>
+        <button class="btn small" type="button" data-act="signin">Continue with Google</button><button class="link" type="button" data-act="nonudge">Not now</button></div>` : ''}
+      ${st.final ? html`<div class="nudge"><span><b>Finalized</b> by ${whom(st.final.by)} on ${niceDate(C.localDate(new Date(st.final.at)))}. No new expenses unless it’s reopened.</span>
+        <button class="btn small" type="button" data-act="final">See the final bill</button></div>` : ''}
+      ${st.newer ? html`<div class="nudge"><span>Split has been updated since this page was opened. Load the new version to see everything.</span>
+        <button class="btn small" type="button" data-act="reload">Load it</button></div>` : ''}</header>
     ${S.tab === 'expenses' ? tabExpenses() : S.tab === 'balances' ? tabBalances() : tabLog()}
     <nav class="bar" aria-label="Trip sections">${['expenses', 'balances', 'log'].map(t => html`<button class="tab" type="button" data-act="tab" data-tab="${t}" ${S.tab === t ? raw('aria-current="page"') : ''}>${t[0].toUpperCase() + t.slice(1)}</button>`)}
       <button class="plus" type="button" data-act="add" aria-label="Add an expense">${IC.plus}</button></nav>`;
@@ -306,7 +397,7 @@ function wantsSignIn() {
 }
 function standing() {
   const net = S.me ? S.bal.net[S.me] || 0 : 0, n = money(Math.abs(net));
-  return html`<div class="stand ${net < 0 ? 'owe' : ''}"><div class="l">${!S.me ? 'Trip total' : net > 0 ? 'You get back' : net < 0 ? 'You owe' : 'You’re settled up'}</div>
+  return html`<div class="stand ${net < 0 ? 'owe' : ''}"><div class="l">${!S.me ? 'Trip total' : net > 0 ? 'You get back' : net < 0 ? 'You owe' : 'You’re settled up'}${S.st.final ? html` <span class="stampd">Final</span>` : ''}</div>
     <div class="n ${n.length > 10 ? 'small' : ''}">${S.me ? n : money(S.bal.total)}</div>
     ${S.me && S.st.expenses.size ? html`<button class="link why" type="button" data-act="why" data-id="${S.me}">Why this number?</button>` : ''}</div>`;
 }
@@ -333,11 +424,18 @@ function paidWords(x, shares) {
   return `${who(x.payer)} paid${only}${x.tag ? ', ' + x.tag : ''}${x.edits ? ', edited' : ''}`;
 }
 function expenseRow(x) {
-  const st = S.st, base = C.baseMinor(x, st.dec), shares = C.expenseShares(x, st.dec), me = S.me;
-  const mine = (x.payer === me ? base : 0) - (shares[me] || 0);
+  const st = S.st, base = C.baseMinor(x, st.dec), shares = C.expenseShares(x, st.dec), me = S.me, paid = S.paid.get(x.id) || {};
   const left = x.gone ? `Deleted by ${whom(x.goneBy)}` : paidWords(x, shares);
-  const right = x.gone || !me ? '' : mine > 0 ? html`<em>you get back ${money(mine)}</em>` : mine < 0 ? html`<em class="red">you owe ${money(-mine)}</em>`
-    : html`<em class="dim">${x.payer === me || me in shares ? 'evens out' : 'not yours'}</em>`;
+  let right = '';
+  if (!x.gone && me) {
+    if (x.payer === me) {                                    // what is still to come back to you for this one
+      const back = base - (shares[me] || 0), still = back - Object.keys(paid).reduce((t, id) => t + (id === me ? 0 : paid[id]), 0);
+      right = still > 0 ? html`<em>you get back ${money(still)}</em>` : html`<em class="dim">${back > 0 ? 'paid back' : 'evens out'}</em>`;
+    } else if (me in shares) {                               // what is left of your part
+      const still = shares[me] - (paid[me] || 0);
+      right = still > 0 ? html`<em class="red">you owe ${money(still)}</em>` : html`<em class="dim">${shares[me] > 0 ? 'you paid your part' : 'evens out'}</em>`;
+    } else right = html`<em class="dim">not yours</em>`;
+  }
   return html`<button class="x ${x.gone ? 'void' : ''} ${x.pending ? 'wait' : ''} ${S.fresh === x.id ? 'fresh' : ''}" type="button" data-act="open" data-id="${x.id}">
     <div class="a"><span>${x.title}</span><b>${x.rc.length ? IC.clip : ''} ${origMoney(x)}</b></div><div class="b"><span>${left}</span>${right}</div></button>`;
 }
@@ -357,14 +455,16 @@ function tabBalances() {
     ${members.map(m => { const net = b.net[m.id] || 0; return html`<button class="x" type="button" data-act="why" data-id="${m.id}"><div class="a"><span>${m.name}${m.id === me ? ' (you)' : ''}${firstAcct(m) ? IC.ver : ''}</span><b class="${net < 0 ? 'red' : ''}">${money(Math.abs(net))}</b></div>
       <div class="b"><span>paid ${money(b.paid[m.id] || 0)}, part ${money(b.share[m.id] || 0)}</span><em class="${net < 0 ? 'red' : net ? '' : 'dim'}">${net > 0 ? (m.id === me ? 'you get back' : 'gets back') : net < 0 ? (m.id === me ? 'you owe' : 'owes') : 'settled up'}</em></div></button>`; })}
     ${pays.length ? html`<div class="sec"><span>Payments made</span><span></span></div>${pays.map(p => html`<button class="x ${p.pending ? 'wait' : ''}" type="button" data-act="payment" data-id="${p.id}"><div class="a"><span>${who(p.from)} paid ${whom(p.to)}</span><b>${p.rc.length ? IC.clip : ''} ${origMoney(p)}</b></div>
-      <div class="b"><span>${niceDate(p.date || C.localDate(new Date(p.at)))}</span></div></button>`)}` : ''}
-    <button class="link more" type="button" data-act="settle">Record another payment</button></main>`;
+      <div class="b"><span>${niceDate(p.date || C.localDate(new Date(p.at)))}${payFor(p)}</span></div></button>`)}` : ''}
+    <button class="link more" type="button" data-act="settle">Record another payment</button>
+    ${me && st.expenses.size ? (st.final ? html`<button class="btn big fbtn" type="button" data-act="final">See the final bill</button>`
+      : html`<button class="btn big line fbtn" type="button" data-act="final">Finalize trip</button><p class="note">For when everything is in. Shows the final bill and closes the trip to new expenses.</p>`) : ''}</main>`;
 }
 
 /* ---------- the log ---------- */
 const LOG_KIND = { 'member.addmany': 'people', 'expense.add': 'adds', 'expense.edit': 'changes', 'expense.delete': 'changes', 'expense.restore': 'changes', 'pay.add': 'payments', 'pay.delete': 'payments',
   'member.add': 'people', 'member.rename': 'people', 'member.remove': 'people', claim: 'people', 'trip.rename': 'changes', 'trip.color': 'changes',
-  'trip.policy': 'people', 'group.set': 'people', 'group.remove': 'people' };
+  'trip.policy': 'people', 'group.set': 'people', 'group.remove': 'people', 'trip.final': 'changes' };
 function splitList(x) {
   const ids = inOrder(Object.keys(x.parts));
   if (x.mode === 'equal') return ids.length > 4 ? people(ids.length) : ids.map(id => nameOf(id)).join(', ') || 'nobody';
@@ -392,6 +492,22 @@ function editDetails(l) {
   if (ch.has('rc')) {
     const added = a.rc.filter(r => !b.rc.includes(r)).length, removed = b.rc.filter(r => !a.rc.includes(r)).length, n = k => (k === 1 ? 'a receipt photo' : k + ' receipt photos');
     out.push({ text: added === 1 && removed === 1 ? 'swapped a receipt photo for a different one' : added && removed ? `took off ${n(removed)} and added ${n(added)}` : added ? `added ${n(added)}` : `took off ${n(removed)}` });
+  }
+  return out;
+}
+/* What changed when a payment was edited. */
+function payDetails(l) {
+  const st = S.st, ch = new Set(l.changes.map(c => c.f)), b = l.before, a = l.snap, out = [], title = id => (id && st.expenses.get(id) ? st.expenses.get(id).title : 'nothing in particular');
+  if (ch.has('amt') || ch.has('cur')) out.push(['amount', origMoney(b), origMoney(a)]);
+  if (ch.has('from')) out.push(['who paid', nameOf(b.from), nameOf(a.from)]);
+  if (ch.has('to')) out.push(['who got it', nameOf(b.to), nameOf(a.to)]);
+  if (ch.has('via')) out.push(['how', b.via || 'not said', a.via || 'not said']);
+  if (ch.has('date')) out.push(['date', niceDate(b.date), niceDate(a.date)]);
+  if (ch.has('x')) out.push(['for', title(b.x), title(a.x)]);
+  if ((ch.has('rate') || ch.has('rsrc')) && (a.cur !== st.base || b.cur !== st.base)) out.push(['rate', rateText(b.cur, st.base, b.rate) || 'none', rateText(a.cur, st.base, a.rate) || 'none']);
+  if (ch.has('rc')) {
+    const added = a.rc.filter(r => !b.rc.includes(r)).length, removed = b.rc.filter(r => !a.rc.includes(r)).length, n = k => (k === 1 ? 'a proof photo' : k + ' proof photos');
+    out.push({ text: added && removed ? `took off ${n(removed)} and added ${n(added)}` : added ? `added ${n(added)}` : `took off ${n(removed)}` });
   }
   return out;
 }
@@ -434,6 +550,7 @@ function logWords(l, ctx) {
     case 'expense.add':
       o.text = html`<b>${actor}</b> added ${x.title}`; o.amt = origMoney(x); o.open = l.ref;
       o.details.push(html`paid by ${nameOf(x.payer)}, ${splitFor(x)}${x.cur !== st.base ? html`, at ${rateText(x.cur, st.base, x.rate)}${x.rsrc === 'manual' ? ' (typed in)' : ''}` : ''}`);
+      if (l.flags.includes('final')) o.flags.push('Added after the trip was finalized');
       break;
     case 'expense.edit':
       o.text = html`<b>${actor}</b> changed ${x.title}`; o.open = l.ref;
@@ -441,12 +558,34 @@ function logWords(l, ctx) {
       if (l.changes.some(c => c.f === 'rc') && l.before.rc.some(r => !x.rc.includes(r))) o.flags.push('A receipt photo was taken off');
       if (l.flags.includes('amount')) o.flags.push('The amount was changed');
       if (l.flags.includes('late')) o.flags.push('Changed more than a day after it was added');
+      if (l.flags.includes('final')) o.flags.push('Changed after the trip was finalized');
       break;
     case 'expense.delete': o.text = html`<b>${actor}</b> deleted <span class="struck">${x.title}</span>`; o.amt = origMoney(x); o.struck = true; o.open = l.ref;
-      if (l.flags.includes('late')) o.flags.push('Deleted more than a day after it was added'); break;
-    case 'expense.restore': o.text = html`<b>${actor}</b> brought back ${x.title}`; o.amt = origMoney(x); o.open = l.ref; break;
-    case 'pay.add': o.text = l.by === x.from ? html`<b>${actor}</b> paid ${whom(x.to)}` : html`<b>${actor}</b> recorded that ${whom(x.from)} paid ${whom(x.to)}`; o.amt = origMoney(x); break;
-    case 'pay.delete': o.text = html`<b>${actor}</b> deleted the payment from ${whom(x.from)} to ${whom(x.to)}`; o.amt = origMoney(x); o.struck = true; break;
+      if (l.flags.includes('late')) o.flags.push('Deleted more than a day after it was added');
+      if (l.flags.includes('final')) o.flags.push('Deleted after the trip was finalized'); break;
+    case 'expense.restore': o.text = html`<b>${actor}</b> brought back ${x.title}`; o.amt = origMoney(x); o.open = l.ref;
+      if (l.flags.includes('final')) o.flags.push('Brought back after the trip was finalized'); break;
+    case 'pay.add': {
+      const fors = payFor(x).replace(/^, /, '');
+      o.amt = origMoney(x); if (x.x) o.open = x.x;
+      if (l.edit) {
+        o.text = html`<b>${actor}</b> changed the payment from ${whom(x.from)} to ${whom(x.to)}`;
+        for (const d of payDetails(l)) o.details.push(Array.isArray(d) ? html`${d[0]} was <i class="struck">${d[1]}</i>, now <i>${d[2]}</i>` : d.text);
+        if (l.flags.includes('amount')) o.flags.push('The amount was changed');
+        if (l.flags.includes('late')) o.flags.push('Changed more than a day after it was recorded');
+      } else {
+        o.text = l.by === x.from ? html`<b>${actor}</b> paid ${whom(x.to)}` : html`<b>${actor}</b> recorded that ${whom(x.from)} paid ${whom(x.to)}`;
+        if (fors) o.details.push(fors);
+      }
+      break;
+    }
+    case 'pay.delete': o.text = html`<b>${actor}</b> deleted the payment from ${whom(x.from)} to ${whom(x.to)}`; o.amt = origMoney(x); o.struck = true; if (x.x) o.open = x.x;
+      if (payFor(x)) o.details.push(payFor(x).replace(/^, /, ''));
+      if (l.flags.includes('late')) o.flags.push('Deleted more than a day after it was recorded'); break;
+    case 'trip.final':
+      o.text = l.on ? html`<b>${actor}</b> finalized the trip` : html`<b>${actor}</b> reopened the trip`;
+      if (l.on) o.details.push(`trip total ${money(l.total)}, ${l.left ? (l.left === 1 ? '1 payment' : l.left + ' payments') + ' still to make' : 'everyone settled up'}`);
+      break;
     case 'trip.rename': o.text = html`<b>${actor}</b> renamed the trip to ${l.changes[0].to}`; o.details.push(html`it was called ${l.changes[0].from}`); break;
     case 'trip.color': o.text = html`<b>${actor}</b> changed the trip colour`; break;
     default: return null;
@@ -482,7 +621,9 @@ function entryBrief(rawEntry) {
 function mergeAdds(log) {
   const out = [];
   for (const l of log) {
+    if (l.merged) continue;                                  // the taking-off half of an edited payment: the edit line tells it
     const prev = out[out.length - 1];
+    if (l.t === 'trip.color' && prev && prev.t === 'trip.color' && prev.by === l.by && Math.abs(l.at - prev.at) < 600000) { out[out.length - 1] = l; continue; }
     if (l.t === 'member.add' && l.by !== l.ref && !l.flags.length && prev && (prev.t === 'member.add' || prev.t === 'member.addmany') && prev.by === l.by && prev.by !== prev.ref && !prev.flags.length && Math.abs(l.at - prev.at) < 5000) {
       out[out.length - 1] = { ...prev, t: 'member.addmany', names: [...(prev.names || [prev.name]), l.name], pending: prev.pending || l.pending };
     } else out.push(l);
@@ -523,10 +664,13 @@ $('#app').addEventListener('click', e => {
   else if (a === 'join') sheetJoin();
   else if (a === 'invite') sheetInvite();
   else if (a === 'more') { if (needMe()) sheetTrip(); }
-  else if (a === 'add') { if (needMe()) sheetExpense(null); }
+  else if (a === 'add') { if (needMe()) unlocked('Adding an expense').then(go => { if (go) sheetExpense(null); }); }
+  else if (a === 'rename-trip') renameTrip();
+  else if (a === 'final') sheetFinal();
+  else if (a === 'reload') location.reload();
   else if (a === 'open') sheetDetail(b.dataset.id);
   else if (a === 'gone') { S.showGone = !S.showGone; renderTrip(); }
-  else if (a === 'settle') { if (needMe()) sheetPayment(b.dataset.from ? { from: b.dataset.from, to: b.dataset.to, amt: +b.dataset.amt } : null); }
+  else if (a === 'settle') { if (needMe()) sheetPayment(b.dataset.from ? { from: b.dataset.from, to: b.dataset.to, amt: +b.dataset.amt } : {}); }
   else if (a === 'payment') sheetPaymentDetail(b.dataset.id);
   else if (a === 'person') { if (needMe()) sheetPerson(b.dataset.id); }
   else if (a === 'signin') signInHere(toast);
@@ -540,8 +684,11 @@ $('#app').addEventListener('click', e => {
 $('#app').addEventListener('submit', e => {
   if (e.target.id !== 'joinForm') return;
   e.preventDefault();
-  const code = C.cleanCode($('#joinCode').value);
-  if (code) go(code); else showHome('That code doesn’t look right. Codes have 8 letters and numbers, like ABCD-EFGH.');
+  const typed = $('#joinCode').value, g = C.codeGuesses(typed);
+  if (g.length) return openCode(g);
+  S.homeCode = typed.trim().slice(0, 80);
+  showHome(S.homeCode ? 'That isn’t a trip code. A code is 8 letters and numbers, like ABCD-EFGH. Pasting the invite link here works too.' : 'Type the trip code first: 8 letters and numbers, like ABCD-EFGH.');
+  const box = $('#joinCode'); if (box) box.focus();
 });
 
 /* ---------- Google sign-in (optional: it appears once it is switched on in Firebase) ---------- */
@@ -582,15 +729,13 @@ function sheetNewTrip() {
         <div class="f"><label for="nMe">Your name</label><input class="in" id="nMe" maxlength="40" autocomplete="given-name" enterkeyhint="next"><div id="nAcct"></div></div>
         <div class="f"><label for="nOther">Who else is coming <small>optional</small></label>
           <div class="pick" id="nOthers"></div><div class="addrow"><input class="in" id="nOther" maxlength="40" placeholder="A friend’s name" autocomplete="off" enterkeyhint="done"><button class="btn line" type="button" id="nAdd">Add</button></div></div>
-        <div class="f"><div class="lab">Colour</div><div class="swatches" role="radiogroup" aria-label="Trip colour" id="nCol"></div></div></form>`;
+        <div class="f"><div class="lab">Colour</div><div id="nCol"></div></div></form>`;
       sh.footer(html`<div class="msg" id="nMsg" role="alert"></div><button class="btn big" form="nf" id="nGo">Start the trip</button>`);
       const el = k => $('#' + k, sh.el), msg = el('nMsg');
       el('nMe').value = F.me;
       const draw = () => {
         el('nBase').innerHTML = html`${F.base} ${IC.down}`; el('nBase').setAttribute('aria-label', 'Trip currency: ' + currencyName(F.base, LOCALE));
         el('nOthers').innerHTML = html`${F.others.map((n, i) => html`<button class="chip" type="button" data-i="${i}" aria-label="Remove ${n}"><span>${n}</span> ×</button>`)}`;
-        el('nCol').innerHTML = html`${C.COLORS.map(c => html`<button class="sw" type="button" role="radio" aria-checked="${String(F.color === c)}" aria-label="${COLOR_NAMES[c]}" data-c="${c}" style="background:${HEX[c]}"></button>`)}`;
-        setColor(F.color);
       };
       const drawAcct = () => {
         el('nAcct').innerHTML = !S.google ? '' : F.acct ? html`<p class="note ok">${acctLine(F.acct)}</p>
@@ -604,7 +749,7 @@ function sheetNewTrip() {
       el('nAdd').onclick = addOther;
       el('nOther').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addOther(); } });
       el('nOthers').onclick = e => { const b = e.target.closest('[data-i]'); if (b) { F.others.splice(+b.dataset.i, 1); draw(); } };
-      el('nCol').onclick = e => { const b = e.target.closest('[data-c]'); if (b) { F.color = b.dataset.c; draw(); } };
+      colorPicker(el('nCol'), () => F.color, c => { F.color = c; setColor(c); });
       el('nAcct').addEventListener('click', async e => {
         if (e.target.closest('#nReq')) { F.require = !F.require; drawAcct(); return; }
         if (!e.target.closest('#nGoogle')) return;
@@ -1094,8 +1239,8 @@ function sheetWhy(id) {
             <div class="tot"><span>${v.P} part in total</span><b>${M(e.shareTotal)}</b></div></div>
           ${notIn.length ? html`<p class="note">Not counted: ${notIn.slice(0, 4).map(x => x.title).join(', ')}${notIn.length > 4 ? ` and ${notIn.length - 4} more` : ''}. ${v.N} ${v.s('weren’t')} part of ${notIn.length === 1 ? 'it' : 'those'}, so ${v.n} ${v.s('pay')} nothing for ${notIn.length === 1 ? 'it' : 'them'}.</p>` : ''}
           ${moved ? html`<h3 class="h3">3. Money already handed over</h3><div class="paper-in why">
-            ${e.gave.map(p => html`<button class="x" type="button" data-pay="${p.id}"><div class="a"><span>${v.N} gave ${whom(p.who)}</span><b>${M(p.amt)}</b></div></button>`)}
-            ${e.got.map(p => html`<button class="x" type="button" data-pay="${p.id}"><div class="a"><span>${who(p.who)} gave ${v.n}</span><b>${M(p.amt)}</b></div></button>`)}</div>` : ''}
+            ${e.gave.map(p => html`<button class="x" type="button" data-pay="${p.id}"><div class="a"><span>${v.N} gave ${whom(p.who)}</span><b>${M(p.amt)}</b></div>${payFor(p) ? html`<div class="b"><span>${payFor(p).slice(2)}</span></div>` : ''}</button>`)}
+            ${e.got.map(p => html`<button class="x" type="button" data-pay="${p.id}"><div class="a"><span>${who(p.who)} gave ${v.n}</span><b>${M(p.amt)}</b></div>${payFor(p) ? html`<div class="b"><span>${payFor(p).slice(2)}</span></div>` : ''}</button>`)}</div>` : ''}
           <h3 class="h3">${moved ? 4 : 3}. The sum</h3>
           ${steps.map(t => html`<p class="say">${t.say}</p>${t.calc ? html`<p class="calc">${t.calc}</p>` : ''}`)}
           <p class="concl ${r < 0 ? 'red' : ''}">${r > 0 ? `So ${v.n} ${v.s('get')} back ${M(r)}.` : r < 0 ? `So ${v.n} ${v.s('owe')} ${M(-r)}.` : `So ${v.n} ${v.s('are')} settled up. Nothing to pay, nothing to get back.`}</p>
@@ -1166,7 +1311,7 @@ function sheetReceipts() {
         sh.body.innerHTML = html`<p class="lead">${!xs.length ? 'No expenses yet.' : have.length === xs.length ? `All ${xs.length === 1 ? 'of the 1 expense has' : xs.length + ' expenses have'} a photo.` : `${have.length} of ${xs.length} ${xs.length === 1 ? 'expense has' : 'expenses have'} a photo.`}
             ${xs.length ? 'Adding or removing a photo always shows on the log.' : ''}</p>
           ${have.map(x => html`<div class="rcp"><button class="t" type="button" data-open="${x.id}"><span>${x.title}</span><b>${origMoney(x)}</b></button><small>${who(x.payer)} paid, ${niceDate(dateOf(x))}</small>${thumbs(x.rc)}</div>`)}
-          ${pays.length ? html`<h3 class="h3">Proof of payments</h3>${pays.map(p => html`<div class="rcp"><button class="t" type="button" data-pay="${p.id}"><span>${who(p.from)} paid ${whom(p.to)}</span><b>${origMoney(p)}</b></button>${thumbs(p.rc)}</div>`)}` : ''}
+          ${pays.length ? html`<h3 class="h3">Proof of payments</h3>${pays.map(p => html`<div class="rcp"><button class="t" type="button" data-pay="${p.id}"><span>${who(p.from)} paid ${whom(p.to)}</span><b>${origMoney(p)}</b></button>${payFor(p) ? html`<small>${payFor(p).slice(2)}</small>` : ''}${thumbs(p.rc)}</div>`)}` : ''}
           ${none.length ? html`<h3 class="h3">No photo yet</h3><div class="list">${none.map(x => html`<button class="li" type="button" data-open="${x.id}"><span class="grow">${x.title}<small>${who(x.payer)} paid, ${niceDate(dateOf(x))}</small></span><span class="go">${origMoney(x)}</span></button>`)}</div>
             <p class="note">Open one to add its photo.</p>` : ''}`;
         loadThumbs(sh.el);
@@ -1187,27 +1332,69 @@ function loadThumbs(el) {
   }, () => {});
 }
 
+/* ---------- a small sheet for changing one piece of text ---------- */
+function sheetText({ title, label, value = '', max = 80, long = false, placeholder = '', optional = false, button = 'Save', save }) {
+  openSheet({
+    title,
+    render(sh) {
+      sh.body.innerHTML = html`<form id="tf" novalidate><div class="f"><label for="tIn">${label}${optional ? html` <small>optional</small>` : ''}</label>
+        ${long ? html`<textarea class="in" id="tIn" maxlength="${max}" placeholder="${placeholder}" rows="3"></textarea>` : html`<input class="in" id="tIn" maxlength="${max}" placeholder="${placeholder}" autocomplete="off" enterkeyhint="done">`}</div></form>`;
+      sh.footer(html`<div class="msg" id="tMsg2" role="alert"></div><button class="btn big" form="tf">${button}</button>`);
+      const input = $('#tIn', sh.el); input.value = value;
+      $('#tf', sh.el).onsubmit = e => {
+        e.preventDefault();
+        const v = input.value.trim();
+        if (!v && !optional) { $('#tMsg2', sh.el).textContent = 'Type something first.'; input.focus(); return; }
+        sh.close(); if (v !== value.trim()) save(v);
+      };
+      input.focus({ preventScroll: true }); if (!long) input.select();
+    },
+  });
+}
+function renameTrip() {
+  if (!needMe()) return;
+  sheetText({ title: 'Rename the trip', label: 'Trip name', value: S.st.name, max: 60, save: name => { add([{ t: 'trip.rename', d: { name } }]); toast('Trip renamed'); } });
+}
+
 /* ---------- one expense ---------- */
 function sheetDetail(id) {
   if (!S.st.expenses.has(id)) return;
   openSheet({
-    title: S.st.expenses.get(id).title,
+    title: 'Expense',
     render(sh) {
       const draw = () => {
         const st = S.st, x = st.expenses.get(id); if (!x) return;
-        const base = C.baseMinor(x, st.dec), shares = C.expenseShares(x, st.dec), ctx = logContext();
-        sh.title(x.title);
-        sh.body.innerHTML = html`<div class="bigamt ${x.gone ? 'struck' : ''}">${origMoney(x)}</div>
-          ${x.cur !== st.base ? html`<div class="dim">${money(base)} at ${rateText(x.cur, st.base, x.rate)}${x.rsrc === 'manual' ? ' (typed in)' : ''}</div>` : ''}
-          ${x.gone ? html`<div class="stampd">Deleted by ${whom(x.goneBy)}</div>` : ''}
-          <div class="dl"><div><span>When</span><span>${niceDate(x.date)}</span></div><div><span>Paid by</span><span>${nameOf(x.payer)}</span></div>
-            <div><span>Added by</span><span>${nameOf(x.by)}, ${stampText(x.at)}</span></div>${x.note ? html`<div><span>Note</span><span>${x.note}</span></div>` : ''}</div>
-          <h3 class="h3">Who it was for${x.tag ? html` <small>the ${x.tag} group</small>` : ''}</h3><div class="dl">${Object.keys(shares).sort((a, b) => (nameOf(a) < nameOf(b) ? -1 : 1)).map(m => html`<div><span>${nameOf(m)}${m === S.me ? ' (you)' : ''}</span><span>${money(shares[m])}</span></div>`)}</div>
-          ${x.rc.length || (!x.gone && S.me) ? html`<h3 class="h3">Receipt photos</h3><div class="photos">${x.rc.map((rid, i) => html`<button class="ph load" type="button" data-rid="${rid}" aria-label="Open receipt photo ${i + 1}">Photo ${i + 1}</button>`)}
-            ${!x.gone && S.me && x.rc.length < 4 ? html`<button class="btn line small" type="button" data-do="photo">${IC.cam}${x.rc.length ? 'Add another' : 'Add a receipt photo'}</button>` : ''}</div>
-            ${x.rc.length ? '' : html`<p class="note">No photo yet. Anyone in the trip can add one as proof.</p>`}` : ''}
-          <h3 class="h3">History</h3><div class="paper-in">${st.log.filter(l => l.ref === id).map(l => logLine(l, ctx, true))}</div>`;
-        sh.footer(x.gone ? html`<button class="btn big" type="button" data-do="restore">Bring it back</button>` : html`<div class="acts"><button class="btn line" type="button" data-do="delete">Delete</button><button class="btn" type="button" data-do="edit">Edit</button></div>`);
+        const base = C.baseMinor(x, st.dec), ps = C.partStatus(st, x), ctx = logContext(), me = S.me, can = !x.gone && !!me;
+        const mine = ps.rows.find(r => r.id === me && !r.payer), others = ps.rows.filter(r => !r.payer && r.part > 0).length;
+        sh.title(x.gone ? 'Deleted expense' : 'Expense');
+        /* one person's line: their part, anything they already paid towards it, and what is left */
+        const row = r => {
+          const v = voice(r.id);
+          const state = r.payer ? html`<em class="dim">paid the bill</em>`
+            : r.over ? html`<em>paid ${money(r.over)} extra</em>` : r.left ? html`<em class="red">${r.paid ? `${money(r.left)} left` : `${v.s('owe')} ${money(r.left)}`}</em>` : r.part || r.paid ? html`<em>paid in full</em>` : '';
+          return html`<div class="pt"><div class="a"><span>${r.id === me ? 'You' : nameOf(r.id)}</span><b>${money(r.part)}</b></div>
+            ${r.pays.map(p => html`<button class="pp" type="button" data-pay="${p.id}" ${can ? '' : raw('disabled')}><span>paid ${origMoney(p)}${p.via ? ' ' + viaSay(p.via) : ''}${p.rc.length ? IC.clip : ''}</span><small>${niceDate(p.date || C.localDate(new Date(p.at)))}${can ? ', change' : ''}</small></button>`)}
+            <div class="b">${state}${can && !r.payer && r.left ? html`<button class="link" type="button" data-part="${r.id}">${r.paid ? 'Add a payment' : 'Mark as paid'}</button>` : ''}</div></div>`;
+        };
+        sh.body.innerHTML = html`<div class="xhead">
+            ${can ? html`<button class="xtitle" type="button" data-do="rename"><span>${x.title}</span><i>Rename</i></button>` : html`<div class="xtitle"><span class="${x.gone ? 'struck' : ''}">${x.title}</span></div>`}
+            ${x.note ? html`<p class="xnote">${x.note}${can ? html` <button class="link" type="button" data-do="note">Change</button>` : ''}</p>` : can ? html`<button class="link xadd" type="button" data-do="note">Add what it was about</button>` : ''}
+            <div class="bigamt ${x.gone ? 'struck' : ''}">${origMoney(x)}</div>
+            ${x.cur !== st.base ? html`<div class="dim">${money(base)} at ${rateText(x.cur, st.base, x.rate)}${x.rsrc === 'manual' ? ' (typed in)' : ''}</div>` : ''}
+            <p class="xby">${who(x.payer)} paid, ${niceDate(x.date)}</p>
+            ${x.gone ? html`<div class="stampd">Deleted by ${whom(x.goneBy)}</div>` : ''}
+            ${x.rc.length || can ? html`<div class="photos">${x.rc.map((rid, i) => html`<button class="ph load" type="button" data-rid="${rid}" aria-label="Open receipt photo ${i + 1}">Photo ${i + 1}</button>`)}
+              ${can && x.rc.length < 4 ? html`<button class="btn line small" type="button" data-do="photo">${IC.cam}${x.rc.length ? 'Add another' : 'Add a receipt photo'}</button>` : ''}</div>` : ''}
+          </div>
+          <h3 class="h3">Everyone’s part${x.tag ? html` <small>the ${x.tag} group</small>` : ''}</h3>
+          ${can && others ? html`<p class="note pthint">${x.payer === me ? 'Has someone already paid you their part? Mark it beside their name.' : 'Already paid some of it? Mark it here and it comes off what is owed.'}</p>` : ''}
+          <div class="parts">${ps.rows.map(row)}</div>
+          ${others && ps.got ? html`<div class="tot"><span>${ps.left ? `Still to come back to ${whom(x.payer)}` : `All paid back to ${whom(x.payer)}`}</span><b>${ps.left ? money(ps.left) : ''}</b></div>` : ''}
+          <h3 class="h3">History</h3><div class="paper-in">${st.log.filter(l => !l.merged && (l.ref === id || (l.snap && l.snap.x === id && l.t.startsWith('pay.')))).map(l => logLine(l, ctx, true))}</div>
+          <p class="note">Added by ${whom(x.by)}, ${stampText(x.at)}.</p>`;
+        sh.footer(x.gone ? html`<button class="btn big" type="button" data-do="restore">Bring it back</button>`
+          : html`${can && mine && mine.left ? html`<button class="btn big" type="button" data-part="${me}">I’ve paid my part</button>` : ''}
+            <div class="acts"><button class="btn line" type="button" data-do="delete">Delete</button><button class="btn ${can && mine && mine.left ? 'line' : ''}" type="button" data-do="edit">Edit</button></div>`);
         loadThumbs(sh.el);
       };
       sh.refresh = draw; draw();
@@ -1224,14 +1411,20 @@ function sheetDetail(id) {
         } catch (_) { toast('That photo couldn’t be added. Try another one.'); }
       };
       sh.el.addEventListener('click', async e => {
-        const rid = e.target.closest('[data-rid]'), act = e.target.closest('[data-do]');
+        const rid = e.target.closest('[data-rid]'), act = e.target.closest('[data-do]'), part = e.target.closest('[data-part]'), paid = e.target.closest('[data-pay]');
         if (rid) return sheetPhoto(rid.dataset.rid);
-        if (!act || !needMe()) return;
-        const x = S.st.expenses.get(id);
-        if (act.dataset.do === 'photo') file.click();
-        else if (act.dataset.do === 'edit') sheetExpense(id);
-        else if (act.dataset.do === 'restore') { add([{ t: 'expense.restore', d: { id } }]); toast('Expense brought back'); }
-        else if (await confirmSheet({ title: 'Delete this expense?', text: `“${x.title}” comes off the balances. It stays in the log, crossed out, and can be brought back.`, yes: 'Delete expense', danger: true })) {
+        if (!(act || part || paid) || !needMe()) return;
+        const x = S.st.expenses.get(id), a = act ? act.dataset.do : '';
+        if (part) sheetPayment({ x: id, from: part.dataset.part });
+        else if (paid) sheetPayment({ edit: paid.dataset.pay });
+        else if (a === 'photo') file.click();
+        else if (a === 'rename') sheetText({ title: 'Rename', label: 'What was it for', value: x.title, max: 80, save: title => { add([{ t: 'expense.edit', d: { id, set: { title } } }]); toast('Renamed'); } });
+        else if (a === 'note') sheetText({ title: 'What was it about?', label: 'A few words', value: x.note, max: 300, long: true, optional: true, placeholder: 'Three nights, the whole flat…', save: note => { add([{ t: 'expense.edit', d: { id, set: { note } } }]); toast('Saved'); } });
+        else if (a === 'edit') { if (await unlocked('Changing an expense')) sheetExpense(id); }
+        else if (a === 'restore') { if (await unlocked('Bringing an expense back')) { add([{ t: 'expense.restore', d: { id } }]); toast('Expense brought back'); } }
+        else if (a === 'delete' && await unlocked('Deleting an expense')) {
+          const linked = C.partStatus(S.st, x).rows.reduce((t, r) => t + r.pays.length, 0);
+          if (!(await confirmSheet({ title: 'Delete this expense?', text: `“${x.title}” comes off the balances. It stays in the log, crossed out, and can be brought back.${linked ? ` The ${linked === 1 ? 'payment' : linked + ' payments'} already marked for it still count, because that money did change hands.` : ''}`, yes: 'Delete expense', danger: true }))) return;
           add([{ t: 'expense.delete', d: { id } }]);
           await closeSheets(sheets.length);
           toast('Expense deleted', { label: 'Undo', run: () => add([{ t: 'expense.restore', d: { id } }]) });
@@ -1242,67 +1435,212 @@ function sheetDetail(id) {
 }
 
 /* ---------- payments between people ---------- */
-function sheetPayment(pre) {
+/* One form for three things: a payment between two people, someone's part of one expense ({ x, from }), and changing
+   a payment that is already there ({ edit }). */
+function sheetPayment(o = {}) {
   const st = S.st, members = meFirst(activeMembers());
-  const F = { cur: st.base, from: pre ? pre.from : S.me, to: pre ? pre.to : null, date: C.localDate(), rate: { rate: 1, src: 'same', date: '', mkt: 0 }, manual: false, inv: true, loading: false, photos: [] };
+  const old = o.edit ? st.payments.get(o.edit) : null;
+  if (o.edit && (!old || old.gone)) return;
+  const x = (old ? old.x : o.x) ? st.expenses.get(old ? old.x : o.x) : null;                // the expense it is for, if any
+  const fixed = !!x && (!!old || !!o.from);                                                 // who pays whom is already known
+  const F = old ? { cur: old.cur, from: old.from, to: old.to, date: old.date || C.localDate(new Date(old.at)), rate: { rate: old.rate, src: old.rsrc, date: '', mkt: 0 }, manual: old.rsrc === 'manual', inv: old.rate < 1, loading: false,
+    photos: old.rc.map(rid => ({ rid })), via: old.via }
+    : { cur: st.base, from: o.from || S.me, to: x ? x.payer : o.to || null, date: C.localDate(), rate: { rate: 1, src: 'same', date: '', mkt: 0 }, manual: false, inv: true, loading: false, photos: [], via: '' };
+  let other = !!F.via && !VIA.some(([k]) => k === F.via);                                    // a way of paying that isn't one of the buttons
+  const part = () => (x ? C.partStatus(S.st, x).rows.find(r => r.id === F.from) : null);
+  const v = voice(F.from);
   openSheet({
-    title: 'Record a payment',
+    title: fixed ? `${F.from === S.me ? 'Your' : nameOf(F.from) + '’s'} part of ${x.title}` : old ? 'Change the payment' : 'Record a payment',
     render(sh) {
-      sh.body.innerHTML = html`<form id="pf" novalidate><p class="lead">Someone paid a friend back, in cash or by transfer. This clears it from the balances.</p>
+      const p0 = part(), was = old && x ? C.baseMinor(old, st.dec) : 0;                      // when changing a payment, its own amount doesn't count as "already paid"
+      sh.body.innerHTML = html`<form id="pf" novalidate>
+        ${fixed ? html`<p class="lead">${F.from === S.me ? `Already paid ${whom(F.to)} for this? Put in how much.` : `Did ${v.n} already pay ${whom(F.to)} for this? Put in how much.`} It comes off what ${v.n} ${v.s('owe')}.</p>
+          ${p0 ? html`<div class="dl"><div><span>${v.P} part</span><span>${money(p0.part)}</span></div>${p0.paid - was > 0 ? html`<div><span>Already paid</span><span>${money(p0.paid - was)}</span></div><div><span>Left</span><span>${money(Math.max(0, p0.part - p0.paid + was))}</span></div>` : ''}</div>` : ''}`
+          : html`<p class="lead">Someone paid a friend back, in cash or by transfer. This clears it from the balances.</p>
         <div class="f"><div class="lab">Who paid</div><div class="pick" role="radiogroup" aria-label="Who paid" id="pFrom"></div></div>
-        <div class="f"><div class="lab">Who got the money</div><div class="pick" role="radiogroup" aria-label="Who got the money" id="pTo"></div></div>
-        <div class="f"><label for="pa">Amount</label><div class="amount"><input id="pa" inputmode="decimal" autocomplete="off" placeholder="0"><button class="cur" type="button" id="pc"></button></div><div class="fx" id="pfx" aria-live="polite"></div></div>
+        <div class="f"><div class="lab">Who got the money</div><div class="pick" role="radiogroup" aria-label="Who got the money" id="pTo"></div></div>`}
+        <div class="f"><label for="pa">${fixed ? 'Amount paid' : 'Amount'}</label><div class="amount"><input id="pa" inputmode="decimal" autocomplete="off" placeholder="0"><button class="cur" type="button" id="pc"></button></div><div class="fx" id="pfx" aria-live="polite"></div>
+          <p class="note" id="pOver" hidden></p></div>
+        <div class="f"><div class="lab">How <small>optional</small></div><div class="pick" role="radiogroup" aria-label="How it was paid" id="pVia"></div>
+          <input class="in" id="pViaText" maxlength="30" placeholder="Revolut, Wise, a round of drinks…" autocomplete="off" aria-label="How it was paid" hidden style="margin-top:10px"></div>
         <div class="f"><label for="pd">When</label><input class="in" type="date" id="pd" max="2100-12-31"></div>
-        <div class="f"><div class="lab">Proof <small>optional</small></div><div class="photos" id="pph"></div><input type="file" accept="image/*" id="pfile" hidden></div></form>`;
-      sh.footer(html`<div class="msg" id="pmsg" role="alert"></div><button class="btn big" form="pf">Record payment</button>`);
-      const msg = $('#pmsg', sh.el);
-      photoStrip(sh, $('#pph', sh.el), $('#pfile', sh.el), F.photos, { first: 'Add a photo or screenshot', onError: () => { msg.textContent = 'That photo couldn’t be added. Try another one.'; } });
-      if (pre) $('#pa', sh.el).value = String(C.fromMinor(pre.amt, st.dec));
-      $('#pd', sh.el).value = F.date;
+        <div class="f"><div class="lab">Proof <small>optional</small></div><div class="photos" id="pph"></div><input type="file" accept="image/*" id="pfile" hidden></div>
+        ${old ? html`<div class="f"><button class="link red" type="button" id="pDel">Remove this payment</button></div>` : ''}</form>`;
+      sh.footer(html`<div class="msg" id="pmsg" role="alert"></div><button class="btn big" form="pf">${old ? 'Save changes' : fixed ? 'Mark as paid' : 'Record payment'}</button>`);
+      const el = k => $('#' + k, sh.el), msg = el('pmsg');
+      photoStrip(sh, el('pph'), el('pfile'), F.photos, { first: 'Add a photo or screenshot', onError: () => { msg.textContent = 'That photo couldn’t be added. Try another one.'; } });
+      if (old) el('pa').value = String(old.amt);
+      else if (o.amt) el('pa').value = String(C.fromMinor(o.amt, st.dec));
+      else if (fixed && p0 && p0.left) el('pa').value = String(C.fromMinor(p0.left, st.dec));
+      el('pd').value = F.date;
+      if (other) { el('pViaText').hidden = false; el('pViaText').value = F.via; }
       const draw = () => {
-        const chips = (sel, skip) => html`${members.filter(m => m.id !== skip).map(m => html`<button class="chip" type="button" role="radio" aria-checked="${String(sel === m.id)}" data-id="${m.id}"><span>${m.id === S.me ? 'You' : m.name}</span></button>`)}`;
-        $('#pFrom', sh.el).innerHTML = chips(F.from, null); $('#pTo', sh.el).innerHTML = chips(F.to, F.from);
+        if (!fixed) {
+          const chips = (sel, skip) => html`${members.filter(m => m.id !== skip).map(m => html`<button class="chip" type="button" role="radio" aria-checked="${String(sel === m.id)}" data-id="${m.id}"><span>${m.id === S.me ? 'You' : m.name}</span></button>`)}`;
+          el('pFrom').innerHTML = chips(F.from, null); el('pTo').innerHTML = chips(F.to, F.from);
+        }
+        el('pVia').innerHTML = html`${VIA.map(([k, t]) => html`<button class="chip" type="button" role="radio" aria-checked="${String(!other && F.via === k)}" data-via="${k}"><span>${t}</span></button>`)}<button class="chip" type="button" role="radio" aria-checked="${String(other)}" data-via="other"><span>Other</span></button>`;
       };
-      const box = moneyBox(F, sh, { amt: '#pa', cur: '#pc', fx: '#pfx' }, { onChange: () => { msg.textContent = ''; } });
-      draw(); box.draw();
-      $('#pFrom', sh.el).onclick = e => { const b = e.target.closest('[data-id]'); if (b) { F.from = b.dataset.id; if (F.to === F.from) F.to = null; draw(); } };
-      $('#pTo', sh.el).onclick = e => { const b = e.target.closest('[data-id]'); if (b) { F.to = b.dataset.id; draw(); } };
-      $('#pd', sh.el).onchange = () => { F.date = $('#pd', sh.el).value || C.localDate(); };
-      $('#pf', sh.el).onsubmit = async e => {
+      /* paying more than the part is fine; say what happens to the extra */
+      const over = () => {
+        const p = part(), a = box.amount(), note = el('pOver');
+        const extra = fixed && p && a && F.rate && F.rate.rate > 0 ? C.baseMinor({ amt: a, cd: C.curDecimals(F.cur), rate: F.rate.rate }, st.dec) - Math.max(0, p.part - p.paid + was) : 0;
+        note.hidden = !(extra > 0); if (extra > 0) note.textContent = `That is ${money(extra)} more than what is left of the part. It still counts: the extra comes off the rest of what ${v.n} ${v.s('owe')}.`;
+      };
+      const box = moneyBox(F, sh, { amt: '#pa', cur: '#pc', fx: '#pfx' }, { onChange: () => { msg.textContent = ''; over(); } });
+      draw(); box.draw(); over();
+      if (!fixed) {
+        el('pFrom').onclick = e => { const b = e.target.closest('[data-id]'); if (b) { F.from = b.dataset.id; if (F.to === F.from) F.to = null; draw(); } };
+        el('pTo').onclick = e => { const b = e.target.closest('[data-id]'); if (b) { F.to = b.dataset.id; draw(); } };
+      }
+      el('pVia').onclick = e => {
+        const b = e.target.closest('[data-via]'); if (!b) return;
+        const k = b.dataset.via;
+        if (k === 'other') { other = !other; F.via = other ? el('pViaText').value.trim() : ''; }
+        else { F.via = !other && F.via === k ? '' : k; other = false; }                       // a second tap takes the choice back
+        el('pViaText').hidden = !other; draw(); if (other) el('pViaText').focus();
+      };
+      el('pViaText').oninput = () => { if (other) F.via = el('pViaText').value.trim(); };
+      el('pd').onchange = () => { F.date = el('pd').value || C.localDate(); };
+      if (old) el('pDel').onclick = async () => {
+        if (!(await confirmSheet({ title: 'Remove this payment?', text: `${nameOf(old.from)} will owe that money again. The log keeps a record that it was removed.`, yes: 'Remove payment', danger: true }))) return;
+        add([{ t: 'pay.delete', d: { id: old.id } }]);
+        await closeSheets(1); toast('Payment removed');
+      };
+      el('pf').onsubmit = async e => {
         e.preventDefault();
         const amt = box.amount();
         if (!F.from || !F.to) { msg.textContent = 'Pick who paid and who got the money.'; return; }
-        if (!amt) { msg.textContent = 'Type the amount.'; $('#pa', sh.el).focus(); return; }
+        if (!amt) { msg.textContent = 'Type the amount.'; el('pa').focus(); return; }
+        if (other && !F.via) { msg.textContent = 'Type how it was paid, or pick one of the buttons.'; el('pViaText').focus(); return; }
         if (F.photos.some(p => !p.rid)) { msg.textContent = 'The photo is still being added. One moment.'; return; }
         if (F.loading) { msg.textContent = 'Still getting the exchange rate. One moment.'; return; }
         if (!F.rate || !(F.rate.rate > 0)) { msg.textContent = 'Type an exchange rate.'; return; }
         const r = rateFields(F);
-        add([{ t: 'pay.add', d: { id: C.newId('p'), from: F.from, to: F.to, amt, cur: F.cur, cd: C.curDecimals(F.cur), rate: r.rate, rsrc: r.rsrc, date: F.date, rc: F.photos.map(p => p.rid) } }]);
+        const d = { id: C.newId('p'), from: F.from, to: F.to, amt, cur: F.cur, cd: C.curDecimals(F.cur), rate: r.rate, rsrc: r.rsrc, date: F.date, rc: F.photos.map(p => p.rid), ...(x ? { x: x.id } : {}), ...(F.via ? { via: F.via } : {}) };
+        if (old) {
+          const same = old.from === d.from && old.to === d.to && old.amt === d.amt && old.cur === d.cur && Math.abs(old.rate - d.rate) < 1e-12 && (old.date || '') === d.date && (old.via || '') === (d.via || '') && JSON.stringify(old.rc) === JSON.stringify(d.rc);
+          /* an edit is two entries every version of the app understands: the old payment comes off, the new one goes on */
+          if (!same) add([{ t: 'pay.delete', d: { id: old.id } }, { t: 'pay.add', d: { ...d, re: old.id } }]);
+          await closeSheets(1); if (!same) toast('Payment changed');
+          return;
+        }
+        add([{ t: 'pay.add', d }]);
         await closeSheets(1);
-        stamp('Paid'); toast('Payment recorded');
+        stamp('Paid'); toast(fixed ? 'Marked as paid' : 'Payment recorded');
       };
-      if (!pre) $('#pa', sh.el).focus({ preventScroll: true });
+      if (!old && !o.amt && !(fixed && p0 && p0.left)) el('pa').focus({ preventScroll: true });
     },
   });
 }
 function sheetPaymentDetail(id) {
-  const st = S.st, p = st.payments.get(id); if (!p) return;
+  if (!S.st.payments.get(id)) return;
   openSheet({
     title: 'Payment',
     render(sh) {
-      sh.body.innerHTML = html`<div class="bigamt">${origMoney(p)}</div>${p.cur !== st.base ? html`<div class="dim">${money(C.baseMinor(p, st.dec))} at ${rateText(p.cur, st.base, p.rate)}</div>` : ''}
-        <div class="dl"><div><span>From</span><span>${nameOf(p.from)}</span></div><div><span>To</span><span>${nameOf(p.to)}</span></div><div><span>When</span><span>${niceDate(p.date || C.localDate(new Date(p.at)))}</span></div>
-        <div><span>Recorded by</span><span>${nameOf(p.by)}, ${stampText(p.at)}</span></div></div>
-        ${p.rc.length ? html`<h3 class="h3">Proof</h3><div class="photos">${p.rc.map((rid, i) => html`<button class="ph load" type="button" data-rid="${rid}" aria-label="Open proof photo ${i + 1}">Photo ${i + 1}</button>`)}</div>` : html`<p class="note">No proof photo was added with this payment.</p>`}`;
-      loadThumbs(sh.el);
-      sh.body.addEventListener('click', e => { const b = e.target.closest('[data-rid]'); if (b) sheetPhoto(b.dataset.rid); });
-      sh.footer(html`<button class="btn big line" type="button" id="pdel">Delete this payment</button>`);
-      $('#pdel', sh.el).onclick = async () => {
-        if (!needMe()) return;
+      let seen = '';
+      const draw = () => {
+        const st = S.st;
+        let p = st.payments.get(id);
+        while (p && p.gone && p.next && st.payments.get(p.next)) { id = p.next; p = st.payments.get(id); }      // it was changed: follow it to the new version
+        if (!p) return;
+        const x = p.x ? st.expenses.get(p.x) : null, sig = JSON.stringify([p.id, p.gone, p.amt, p.cur, p.from, p.to, p.date, p.via, p.rc, x && x.title, S.me]);
+        if (sig === seen) return; seen = sig;
+        sh.body.innerHTML = html`<div class="bigamt ${p.gone ? 'struck' : ''}">${origMoney(p)}</div>${p.cur !== st.base ? html`<div class="dim">${money(C.baseMinor(p, st.dec))} at ${rateText(p.cur, st.base, p.rate)}</div>` : ''}
+          ${p.gone ? html`<div class="stampd">Removed by ${whom(p.goneBy)}</div>` : ''}
+          <div class="dl"><div><span>From</span><span>${nameOf(p.from)}</span></div><div><span>To</span><span>${nameOf(p.to)}</span></div>
+          ${x ? html`<div><span>For</span><span><button class="link inl" type="button" data-x="${x.id}">${x.title}</button></span></div>` : ''}
+          ${p.via ? html`<div><span>How</span><span>${cap(p.via)}</span></div>` : ''}
+          <div><span>When</span><span>${niceDate(p.date || C.localDate(new Date(p.at)))}</span></div>
+          <div><span>Recorded by</span><span>${nameOf(p.first ? p.first.by : p.by)}, ${stampText(p.first ? p.first.at : p.at)}</span></div>
+          ${p.first ? html`<div><span>Last changed by</span><span>${nameOf(p.by)}, ${stampText(p.at)}</span></div>` : ''}</div>
+          ${p.rc.length ? html`<h3 class="h3">Proof</h3><div class="photos">${p.rc.map((rid, i) => html`<button class="ph load" type="button" data-rid="${rid}" aria-label="Open proof photo ${i + 1}">Photo ${i + 1}</button>`)}</div>` : html`<p class="note">No proof photo was added with this payment.</p>`}`;
+        loadThumbs(sh.el);
+        if (p.gone) sh.foot.hidden = true;
+        else sh.footer(html`<div class="acts"><button class="btn line" type="button" id="pdel">Delete</button><button class="btn" type="button" id="pedit">Change</button></div>`);
+      };
+      sh.refresh = draw; draw();
+      sh.el.addEventListener('click', async e => {
+        const b = e.target.closest('[data-rid]'), x = e.target.closest('[data-x]');
+        if (b) return sheetPhoto(b.dataset.rid);
+        if (x) return sheetDetail(x.dataset.x);
+        if (e.target.closest('#pedit')) { if (needMe()) sheetPayment({ edit: id }); return; }
+        if (!e.target.closest('#pdel') || !needMe()) return;
+        const p = S.st.payments.get(id);
         if (!(await confirmSheet({ title: 'Delete this payment?', text: `${nameOf(p.from)} will owe that money again. The log keeps a record that it was deleted.`, yes: 'Delete payment', danger: true }))) return;
         add([{ t: 'pay.delete', d: { id } }]);
         await closeSheets(sheets.length); toast('Payment deleted');
+      });
+    },
+  });
+}
+
+/* ---------- the final bill ---------- */
+async function copyText(text, done) {
+  try { await navigator.clipboard.writeText(text); toast(done); }
+  catch (_) { const t = document.createElement('textarea'); t.value = text; document.body.appendChild(t); t.select(); try { document.execCommand('copy'); toast(done); } catch (e) { toast('Couldn’t copy it on this phone'); } t.remove(); }
+}
+/* The bill as plain text, for the group chat. Names, never "you". */
+function finalText() {
+  const st = S.st, me = S.me; S.me = null;
+  try {
+    const f = C.summary(st), M = v => money(v).replace(/[  ]/g, ' '), L = [];
+    L.push(`${st.name}: ${st.final ? 'final bill' : 'where things stand'}`, `Trip total ${M(f.total)}, ${f.count === 1 ? '1 expense' : f.count + ' expenses'}`, '');
+    if (f.plan.length) { L.push('Still to pay:'); for (const p of f.plan) L.push(`- ${nameOf(p.from)} pays ${nameOf(p.to)} ${M(p.amt)}`); } else L.push('Everyone is settled up.');
+    L.push('', 'Everyone:');
+    for (const p of f.people) L.push(`- ${nameOf(p.id)}: paid ${M(p.paid)}, part ${M(p.share)}${p.gave ? `, gave ${M(p.gave)}` : ''}${p.got ? `, got ${M(p.got)}` : ''}. ${p.net > 0 ? `Still gets ${M(p.net)}` : p.net < 0 ? `Still owes ${M(-p.net)}` : 'Settled up'}.`);
+    L.push('', 'Every expense and receipt: ' + inviteUrl(S.code));
+    return L.join('\n');
+  } finally { S.me = me; }
+}
+function sheetFinal() {
+  if (!S.st) return;
+  openSheet({
+    title: '',
+    render(sh) {
+      const draw = () => {
+        const st = S.st, f = C.summary(st), M = money, fin = st.final, me = S.me;
+        sh.title(fin ? 'Final bill' : 'Finalize trip');
+        const pct = f.owedAtStart ? Math.round(100 * f.paidBack / f.owedAtStart) : 100;
+        const mine = p => p.from === me || p.to === me, plan = f.plan.slice().sort((p, q) => mine(q) - mine(p) || q.amt - p.amt);
+        const rank = p => (p.net < 0 ? 0 : p.net > 0 ? 1 : 2), folk = f.people.slice().sort((p, q) => rank(p) - rank(q) || Math.abs(q.net) - Math.abs(p.net));
+        const pays = [...st.payments.values()].filter(p => !p.gone).sort((a, b) => b.at - a.at);
+        sh.body.innerHTML = html`${fin ? html`<div class="stampd">Finalized by ${whom(fin.by)}, ${stampText(fin.at)}</div>`
+            : html`<p class="lead">Check it over. Finalizing tells everyone this is the bill and closes the trip to new expenses. It can be reopened if something was missed.</p>`}
+          <div class="bigamt">${M(f.total)}</div><div class="dim">trip total, ${f.count === 1 ? '1 expense' : f.count + ' expenses'}, ${people(f.people.length)}</div>
+          <h3 class="h3">How it’s going</h3>
+          ${f.owedAtStart ? html`<div class="meter" role="img" aria-label="${pct} percent paid back"><i style="width:${pct}%"></i></div>
+            <p class="say">${f.owedNow ? html`<b>${M(f.paidBack)}</b> of ${M(f.owedAtStart)} has been paid back. <b>${M(f.owedNow)}</b> to go.` : html`All <b>${M(f.owedAtStart)}</b> has been paid back.`}</p>
+            <p class="note">${f.settled} of ${people(f.people.length)} ${f.settled === 1 ? 'is' : 'are'} settled up.</p>` : html`<p class="say">Nobody owes anything.</p>`}
+          <h3 class="h3">${plan.length ? 'Still to pay' : 'Nothing left to pay'}</h3>
+          ${plan.length ? html`<div class="paper-in fpay">${plan.map(p => html`<div class="pay ${mine(p) ? 'mine' : ''}"><div class="t">${who(p.from)} ${p.from === me ? 'pay' : 'pays'} ${whom(p.to)}</div><span class="pa"><b class="${p.from === me ? 'red' : ''}">${M(p.amt)}</b>
+            ${me ? html`<button class="btn small ${mine(p) ? '' : 'line'}" type="button" data-settle data-from="${p.from}" data-to="${p.to}" data-amt="${p.amt}">Mark paid</button>` : ''}</span></div>`)}</div>` : html`<p class="note">Everyone is settled up.</p>`}
+          <h3 class="h3">Everyone</h3>
+          <div class="paper-in why">${folk.map(p => html`<button class="x" type="button" data-why="${p.id}"><div class="a"><span>${nameOf(p.id)}${p.id === me ? ' (you)' : ''}</span><b class="${p.net < 0 ? 'red' : ''}">${p.net ? M(Math.abs(p.net)) : ''}</b></div>
+            <div class="b"><span>paid ${M(p.paid)}, part ${M(p.share)}${p.gave ? `, gave ${M(p.gave)}` : ''}${p.got ? `, got ${M(p.got)}` : ''}</span><em class="${p.net < 0 ? 'red' : p.net ? '' : 'dim'}">${p.net > 0 ? 'still gets' : p.net < 0 ? 'still owes' : 'settled up'}</em></div></button>`)}</div>
+          ${pays.length ? html`<h3 class="h3">Paid so far</h3><div class="paper-in why">${pays.map(p => html`<button class="x" type="button" data-pay="${p.id}"><div class="a"><span>${who(p.from)} paid ${whom(p.to)}</span><b>${p.rc.length ? IC.clip : ''} ${origMoney(p)}</b></div>
+            <div class="b"><span>${niceDate(p.date || C.localDate(new Date(p.at)))}${payFor(p)}</span></div></button>`)}</div>` : ''}
+          ${fin && me ? html`<button class="link red" type="button" data-do="reopen" style="margin-top:18px">Reopen the trip</button>` : ''}`;
+        sh.footer(fin ? html`<button class="btn big" type="button" data-do="share">${navigator.share ? 'Share the final bill' : 'Copy the final bill'}</button>`
+          : html`<button class="btn big" type="button" data-do="finalize">Finalize trip</button>`);
       };
+      sh.refresh = draw; draw();
+      sh.el.addEventListener('click', async e => {
+        const why = e.target.closest('[data-why]'), pay = e.target.closest('[data-pay]'), set = e.target.closest('[data-settle]'), act = e.target.closest('[data-do]');
+        if (why) return sheetWhy(why.dataset.why);
+        if (pay) return sheetPaymentDetail(pay.dataset.pay);
+        if (set) { if (needMe()) sheetPayment({ from: set.dataset.from, to: set.dataset.to, amt: +set.dataset.amt }); return; }
+        if (!act) return;
+        const a = act.dataset.do;
+        if (a === 'share') {
+          const text = finalText();
+          if (navigator.share) { try { await navigator.share({ title: S.st.name, text }); } catch (err) { if (err && err.name !== 'AbortError') copyText(text, 'Final bill copied'); } } else copyText(text, 'Final bill copied');
+        } else if (!needMe()) return;
+        else if (a === 'finalize') { add([{ t: 'trip.final', d: { on: true } }]); stamp('Final'); toast('Trip finalized'); sh.body.scrollTop = 0; }
+        else if (a === 'reopen' && await confirmSheet({ title: 'Reopen the trip?', text: 'Expenses can be added and changed again. Everyone sees on the log that it was reopened, and it can be finalized again afterwards.', yes: 'Reopen the trip' })) {
+          add([{ t: 'trip.final', d: { on: false } }]); toast('Trip reopened');
+        }
+      });
     },
   });
 }
@@ -1318,7 +1656,7 @@ function sheetTrip() {
         const acct = myAccount(), must = st.signin === 'google', groups = liveGroups();
         const photos = [...st.expenses.values()].filter(x => !x.gone && x.rc.length).length, live = [...st.expenses.values()].filter(x => !x.gone).length;
         const status = m => { const a = firstAcct(m); return a ? `signed in with Google as ${acctText(a)}` : joined.has(m.id) ? (S.google ? 'joined, not signed in' : 'joined') : 'hasn’t opened the trip yet'; };
-        sh.body.innerHTML = html`<div class="f"><label for="tName">Trip name</label><div class="addrow" style="margin-top:0"><input class="in" id="tName" maxlength="60" value="${keepName == null ? st.name : keepName}" enterkeyhint="done"><button class="btn line" type="button" id="tSave">Save</button></div></div>
+        $('#tA', sh.el).innerHTML = html`<div class="f"><label for="tName">Trip name</label><div class="addrow" style="margin-top:0"><input class="in" id="tName" maxlength="60" value="${keepName == null ? st.name : keepName}" enterkeyhint="done"><button class="btn line" type="button" id="tSave">Save</button></div></div>
           <div class="f"><div class="lab">People <small>tap a name to change it</small></div><div class="list">${activeMembers().map(m => html`<button class="li" type="button" data-person="${m.id}"><span class="grow">${m.name}${m.id === S.me ? ' (you)' : ''}${firstAcct(m) ? IC.ver : ''}<small>${status(m)}</small></span><span class="go">Edit</span></button>`)}</div>
             <div class="addrow"><input class="in" id="tNew" maxlength="40" placeholder="Add a person" autocomplete="off" enterkeyhint="done"><button class="btn line" type="button" id="tAdd">Add</button></div></div>
           <div class="f"><div class="lab">Groups <small>for things only some of you share</small></div>
@@ -1330,16 +1668,49 @@ function sheetTrip() {
               : inAppBrowser ? html`<p class="note" style="padding-top:0">Google doesn’t sign in inside this app’s browser. Open this page in Safari or Chrome to sign in.</p>`
                 : html`<button class="btn line" type="button" data-do="signin" ${store.account() ? '' : raw('disabled')}>Continue with Google</button><p class="note">So friends know it’s really you. One tap, and this phone stays signed in.</p>`}
             ${acct || must ? html`<button class="prow" type="button" role="checkbox" aria-checked="${String(must)}" data-do="policy"><span class="tick">${IC.tick}</span><span class="nm wrap">New people must sign in with Google to join</span></button>` : ''}
-            <div class="msg" id="tMsg" role="alert"></div></div>` : ''}
-          <div class="f"><div class="lab">Colour</div><div class="swatches" role="radiogroup" aria-label="Trip colour">${C.COLORS.map(c => html`<button class="sw" type="button" role="radio" aria-checked="${String(st.color === c)}" aria-label="${COLOR_NAMES[c]}" data-col="${c}" style="background:${HEX[c]}"></button>`)}</div></div>
-          <div class="f"><div class="lab">Money</div><p class="note" style="padding-top:0">Everything is counted in ${currencyName(st.base, LOCALE)} (${st.base}). Other currencies are converted at the day’s rate, which is saved with each expense. Rates: fawazahmed0 currency-api, updated daily.</p></div>
+            <div class="msg" id="tMsg" role="alert"></div></div>` : ''}`;
+        $('#tB', sh.el).innerHTML = html`<div class="f"><div class="lab">Money</div><p class="note" style="padding-top:0">Everything is counted in ${currencyName(st.base, LOCALE)} (${st.base}). Other currencies are converted at the day’s rate, which is saved with each expense. Rates: fawazahmed0 currency-api, updated daily.</p></div>
           <div class="f"><div class="list"><button class="li" type="button" data-do="invite"><span class="grow">Invite friends<small>code ${C.fmtCode(S.code)}</small></span><span class="go">Open</span></button>
+            <button class="li" type="button" data-do="final"><span class="grow">${st.final ? 'Final bill' : 'Finalize trip'}<small>${st.final ? 'the trip is finalized: see the bill, or reopen it' : 'the final bill for everyone, and no new expenses'}</small></span><span class="go">Open</span></button>
             <button class="li" type="button" data-do="receipts"><span class="grow">Receipt photos<small>${live ? `${photos} of ${live} ${live === 1 ? 'expense has' : 'expenses have'} one` : 'none yet'}</small></span><span class="go">Open</span></button>
             <button class="li" type="button" data-do="csv"><span class="grow">Download expenses<small>a spreadsheet file (CSV)</small></span><span class="go">Save</span></button>
             <button class="li" type="button" data-do="csvlog"><span class="grow">Download the log<small>every change, with who and when</small></span><span class="go">Save</span></button>
             <button class="li" type="button" data-do="forget"><span class="grow red">Take this trip off this phone<small>it stays for everyone else</small></span></button></div></div>`;
       };
-      sh.refresh = () => { if (!$('#tNew', sh.el) || !typing()) draw(); };
+      sh.body.innerHTML = html`<div id="tA"></div>
+        <div class="f"><div class="lab">Colour</div>
+          <div class="seg" role="radiogroup" aria-label="Who sees the colour" id="tScope"><button type="button" role="radio" data-scope="all">For everyone</button><button type="button" role="radio" data-scope="me">Only on my phone</button></div>
+          <div id="tPick"></div></div>
+        <div id="tB"></div>`;
+      /* Colours: for the whole trip (logged like any change), or only on this phone. While a colour is being dragged
+         around it is only shown; it is saved once the choosing stops, so the log gets one line, not fifty. */
+      let scope = ownLook(S.code) ? 'me' : 'all', pending = null, timer = 0;
+      const look = () => (scope === 'me' ? ownLook(S.code) || S.st.color : pending || S.st.color);
+      const commit = () => {
+        clearTimeout(timer); const c = pending, now = lookParts(S.st.color), next = c ? lookParts(c) : null; pending = null; S.mixing = false;
+        if (!c || c === S.st.color) return;
+        if (C.customParts(c) && next.field === now.field && next.accent === now.accent) return;       // "your own" opened but nothing changed yet: nothing to tell anyone
+        add([{ t: 'trip.color', d: { color: c } }]);
+      };
+      const drawScope = () => { for (const b of $$('#tScope button', sh.el)) b.setAttribute('aria-checked', String(b.dataset.scope === scope)); };
+      const drawPick = colorPicker($('#tPick', sh.el), look, (c, done) => {
+        setColor(c);
+        if (scope === 'me') { prefs.set('look.' + S.code, c); return; }
+        pending = c; S.mixing = true; clearTimeout(timer);
+        if (done && !C.customParts(c)) commit(); else timer = setTimeout(commit, done ? 500 : 1600);
+      });
+      $('#tScope', sh.el).onclick = e => {
+        const b = e.target.closest('[data-scope]'); if (!b || b.dataset.scope === scope) return;
+        commit(); scope = b.dataset.scope;
+        if (scope === 'me') { prefs.set('look.' + S.code, S.st.color); toast('Colours you pick now stay on this phone'); } else { prefs.del('look.' + S.code); setColor(S.st.color); toast('Back to the trip’s colours'); }
+        drawScope(); drawPick();
+      };
+      sh.onClose = commit;
+      drawScope();
+      sh.refresh = () => {
+        if (!$('#tNew', sh.el) || !typing()) draw();
+        if (!S.mixing && !(document.activeElement && document.activeElement.type === 'color')) drawPick();
+      };
       draw();
       store.preload().then(() => { if (sheets.includes(sh) && !typing()) draw(); });
       const addPerson = () => {
@@ -1350,16 +1721,16 @@ function sheetTrip() {
       const rename = () => { const n = $('#tName', sh.el).value.trim(); $('#tName', sh.el).blur(); if (n && n !== S.st.name) { add([{ t: 'trip.rename', d: { name: n } }]); toast('Trip renamed'); } };
       sh.el.addEventListener('keydown', e => { if (e.key !== 'Enter') return; if (e.target.id === 'tNew') { e.preventDefault(); addPerson(); } if (e.target.id === 'tName') { e.preventDefault(); rename(); } });
       sh.el.addEventListener('click', async e => {
-        const p = e.target.closest('[data-person]'), col = e.target.closest('[data-col]'), act = e.target.closest('[data-do]'), grp = e.target.closest('[data-group]');
+        const p = e.target.closest('[data-person]'), act = e.target.closest('[data-do]'), grp = e.target.closest('[data-group]');
         if (e.target.closest('#tAdd')) addPerson();
         else if (e.target.closest('#tSave')) rename();
         else if (p) sheetPerson(p.dataset.person);
         else if (grp) sheetGroup(grp.dataset.group);
-        else if (col) { if (col.dataset.col !== S.st.color) add([{ t: 'trip.color', d: { color: col.dataset.col } }]); }
         else if (act) {
           const a = act.dataset.do;
           if (a === 'invite') sheetInvite();
           else if (a === 'group') sheetGroup(null);
+          else if (a === 'final') sheetFinal();
           else if (a === 'receipts') sheetReceipts();
           else if (a === 'csv') exportExpenses();
           else if (a === 'csvlog') exportLog();
@@ -1374,7 +1745,7 @@ function sheetTrip() {
           }
           else if (a === 'forget' && await confirmSheet({ title: 'Take this trip off this phone?', text: S.v.status.waiting ? 'Some entries from this phone haven’t been sent yet and would be lost. The trip itself stays for everyone else.' : 'The trip stays for everyone else. You can come back with the invite link or the code ' + C.fmtCode(S.code) + '.', yes: 'Take it off this phone', danger: true })) {
             const code = S.code; await closeSheets(sheets.length);
-            leaveTrip(); Trips.drop(code); prefs.del('nonudge.' + code); await store.forgetTrip(code);
+            leaveTrip(); Trips.drop(code); prefs.del('nonudge.' + code); prefs.del('look.' + code); await store.forgetTrip(code);
             history.replaceState({ v: 'home' }, '', pageUrl()); showHome(); toast('Trip taken off this phone');
           }
         }
@@ -1426,7 +1797,8 @@ function sheetInvite(fresh = false) {
     render(sh) {
       sh.body.innerHTML = html`<p class="lead">${S.google ? (st.signin === 'google' ? 'Send friends the link. They open it, sign in with Google, pick their name, and they’re in.' : 'Send friends the link. They open it, pick their name, and they’re in. Signing in with Google is one tap, so you know it’s really them.')
         : 'Send friends the link. They open it, pick their name, and they’re in. No account needed.'}</p>
-        <div class="ticket"><div class="tname">${st.name}</div><div class="tbody"><div class="qr">${qrSvg(url)}</div><div class="tcode"><span>Trip code</span><b>${C.fmtCode(S.code)}</b><span style="margin-top:8px">Scan the square with a phone camera, or type the code on the Split page.</span></div></div></div>`;
+        <div class="ticket"><div class="tname">${st.name}</div><div class="tbody"><div class="qr">${qrSvg(url)}</div><div class="tcode"><span>Trip code</span><b>${C.fmtCode(S.code)}</b></div></div>
+          <p class="thow">Scan the square with a phone camera, or type the code at <b>${(location.host + location.pathname).replace(/index\.html$/, '').replace(/\/$/, '')}</b></p></div>`;
       sh.footer(html`<div class="acts">${navigator.share ? html`<button class="btn" type="button" id="iShare">Share the invite</button>` : ''}<button class="btn ${navigator.share ? 'line' : ''}" type="button" id="iCopy">Copy the link</button></div>`);
       const copy = async () => {
         try { await navigator.clipboard.writeText(url); toast('Link copied'); }
@@ -1448,8 +1820,9 @@ function exportExpenses() {
     rows.push([x.date, x.title, x.amt, x.cur, x.rate, C.fromMinor(C.baseMinor(x, st.dec), st.dec), nameOf(x.payer), Object.keys(sh).map(id => `${nameOf(id)} ${C.fromMinor(sh[id], st.dec)}`).join('; '), x.tag, x.note, nameOf(x.by),
       new Date(x.at).toISOString(), x.edits, x.gone ? 'deleted by ' + nameOf(x.goneBy) : '', x.rc.length]);
   }
-  rows.push([]); rows.push(['Payments']); rows.push(['Date', 'From', 'To', 'Amount', 'Currency', `Amount in ${st.base}`, 'Recorded by', 'Deleted', 'Proof photos']);
-  for (const p of st.payments.values()) rows.push([p.date, nameOf(p.from), nameOf(p.to), p.amt, p.cur, C.fromMinor(C.baseMinor(p, st.dec), st.dec), nameOf(p.by), p.gone ? 'deleted' : '', p.rc.length]);
+  rows.push([]); rows.push(['Payments']); rows.push(['Date', 'From', 'To', 'Amount', 'Currency', `Amount in ${st.base}`, 'For', 'How', 'Recorded by', 'Deleted', 'Proof photos']);
+  for (const p of st.payments.values()) rows.push([p.date, nameOf(p.from), nameOf(p.to), p.amt, p.cur, C.fromMinor(C.baseMinor(p, st.dec), st.dec), p.x && st.expenses.get(p.x) ? st.expenses.get(p.x).title : '', p.via, nameOf(p.by),
+    p.gone ? (p.next ? 'changed, see the newer line' : 'deleted') : '', p.rc.length]);
   rows.push([]); rows.push(['Balances', `in ${st.base}`, 'Paid', 'Own part', 'Google account']);
   for (const m of st.members.values()) rows.push([m.name, C.fromMinor(S.bal.net[m.id] || 0, st.dec), C.fromMinor(S.bal.paid[m.id] || 0, st.dec), C.fromMinor(S.bal.share[m.id] || 0, st.dec), Object.values(m.accounts).map(acctText).join('; ')]);
   download(fileName(st, 'expenses'), C.toCSV(rows)); toast('Expenses downloaded');
@@ -1458,6 +1831,7 @@ function exportLog() {
   const st = S.st, ctx = logContext(), strip = h => String(h).replace(/<[^>]+>/g, '').replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\s+/g, ' ').trim();
   const rows = [['When', 'Who', 'What happened', 'Amount', 'Details', 'Worth a look']];
   for (const l of st.log) {
+    if (l.merged) continue;
     const o = logWords({ ...l }, ctx); if (!o) continue;
     const me = S.me; S.me = null;                             // write names, not "You"
     const p = logWords(l, ctx); S.me = me;
@@ -1478,7 +1852,7 @@ function seedDemo() {
   for (const [id, name] of [['ana', 'Ana'], ['marko', 'Marko'], ['lena', 'Lena'], ['jon', 'Jon']]) put(79.9, 'me', 'd1', 'member.add', { id, name });
   put(78, 'ana', 'd2', 'claim', { m: 'ana' }); put(77, 'marko', 'd3', 'claim', { m: 'marko' }); put(76, 'lena', 'd4', 'claim', { m: 'lena' });
   const x = (ago, by, dev, id, title, amt, cur, rate, dago, payer, parts, more = {}) => put(ago, by, dev, 'expense.add', { id, title, amt, cur, cd: C.curDecimals(cur), rate, rsrc: cur === 'EUR' ? 'same' : 'live', rdate: day(dago), date: day(dago), payer, mode: 'equal', parts, ...more });
-  x(52, 'me', 'd1', 'x1', 'Apartment in Sarandë, 3 nights', 420, 'EUR', 1, 2, 'me', all);
+  x(52, 'me', 'd1', 'x1', 'Apartment in Sarandë', 420, 'EUR', 1, 2, 'me', all, { note: 'Three nights, the whole flat, two minutes from the beach' });
   x(50, 'marko', 'd3', 'x2', 'Fuel', 6000, 'ALL', 0.01103, 2, 'marko', all);
   x(30, 'lena', 'd4', 'x3', 'Groceries for the house, Spar', 11350, 'ALL', 0.01103, 1, 'lena', all);
   x(28, 'ana', 'd2', 'x4', 'Boat to Ksamil', 7500, 'ALL', 0.01103, 1, 'ana', { ana: 1, marko: 1, me: 1 });
@@ -1488,7 +1862,7 @@ function seedDemo() {
   x(9, 'marko', 'd3', 'x5', 'Beach umbrellas', 1500, 'ALL', 0.01103, 0, 'marko', all);
   x(7, 'me', 'd1', 'x6', 'Taxi from the airport', 30, 'EUR', 1, 0, 'me', { me: 1, ana: 1, jon: 1 });
   put(5, 'marko', 'd3', 'expense.delete', { id: 'x5' });
-  put(4, 'me', 'd1', 'pay.add', { id: 'p1', from: 'jon', to: 'me', amt: 40, cur: 'EUR', cd: 2, rate: 1, rsrc: 'same', date: day(0) });
+  put(4, 'me', 'd1', 'pay.add', { id: 'p1', from: 'jon', to: 'me', amt: 40, cur: 'EUR', cd: 2, rate: 1, rsrc: 'same', date: day(0), x: 'x1', via: 'cash' });
   x(2, 'ana', 'd2', 'x7', 'Dinner at Oda', 8400, 'ALL', 0.01103, 0, 'ana', { ana: 1, marko: 1, lena: 1, me: 1 });
   demoServer.data.rooms = { [room]: { meta: { kind: 'split', v: 1, name: 'Albania road trip', base: 'EUR', dec: 2, color: 'night', uid: 'u-d1', ts: now - 80 * H }, events: ev } };
   Trips.put(code, { name: 'Albania road trip', color: 'night', me: 'me', base: 'EUR', dec: 2, people: 5 });

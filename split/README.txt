@@ -9,9 +9,16 @@ Nothing on the portfolio links to it, and nothing outside this folder is touched
 
 What it does
 - Start a trip, then send the invite link, the 8-character code or the QR square. Friends open it and
-  pick their name.
+  pick their name. The code box on the start page also takes a pasted invite link or message, and
+  still finds the trip when a look-alike character was typed (S for 5, U for V, O for Q).
 - Everyone adds what they paid, in any currency. The app keeps each person's balance and lists the
   payments that settle everything. "Mark paid" records a payment.
+- An expense's own page: its name in big letters (tap it to rename), what it was about, the amount
+  and receipt, then everyone's part with what each person has already paid towards it and what is
+  left. "I've paid my part" (or "Mark as paid" beside anyone's name) records money already handed to
+  whoever paid the bill, with how (cash, PayPal, bank transfer, or your own words) and an optional
+  photo. It comes off that person's balance. Anyone can change or remove such a payment; a change
+  shows on the log as one line with the old and new values.
 - Groups: for things only some people share (alcohol, say). Make a group once, then pick it with one
   tap when adding an expense; only the people in it split that expense. Any expense can also be split
   between hand-picked people, by shares, or by exact amounts.
@@ -21,11 +28,19 @@ What it does
 - Photos as proof: a receipt photo can be added while entering an expense or later from the expense
   itself, and a payment can carry a photo or screenshot. More > Receipt photos shows them all and
   lists the expenses that still have none. Photos are shrunk to about 300 KB or less first.
+- Finalize trip (end of the Balances tab, or under More): shows the final bill, with how much of
+  what was owed has been paid back, the payments still to make, and where everyone stands. It can be
+  copied or shared as text. A finalized trip takes no new expenses until someone reopens it (asked
+  for whenever an expense would be added or changed); paying up still works. Finalizing and
+  reopening are on the log.
+- Colours: six ready-made, or any two of your own (background and buttons; the writing turns black
+  or white by itself). A choice is for everyone in the trip, or "Only on my phone".
 - Log tab: every change, with who made it and when. Edits show what it said before; deleted expenses
-  stay, crossed out, and can be brought back. It also points out: amounts that were changed, changes
-  made more than a day later, hand-typed exchange rates far from the market rate, a receipt photo
-  that was taken off, a phone or account that switched to acting as someone else, and anyone who
-  joined without signing in on a trip that asks for it.
+  stay, crossed out, and can be brought back. It also points out: amounts that were changed (on
+  expenses and on payments), changes made more than a day later, hand-typed exchange rates far from
+  the market rate, a receipt photo that was taken off, a phone or account that switched to acting as
+  someone else, anyone who joined without signing in on a trip that asks for it, and expenses added
+  or changed while the trip was finalized.
 - Works with no signal after the first visit. New entries wait on the phone and are sent later.
 - "Add to Home Screen" on a phone makes it open like an app.
 - Try it without touching real data: add ?demo to the address for a sample trip that stays on that
@@ -112,5 +127,8 @@ Files (plain HTML and JavaScript, no build step)
 
 Updating
 After changing any file, raise the version number everywhere it appears: search this folder for
-"?v=2" (index.html, sw.js, app.js, store.js, rates.js) and replace it with "?v=3", and rename
-'split-v2' in sw.js to 'split-v3'. Phones then pick up the new files together, straight away.
+"?v=3" (index.html, sw.js, app.js, store.js, rates.js) and replace it with "?v=4", and rename
+'split-v3' in sw.js to 'split-v4'. Phones then pick up the new files together, straight away.
+A phone that still has an older page open keeps working with the same numbers: new kinds of
+information are written in a way older versions simply skip (an edited payment, for instance, is
+stored as a removal plus a new payment, which every version understands).
