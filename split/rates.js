@@ -4,7 +4,7 @@
    updated daily, with a second source as backup. One table (everything against the euro) covers
    any pair. The rate used for an expense is stored with that expense, so balances never drift
    when rates move later. The last table fetched stays on the phone for when there's no signal. */
-import { localDate } from './core.js?v=3';
+import { localDate } from './core.js?v=4';
 
 const FRESH_MS = 6 * 3600 * 1000;
 const TIMEOUT_MS = 7000;

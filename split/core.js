@@ -29,20 +29,28 @@ export const fmtCode = c => (c ? c.slice(0, 4) + '-' + c.slice(4) : '');
 /* Characters people mix up when they read a code off a screen. O and 0 are never in a code,
    so a typed one stands for the round letter it was mistaken for. */
 const LOOKALIKE = { S: '5', 5: 'S', Z: '2', 2: 'Z', B: '8', 8: 'B', G: '6', 6: 'G', U: 'V', V: 'U', O: 'QD', 0: 'QD' };
-function nearCodes(raw, maxCost = 2) {
+/* The codes a typed one could stand for, each with how far it is from what was typed. A slip is usually
+   made everywhere at once (someone who reads one 6 as a G reads them all that way), so besides every
+   one- and two-character change, each kind of mix-up is also tried on all its characters together. */
+function nearCodes(raw, max = 80) {
   const opts = [...raw].map(ch => (CODE_CHARS.includes(ch) ? ch : '') + (LOOKALIKE[ch] || ''));
   const out = [];
   if (opts.some(o => !o)) return out;
-  (function walk(i, acc, cost) {
+  const walk = (i, acc, cost, most) => {
     if (i === opts.length) { out.push({ cost, code: acc }); return; }
-    for (let k = 0; k < opts[i].length && cost + k <= maxCost; k++) walk(i + 1, acc + opts[i][k], cost + k);
-  })(0, '', 0);
+    for (let k = 0; k < opts[i].length && cost + k <= most; k++) walk(i + 1, acc + opts[i][k], cost + k, most);
+  };
+  if (opts.reduce((n, o) => n * o.length, 1) <= max) { walk(0, '', 0, Infinity); return out; }     // few enough to try them all
+  walk(0, '', 0, 2);
+  const base = opts.map(o => o[0]), kinds = [...new Set(base.filter((ch, i) => opts[i].length > 1 && opts[i][0] === raw[i]))];
+  const swapAll = set => base.map((ch, i) => (set.includes(ch) && opts[i][0] === raw[i] ? opts[i][1] : ch)).join('');
+  kinds.forEach((a, x) => { out.push({ cost: 1.5, code: swapAll([a]) }); kinds.slice(x + 1).forEach(b => out.push({ cost: 2.5, code: swapAll([a, b]) })); });
   return out;
 }
 /* The trip codes that could be meant by whatever was typed or pasted into the code box: the code
    itself (any case, with or without the dash), an invite link, or a whole invite message.
    Best guess first; after it come the codes that differ only by look-alike characters. Empty when there is no code in it. */
-export function codeGuesses(text, max = 40) {
+export function codeGuesses(text, max = 80) {
   let s = String(text == null ? '' : text);
   try { s = s.normalize('NFKC'); } catch (_) { /* very old browsers */ }
   s = s.toUpperCase();
@@ -64,6 +72,55 @@ export function codeGuesses(text, max = 40) {
   const out = [];
   for (const g of all) if (!out.includes(g.code)) out.push(g.code);
   return out.slice(0, max);
+}
+
+/* ---------- a person's own login key ---------- */
+/* Everyone in a trip has a key of their own. It lives in their own link (…&me=KEY) and on their phones.
+   The trip's log only ever holds a fingerprint of it, so knowing the log doesn't let anyone sign in as someone else. */
+export const KEY_LEN = 16;
+export const newKey = () => randomString(KEY_LEN, CODE_CHARS);
+export function cleanKey(s) {
+  const k = String(s || '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+  return k.length === KEY_LEN && [...k].every(ch => CODE_CHARS.includes(ch)) ? k : null;
+}
+const SHA_K = (() => {                                      // the 64 round constants: cube roots of the first primes
+  const k = [], prime = n => { for (let i = 2; i * i <= n; i++) if (n % i === 0) return false; return true; };
+  for (let n = 2; k.length < 64; n++) if (prime(n)) k.push(Math.floor((Math.cbrt(n) % 1) * 0x100000000));
+  return k;
+})();
+/* SHA-256. The browser has one built in, but it only answers later, and the replay needs the answer now. */
+export function sha256(text) {
+  const bytes = new TextEncoder().encode(String(text)), l = bytes.length;
+  const words = new Uint32Array((((l + 8) >> 6) + 1) << 4);
+  for (let i = 0; i < l; i++) words[i >> 2] |= bytes[i] << (24 - (i % 4) * 8);
+  words[l >> 2] |= 0x80 << (24 - (l % 4) * 8);
+  words[words.length - 1] = l * 8;
+  const H = Uint32Array.from([0x6a09e667, 0xbb67ae85, 0x3c6ef372, 0xa54ff53a, 0x510e527f, 0x9b05688c, 0x1f83d9ab, 0x5be0cd19]), w = new Uint32Array(64);
+  const rotr = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let o = 0; o < words.length; o += 16) {
+    for (let i = 0; i < 16; i++) w[i] = words[o + i];
+    for (let i = 16; i < 64; i++) {
+      const a = w[i - 15], b = w[i - 2];
+      w[i] = (w[i - 16] + (rotr(a, 7) ^ rotr(a, 18) ^ (a >>> 3)) + w[i - 7] + (rotr(b, 17) ^ rotr(b, 19) ^ (b >>> 10))) | 0;
+    }
+    let [a, b, c, d, e, f, g, h] = H;
+    for (let i = 0; i < 64; i++) {
+      const t1 = (h + (rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25)) + ((e & f) ^ (~e & g)) + SHA_K[i] + w[i]) | 0;
+      const t2 = ((rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      h = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    H[0] += a; H[1] += b; H[2] += c; H[3] += d; H[4] += e; H[5] += f; H[6] += g; H[7] += h;
+  }
+  return [...H].map(x => x.toString(16).padStart(8, '0')).join('');
+}
+/* The fingerprint of a key, as it is written on the log. Tied to the trip, so the same key means nothing elsewhere. */
+export const keyHash = (code, key) => sha256(`split|${code}|${key}`).slice(0, 32);
+const isKeyHash = s => typeof s === 'string' && /^[0-9a-f]{32}$/.test(s);
+/* What a link says besides the trip code: someone's own key (me=…), or the name an invite is meant for (as=…). */
+export function linkParts(text) {
+  const s = String(text == null ? '' : text);
+  const me = /[?&#]me=([A-Za-z0-9-]+)/i.exec(s), as = /[?&#]as=([A-Za-z0-9_-]{1,40})(?![A-Za-z0-9_-])/i.exec(s);
+  return { me: me ? cleanKey(me[1]) : null, as: as ? as[1] : null };
 }
 
 const B36 = '0123456789abcdefghijklmnopqrstuvwxyz';
@@ -176,7 +233,7 @@ export function expenseShares(x, tripDec) {
 }
 
 /* ---------- replaying the entries ---------- */
-export const TYPES = ['member.add', 'member.rename', 'member.remove', 'claim', 'expense.add', 'expense.edit',
+export const TYPES = ['member.add', 'member.rename', 'member.remove', 'claim', 'key.set', 'expense.add', 'expense.edit',
   'expense.delete', 'expense.restore', 'pay.add', 'pay.delete', 'trip.rename', 'trip.color', 'trip.policy', 'trip.final', 'group.set', 'group.remove'];
 export const COLORS = ['night', 'pine', 'royal', 'plum', 'ember', 'coal'];
 /* Trips started before the colours were redone keep working: each old colour maps to a new one. */
@@ -269,6 +326,20 @@ export function sortEntries(list) {
   });
 }
 
+/* Has someone already joined under this name? Then nobody else can pick it. */
+export function nameTaken(st, id) {
+  const m = st.members.get(id);
+  if (!m || m.gone) return false;
+  if (m.key || Object.keys(m.accounts).length) return true;
+  for (const dv of st.devices.values()) if (dv.now === id) return true;
+  return false;
+}
+/* Is this phone signed in as that person, as far as the log can tell? */
+export function signedIn(st, dev, id) {
+  const m = st.members.get(id), dv = st.devices.get(dev);
+  return !!(m && dv && dv.now === id && (!m.key || dv.key === m.key || dv.g));
+}
+
 /* Replays every entry and returns the trip as it stands now, plus one log line per entry. */
 export function replay(meta, entries) {
   const st = {
@@ -289,14 +360,18 @@ export function replay(meta, entries) {
     const d = e.d, at = entryTime(e);
     const line = { id: e.id, t: e.t, at, ts: e.ts, ct: e.ct, by: e.by, dev: e.dev, pending: e.pending, ok: true, flags: [], ref: null, changes: [] };
     // which person this phone first said it was
-    const dv = e.dev ? st.devices.get(e.dev) : null;
-    if (dv && e.by && dv.first && dv.first !== e.by && e.t !== 'claim') { line.flags.push('borrowed'); line.owner = dv.first; }
+    const dv = e.dev ? st.devices.get(e.dev) : null, who = e.by ? st.members.get(e.by) : null;
+    const signed = !!(who && dv && dv.now === e.by && (dv.g || (who.key && dv.key === who.key)));     // this phone showed that person's key (or Google account)
+    if (e.t !== 'claim' && e.t !== 'key.set') {
+      if (dv && e.by && dv.first && dv.first !== e.by && !signed) { line.flags.push('borrowed'); line.owner = dv.first; }
+      if (who && who.key && !signed) line.flags.push('nokey');         // written under a name whose key this phone never showed
+    }
 
     switch (e.t) {
       case 'member.add': {
         const name = str(d.name, 40);
         if (!isId(d.id) || !name || st.members.has(d.id)) { line.ok = false; break; }
-        st.members.set(d.id, { id: d.id, name, addedBy: e.by, at, gone: false, accounts: {} });
+        st.members.set(d.id, { id: d.id, name, addedBy: e.by, at, gone: false, accounts: {}, key: '', keyAt: 0, keyBy: null });
         line.ref = d.id; line.name = name;
         break;
       }
@@ -321,6 +396,10 @@ export function replay(meta, entries) {
         // A Google account. Its name is the entry's own `gn` field (not something inside d), because that is the
         // one place the stricter database rules can check against the real sign-in.
         const acctName = e.uid ? e.gn : '', linked = acctName ? st.accounts.get(e.uid) : null;
+        // A name with a key of its own only takes a phone that shows the key (or a Google account already tied to the name).
+        const k = isKeyHash(d.k) ? d.k : '', keyed = !!(m.key && k === m.key);
+        const here = !!(cur && cur.now === m.id && (cur.key === m.key || cur.g));              // this phone is signed in as them already
+        if (m.key && !keyed && !here && !(acctName && e.uid in m.accounts)) { line.flags.push('nokey'); line.refused = true; break; }
         const newAcct = !!(acctName && !(e.uid in m.accounts));
         if (newAcct) {
           m.accounts[e.uid] = { name: acctName, mail: str(d.acct && d.acct.e, 60), at };
@@ -328,11 +407,35 @@ export function replay(meta, entries) {
           if (linked && linked !== m.id) { line.flags.push('switched'); line.changes.push({ f: 'who', from: linked, to: m.id }); }
           st.accounts.set(e.uid, m.id);
         } else if (acctName) line.sameAcct = true;           // an account this person already uses
-        if (!cur) st.devices.set(e.dev, { first: m.id, now: m.id });
-        else if (cur.now !== m.id) { if (!line.flags.includes('switched')) { line.changes.push({ f: 'who', from: cur.now, to: m.id }); line.flags.push('switched'); } cur.now = m.id; }
-        else if (newAcct) line.signedIn = true;              // same phone, same person, now signed in
+        if (keyed && (!cur || cur.now !== m.id) && [...st.devices.values()].some(x => x.now === m.id)) line.viaKey = true;     // one more phone of theirs
+        if (!cur) st.devices.set(e.dev, { first: m.id, now: m.id, key: keyed ? k : '', g: !!acctName });
+        else if (cur.now !== m.id) {
+          if (!line.flags.includes('switched')) { line.changes.push({ f: 'who', from: cur.now, to: m.id }); line.flags.push('switched'); }
+          Object.assign(cur, { now: m.id, key: keyed ? k : '', g: !!acctName });
+        } else if (newAcct) { line.signedIn = true; cur.g = true; if (keyed) cur.key = k; }      // same phone, same person, now signed in
+        else if (keyed && cur.key !== k) { cur.key = k; line.keyed = true; }                   // same phone, same person, now with their own key
         else line.ok = false;                                // same phone, same person: nothing happened
         if (line.ok && !acctName && st.signin === 'google') line.flags.push('nosign');     // the trip asks for a sign-in and this join has none
+        break;
+      }
+      case 'key.set': {
+        // Gives a name its own key, swaps it for a new one, or (k empty) lets the name go again. `was` is the fingerprint
+        // being replaced: of two phones that set one at the same moment, only the first counts.
+        const m = st.members.get(d.m), k = d.k === '' ? '' : isKeyHash(d.k) ? d.k : null, was = typeof d.was === 'string' ? d.was : '';
+        if (!m || m.gone || k == null || m.key !== was || k === was) { line.ok = false; break; }
+        const own = !!(dv && e.by === m.id && dv.now === m.id && (!was || dv.key === was || dv.g));        // done on a phone that is signed in as this person
+        if (!k && !own) { line.ok = false; break; }           // only their own phone can let a name go
+        line.ref = m.id; line.name = m.name; line.k = k;
+        if (!k) line.release = true;
+        else if (!was) {                                      // a first key: their own doing, unless it comes from a phone that isn't theirs
+          line.first = true;
+          const elsewhere = !(dv && dv.now === m.id) && [...st.devices.values()].some(x => x.now === m.id);
+          if (e.by !== m.id || elsewhere) line.flags.push('reset');
+        }
+        else if (own) line.renew = true;
+        else line.flags.push('reset');                        // someone else made this person a new key: their phones are signed out
+        m.key = k; m.keyAt = at; m.keyBy = e.by;
+        if (own && dv) dv.key = k;
         break;
       }
       case 'expense.add': {

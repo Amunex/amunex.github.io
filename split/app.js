@@ -2,9 +2,9 @@
    core.js   the money logic (splits, balances, the log)
    store.js  where trips are kept (the drafters' Firebase database + a copy on the phone)
    rates.js  live exchange rates */
-import * as C from './core.js?v=3';
-import { makeStore, memoryBackend, memoryServer, browserPrefs, browserDisk } from './store.js?v=3';
-import { makeRates, currencyName, guessCurrency } from './rates.js?v=3';
+import * as C from './core.js?v=4';
+import { makeStore, memoryBackend, memoryServer, browserPrefs, browserDisk } from './store.js?v=4';
+import { makeRates, currencyName, guessCurrency } from './rates.js?v=4';
 import { qrcode } from './lib/qr.js';
 
 const TEST = globalThis.__SPLIT_TEST__ || null;
@@ -40,6 +40,9 @@ const IC = {
 
 const S = { view: 'boot', tab: 'expenses', code: null, trip: null, v: null, st: null, bal: null, paid: new Map(), me: null, filter: 'all', showGone: false, homeErr: '', homeCode: '', fresh: null, asked: false, mixing: false,
   guesses: [], looking: false,                             // other codes the typed one could stand for, and whether they're being checked
+  key: '',                                                 // this phone's own key for the open trip (the person's login)
+  login: null,                                             // what the opened link asked for: { me: someone's own key, as: the name an invite is for }
+  keying: false, claimed: '', outing: false, grace: 0,     // a key / a sign-in is on its way to the server; the signed-out notice is up or due
   google: false };                                         // is Google sign-in switched on for this site?
 let googleReady = Promise.resolve(false);                   // settles once we know whether it is
 
@@ -247,23 +250,25 @@ function confirmSheet({ title, text, yes, danger }) {
 
 /* ---------- getting around ---------- */
 function route() {
-  const t = new URLSearchParams(location.search).get('t');
+  const q = new URLSearchParams(location.search), t = q.get('t');
   if (t == null) return showHome();
-  const g = C.codeGuesses(t);
+  const g = C.codeGuesses(t), login = C.linkParts(location.search);
   if (g.length) {
-    if (g[0] !== C.cleanCode(t)) history.replaceState(history.state, '', pageUrl(g[0]));
-    return showTrip(g[0], g.slice(1));
+    // someone's own key never stays in the address bar: that address gets copied and sent around
+    if (g[0] !== C.cleanCode(t) || q.has('me') || q.has('as')) history.replaceState(history.state, '', pageUrl(g[0]));
+    return showTrip(g[0], g.slice(1), login);
   }
   history.replaceState({ v: 'home' }, '', pageUrl());
   showHome('That link doesn’t hold a valid trip code. Codes look like ABCD-EFGH.');
 }
-function go(code, guesses = []) { history.pushState({ v: 'trip', fromHome: true }, '', pageUrl(code)); showTrip(code, guesses); }
-/* Opens whatever was put into the code box. g is what core.js made of it: the best guess first. */
-function openCode(g) {
+function go(code, guesses = [], login = null) { history.pushState({ v: 'trip', fromHome: true }, '', pageUrl(code)); showTrip(code, guesses, login); }
+/* Opens whatever was put into the code box. g is what core.js made of it: the best guess first.
+   A pasted own link signs the phone in, just as opening it would. */
+function openCode(g, login = null) {
   S.homeCode = '';
-  if (S.view !== 'trip') return go(g[0], g.slice(1));
+  if (S.view !== 'trip') return go(g[0], g.slice(1), login);
   if (S.code === g[0] && !S.st) leaveTrip();                // the same code again: look it up afresh
-  history.replaceState(history.state, '', pageUrl(g[0])); showTrip(g[0], g.slice(1));
+  history.replaceState(history.state, '', pageUrl(g[0])); showTrip(g[0], g.slice(1), login);
 }
 /* The box a trip code goes into. A pasted invite link or message works as well. */
 const codeBox = (value = '') => html`<form class="joinbox" id="joinForm"><input id="joinCode" aria-label="Trip code" placeholder="Have a code? Type it here" value="${value}" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" enterkeyhint="go"><button class="btn">Join</button></form>`;
@@ -273,7 +278,7 @@ function goHome() {
 }
 function leaveTrip() {
   if (S.trip) S.trip.close();
-  Object.assign(S, { trip: null, code: null, v: null, st: null, bal: null, paid: new Map(), me: null, asked: false, showGone: false, filter: 'all', fresh: null, mixing: false, guesses: [], looking: false });
+  Object.assign(S, { trip: null, code: null, v: null, st: null, bal: null, paid: new Map(), me: null, asked: false, showGone: false, filter: 'all', fresh: null, mixing: false, guesses: [], looking: false, key: '', login: null, keying: false, claimed: '', outing: false, grace: 0 });
 }
 function showHome(err = '') {
   leaveTrip(); S.view = 'home'; S.homeErr = err; setColor(C.COLORS[0]); document.title = 'Split';
@@ -294,11 +299,11 @@ function showHome(err = '') {
   </div>`;
   window.scrollTo(0, 0);
 }
-function showTrip(code, guesses = []) {
-  if (S.code === code && S.trip) { S.view = 'trip'; renderTrip(); return; }
+function showTrip(code, guesses = [], login = null) {
+  if (S.code === code && S.trip) { S.view = 'trip'; if (login && (login.me || login.as)) { S.login = login; if (S.st && S.v.status.live) account(); } renderTrip(); return; }
   leaveTrip();
   const rec = Trips.get(code);
-  Object.assign(S, { view: 'trip', code, tab: 'expenses', me: rec ? rec.me : null, guesses });
+  Object.assign(S, { view: 'trip', code, tab: 'expenses', me: (rec && rec.me) || null, key: (rec && rec.key) || '', guesses, login: login && (login.me || login.as) ? login : null });
   setColor(ownLook(code) || (rec ? rec.color : C.COLORS[0]));
   if (rec) Trips.touch(code);
   renderTrip(); window.scrollTo(0, 0);
@@ -307,7 +312,7 @@ function showTrip(code, guesses = []) {
 /* No trip under the code as typed: maybe one letter was read wrong. Codes that differ only by look-alike
    characters (S and 5, U and V, Q read as O...) are checked, and if a trip is there, it opens. */
 async function lookNear() {
-  const code = S.code, list = S.guesses;
+  const code = S.code, list = S.guesses, login = S.login;
   S.guesses = []; S.looking = true;
   const found = await Promise.all(list.map(c => store.fetchMeta(c).then(m => (m ? c : null), () => null)));
   if (S.code !== code) return;                                // moved on in the meantime
@@ -316,7 +321,87 @@ async function lookNear() {
   const hit = found.find(Boolean);
   if (!hit) return renderTrip();
   history.replaceState(history.state, '', pageUrl(hit));
-  showTrip(hit); toast(`Found it: the code is ${C.fmtCode(hit)}`);
+  showTrip(hit, [], login); toast(`Found it: the code is ${C.fmtCode(hit)}`);
+}
+/* ---------- accounts: a name of one's own, and a key to it ---------- */
+const keyOf = key => (key ? C.keyHash(S.code, key) : '');
+const ownUrl = (key = S.key) => `${inviteUrl(S.code)}&me=${key}`;
+const namedUrl = id => `${inviteUrl(S.code)}&as=${id}`;
+/* Writes this phone down as that person, showing their key. Once per key and visit: the entry is on its way. */
+function signIn(id, key) {
+  const k = keyOf(key), acct = myAccount();
+  if (S.claimed === k) return;
+  S.claimed = k;
+  S.trip.add([{ t: 'claim', d: { m: id, k, acct: acctOf(acct) }, by: id, signed: !!acct }]);
+}
+/* Keeps the phone's login in step with the trip. Holding a person's key is what makes a phone theirs. A name
+   without a key gets one the first time its own phone opens the trip (that is how trips from before accounts move over).
+   A phone whose name has a key it doesn't hold is signed out. */
+function account() {
+  const st = S.st;
+  if (S.login && S.login.me) { const key = S.login.me; S.login = { ...S.login, me: null }; ownLink(key); return; }
+  // another tab of this browser may have signed in, or made the key, since this one last looked
+  const rec = Trips.get(S.code) || {};
+  if (rec.key && rec.key !== S.key && activeMembers().some(m => m.key === keyOf(rec.key))) S.key = rec.key;
+  const mine = S.key ? activeMembers().find(m => m.key === keyOf(S.key)) : null;
+  if (mine) {
+    S.me = mine.id; S.grace = 0;
+    if (rec.me !== mine.id || rec.key !== S.key) Trips.put(S.code, { me: mine.id, key: S.key });      // the phone's record follows the key that works
+    if (!C.signedIn(st, store.dev, mine.id)) signIn(mine.id, S.key);
+    return;
+  }
+  const m = S.me ? st.members.get(S.me) : null;
+  if (!m || m.gone || S.outing) return;
+  if (!m.key) {
+    if (S.keying) return;
+    S.keying = true;
+    const key = rec.key || S.key || C.newKey(), k = keyOf(key);
+    S.key = key; Trips.put(S.code, { me: S.me, key });
+    const acct = myAccount(), items = [{ t: 'key.set', d: { m: S.me, k, was: '' }, by: S.me }];
+    if (!C.signedIn(st, store.dev, S.me)) { S.claimed = k; items.push({ t: 'claim', d: { m: S.me, k, acct: acctOf(acct) }, by: S.me, signed: !!acct }); }
+    S.trip.add(items);
+    return;
+  }
+  const acct = myAccount();
+  if (acct && st.accounts.get(acct.uid) === S.me) return;        // in through the Google account tied to this name
+  if (S.v.status.waiting) return;                                // something of ours is still on its way: judge when the picture is whole
+  // The name has a key this phone doesn't hold. Give it a moment (another tab may be about to hand the key over), then sign out.
+  if (!S.grace) {
+    S.grace = Date.now(); const code = S.code;
+    setTimeout(() => { if (S.code === code && S.st && S.v && S.v.status.live) { account(); if (S.view === 'trip') renderTrip(); } }, 2200);
+    return;
+  }
+  if (Date.now() - S.grace < 2000) return;
+  signedOut(m);
+}
+async function signedOut(m) {
+  const code = S.code, name = m.name, mine = keyOf(S.key);
+  const had = !!mine && S.st.log.some(l => l.t === 'key.set' && l.ref === m.id && l.k === mine);      // this phone's key was the name's key until it was replaced
+  const dv = S.st.devices.get(store.dev), before = !!(dv && dv.now === m.id);                        // this phone was in under that name from before accounts
+  S.outing = true; S.me = null; S.asked = true; Trips.put(code, { me: null });
+  await closeSheets(sheets.length);
+  if (S.code !== code) return;
+  renderTrip();
+  await confirmSheet(had ? { title: 'Signed out', text: `${name} has a new login link, so this phone was signed out. Open the new link to get back in as ${name}.`, yes: 'OK' }
+    : mine && !before ? { title: 'That name was just taken', text: `Someone else joined as ${name} a moment before you. Join under another name.`, yes: 'OK' }
+      : { title: 'Signed out', text: `${name} now has a login link of their own, made on another phone. Open that link here to get back in as ${name}.`, yes: 'OK' });
+  if (S.code !== code) return;
+  S.outing = false;
+  if (!S.me && !sheets.length) sheetJoin();
+}
+/* Someone's own link was opened (or pasted into the code box) on this phone. */
+function ownLink(key) {
+  const st = S.st, code = S.code, k = keyOf(key), m = activeMembers().find(x => x.key === k);
+  if (!m) { toast('That link no longer works. Ask a friend in the trip to make you a new one.'); account(); return; }
+  if (S.me === m.id) { if (S.key !== key) { S.key = key; Trips.put(code, { key }); } account(); return; }
+  S.asked = true;
+  confirmSheet({ title: `Are you ${m.name}?`, yes: `Yes, I’m ${m.name}`,
+    text: S.me ? `This is ${m.name}’s own link, and this phone is ${nameOf(S.me)} right now. Switch it to ${m.name}?` : `This is ${m.name}’s own link. It signs this phone in as ${m.name}.` }).then(yes => {
+    if (S.code !== code) return;
+    if (!yes) { if (!S.me && !sheets.length) sheetJoin(); return; }
+    S.me = m.id; S.key = key; Trips.put(code, { name: st.name, color: st.color, me: m.id, key });
+    signIn(m.id, key); renderTrip(); toast(`Welcome back, ${m.name}`);
+  });
 }
 function onTrip(v) {
   if (v.code !== S.code) return;
@@ -331,6 +416,7 @@ function onTrip(v) {
       S.me = known; S.trip.add([{ t: 'claim', d: { m: known, acct: acctOf(acct) }, by: known, signed: true }]);
       Trips.put(S.code, { me: known, g: true }); toast(`Welcome back, ${nameOf(known)}`);
     }
+    if (v.status.live) account();
     if (!S.mixing) setColor(ownLook(S.code) || st.color);
     document.title = st.name + ' - Split';
     if (S.me) Trips.put(S.code, { name: st.name, color: st.color, me: S.me, net: S.bal.net[S.me] || 0, base: st.base, dec: st.dec, people: activeMembers().length });
@@ -344,7 +430,7 @@ function onTrip(v) {
 }
 /* Things only someone in the trip can do. */
 function needMe() { if (S.me) return true; if (S.st) sheetJoin(); return false; }
-function add(items) { return S.trip.add(items.map(it => ({ ...it, by: S.me }))); }
+function add(items) { if (!S.me) { toast('This phone isn’t signed in to the trip'); return null; } return S.trip.add(items.map(it => ({ ...it, by: S.me }))); }
 /* Expenses can't change on a finalized trip: offer to reopen it first. Gives back whether to go ahead. */
 async function unlocked(what) {
   if (!S.st.final) return true;
@@ -380,6 +466,8 @@ function renderTrip() {
       ${S.me ? html`<button class="btn small" type="button" data-act="invite">Invite</button><button class="btn small line" type="button" data-act="more">More</button>` : html`<button class="btn small" type="button" data-act="join">Join this trip</button>`}</div>
       ${wantsSignIn() ? html`<div class="nudge"><span>${st.signin === 'google' ? 'This trip asks everyone to sign in, so friends know it’s really you.' : 'Sign in so friends know it’s really you.'}</span>
         <button class="btn small" type="button" data-act="signin">Continue with Google</button><button class="link" type="button" data-act="nonudge">Not now</button></div>` : ''}
+      ${wantsLink() ? html`<div class="nudge"><span><b>${nameOf(S.me)}</b> is your own account now. Your own link signs you in on any phone.</span>
+        <button class="btn small" type="button" data-act="mylink">Show my link</button><button class="link" type="button" data-act="nolink">Not now</button></div>` : ''}
       ${st.final ? html`<div class="nudge"><span><b>Finalized</b> by ${whom(st.final.by)} on ${niceDate(C.localDate(new Date(st.final.at)))}. No new expenses unless it’s reopened.</span>
         <button class="btn small" type="button" data-act="final">See the final bill</button></div>` : ''}
       ${st.newer ? html`<div class="nudge"><span>Split has been updated since this page was opened. Load the new version to see everything.</span>
@@ -394,6 +482,11 @@ function renderTrip() {
 function wantsSignIn() {
   const a = store.account();
   return !!(S.google && S.me && a && !a.google && !inAppBrowser && !prefs.get('nonudge.' + S.code));
+}
+/* Someone who has a key but has never looked at their own link gets told once that it exists. */
+function wantsLink() {
+  const m = S.me && S.st ? S.st.members.get(S.me) : null;
+  return !!(m && m.key && S.key && keyOf(S.key) === m.key && !prefs.get('mylink.' + S.code) && !wantsSignIn());
 }
 function standing() {
   const net = S.me ? S.bal.net[S.me] || 0 : 0, n = money(Math.abs(net));
@@ -464,7 +557,7 @@ function tabBalances() {
 /* ---------- the log ---------- */
 const LOG_KIND = { 'member.addmany': 'people', 'expense.add': 'adds', 'expense.edit': 'changes', 'expense.delete': 'changes', 'expense.restore': 'changes', 'pay.add': 'payments', 'pay.delete': 'payments',
   'member.add': 'people', 'member.rename': 'people', 'member.remove': 'people', claim: 'people', 'trip.rename': 'changes', 'trip.color': 'changes',
-  'trip.policy': 'people', 'group.set': 'people', 'group.remove': 'people', 'trip.final': 'changes' };
+  'trip.policy': 'people', 'group.set': 'people', 'group.remove': 'people', 'trip.final': 'changes', 'key.set': 'people' };
 function splitList(x) {
   const ids = inOrder(Object.keys(x.parts));
   if (x.mode === 'equal') return ids.length > 4 ? people(ids.length) : ids.map(id => nameOf(id)).join(', ') || 'nobody';
@@ -520,18 +613,26 @@ function logWords(l, ctx) {
     case 'member.addmany': o.text = html`<b>${actor}</b> added ${l.names.length > 3 ? `${l.names.slice(0, 2).join(', ')} and ${l.names.length - 2} others` : `${l.names.slice(0, -1).join(', ')} and ${l.names[l.names.length - 1]}`} to the trip`; break;
     case 'member.rename': o.text = html`<b>${actor}</b> renamed ${l.changes[0].from} to ${l.changes[0].to}`; break;
     case 'member.remove': o.text = html`<b>${actor}</b> removed ${l.name} from the trip`; break;
+    case 'key.set':
+      if (l.release || (l.first && !l.flags.includes('reset'))) return null;       // everyone gets a key on joining, and a name let go is told by the line after it
+      if (l.renew) o.text = html`<b>${actor}</b> made ${l.by === S.me ? 'yourself' : 'themselves'} a new login link. The old one stopped working`;
+      else if (l.by === l.ref) { o.text = html`A phone that wasn’t ${l.name}’s made a login link under that name`; o.flags.push(`${l.name}’s other phones are signed out`); }
+      else { o.text = html`<b>${actor}</b> made ${l.first ? 'a' : 'a new'} login link for ${l.name}`; o.flags.push(l.first ? `Not made by ${l.name}` : `${l.name}’s phones are signed out until they open it`); }
+      break;
     case 'claim': {
+      if (l.refused) { o.text = html`A phone tried to come in as <b>${l.name}</b> without ${l.name}’s own link`; o.flags.push('Not let in'); break; }
       const as = l.acct ? `, signed in with Google as ${acctText(l.acct)}` : l.sameAcct ? ', same Google account' : '';
       const first = ctx.claims[l.id] === 1, self = first && ctx.selfAdded.has(l.ref), nosign = l.flags.includes('nosign');
       if (l.flags.includes('switched')) {
         o.text = html`<b>${nameOf(l.changes[0].from)}</b>’s ${l.acct ? 'Google account' : 'phone'} now acts as ${l.name}${as}`;
         o.flags.push(`This ${l.acct ? 'Google account' : 'phone'} was ${nameOf(l.changes[0].from)} before`);
-      } else if (l.signedIn || self) {
+      } else if (l.keyed) o.text = html`<b>${l.name}</b> signed in again with their own link`;
+      else if (l.signedIn || self) {
         if (l.acct) o.text = html`<b>${l.name}</b> signed in with Google as ${acctText(l.acct)}`;
         else if (nosign) o.text = html`<b>${l.name}</b> joined`;
         else return null;                                      // their own "joined" line already says it
       } else if (first) o.text = html`<b>${l.name}</b> joined the trip${as}`;
-      else o.text = html`<b>${l.name}</b> opened the trip on another phone${as}`;
+      else o.text = html`<b>${l.name}</b> ${l.viaKey ? 'signed in on another phone with their own link' : 'opened the trip on another phone'}${as}`;
       if (nosign) o.flags.push('Without the Google sign-in this trip asks for');
       break;
     }
@@ -592,13 +693,14 @@ function logWords(l, ctx) {
   }
   if (l.flags.includes('rate') && x && x.mkt) { const pct = Math.round(Math.abs(x.rate / x.mkt - 1) * 100); o.flags.push(`Typed-in rate counts this ${pct}% ${x.rate > x.mkt ? 'higher' : 'lower'} than the market rate`); }
   if (l.flags.includes('borrowed')) o.flags.push(`Sent from the phone ${nameOf(l.owner)} uses`);
+  if (l.flags.includes('nokey') && l.t !== 'claim') o.flags.push(`From a phone that isn’t signed in as ${nameOf(l.by)}`);
   return o;
 }
 function logContext() {
   const claims = {}, seen = {}, selfAdded = new Set();
   for (const l of S.st.log) {
     if (l.t === 'member.add' && l.by === l.ref) selfAdded.add(l.ref);
-    if (l.t === 'claim') { seen[l.ref] = (seen[l.ref] || 0) + 1; claims[l.id] = seen[l.ref]; }
+    if (l.t === 'claim' && !l.refused) { seen[l.ref] = (seen[l.ref] || 0) + 1; claims[l.id] = seen[l.ref]; }
   }
   return { claims, selfAdded };
 }
@@ -675,6 +777,8 @@ $('#app').addEventListener('click', e => {
   else if (a === 'person') { if (needMe()) sheetPerson(b.dataset.id); }
   else if (a === 'signin') signInHere(toast);
   else if (a === 'nonudge') { prefs.set('nonudge.' + S.code, 1); renderTrip(); }
+  else if (a === 'mylink') { sheetMyLink(); renderTrip(); }
+  else if (a === 'nolink') { prefs.set('mylink.' + S.code, 1); renderTrip(); }
   else if (a === 'why') sheetWhy(b.dataset.id);
   else if (a === 'why-plan') sheetWhyPlan();
   else if (a === 'filter') { S.filter = b.dataset.f; renderTrip(); }
@@ -685,7 +789,7 @@ $('#app').addEventListener('submit', e => {
   if (e.target.id !== 'joinForm') return;
   e.preventDefault();
   const typed = $('#joinCode').value, g = C.codeGuesses(typed);
-  if (g.length) return openCode(g);
+  if (g.length) return openCode(g, C.linkParts(typed));
   S.homeCode = typed.trim().slice(0, 80);
   showHome(S.homeCode ? 'That isn’t a trip code. A code is 8 letters and numbers, like ABCD-EFGH. Pasting the invite link here works too.' : 'Type the trip code first: 8 letters and numbers, like ABCD-EFGH.');
   const box = $('#joinCode'); if (box) box.focus();
@@ -711,7 +815,8 @@ const checkGoogle = () => (DEMO ? Promise.resolve(!!demoServer.googleOn) : store
 async function signInHere(say) {
   const a = await googleSignIn(say); if (!a || !S.me || !S.st) return null;
   const known = S.st.accounts.get(a.uid), mine = known && S.st.members.has(known) && !S.st.members.get(known).gone ? known : S.me;
-  S.trip.add([{ t: 'claim', d: { m: mine, acct: acctOf(a) }, by: mine, signed: true }]);
+  const k = mine === S.me && S.key ? keyOf(S.key) : '';             // this phone's key goes along, so the log can tell it is the same phone
+  S.trip.add([{ t: 'claim', d: { m: mine, ...(k ? { k } : {}), acct: acctOf(a) }, by: mine, signed: true }]);
   if (mine !== S.me) { S.me = mine; toast(`That account is ${nameOf(mine)} in this trip, so this phone is ${nameOf(mine)} now`); } else toast(`Signed in as ${a.name || 'you'}`);
   Trips.put(S.code, { me: mine, g: true });
   return a;
@@ -791,12 +896,17 @@ function sheetNewTrip() {
 /* ---------- join ---------- */
 function sheetJoin() {
   if (!S.st || sheets.some(s => s.kind === 'join')) return;
-  let pick = null, guest = false, failed = false;
+  let pick = null, guest = false, failed = false, fresh = false;
+  const acct0 = myAccount(), free = m => !C.nameTaken(S.st, m.id) || !!(acct0 && acct0.uid in m.accounts);
+  // an invite made for one person opens with that name picked
+  const invited = S.login && S.login.as ? S.st.members.get(S.login.as) : null;
+  if (invited && !invited.gone && free(invited)) pick = invited.id;
   const sh = openSheet({
     title: 'Join ' + S.st.name,
     render(sh) {
-      sh.body.innerHTML = html`<div id="jTop"></div><div id="jWho" hidden><p class="lead">Which one is you?</p><div class="pick" role="radiogroup" aria-label="Which one is you" id="jPick"></div>
-        <div class="f" id="jNew" hidden><label for="jName">Your name</label><input class="in" id="jName" maxlength="40" autocomplete="given-name" enterkeyhint="done"></div></div>
+      sh.body.innerHTML = html`<div id="jTop"></div><div id="jWho" hidden><p class="lead" id="jLead"></p><div class="pick" role="radiogroup" aria-label="Which one is you" id="jPick"></div>
+        <div class="f" id="jNew" hidden><label for="jName">Your name</label><input class="in" id="jName" maxlength="40" autocomplete="given-name" enterkeyhint="done"></div>
+        <p class="note" id="jTaken" hidden>A name that has joined is someone’s account. Is it yours? Open your own link, or ask a friend in the trip to make you a new one.</p></div>
         <div class="msg" id="jMsg" role="alert"></div>`;
       sh.footer(html`<button class="btn big" type="button" id="jGo">Join the trip</button>`);
       const el = k => $('#' + k, sh.el), msg = el('jMsg');
@@ -811,18 +921,24 @@ function sheetJoin() {
             ${must && stuck ? html`<p class="note">The log will show that you joined without signing in.</p>` : ''}`
           : acct ? html`<p class="note ok">${acctLine(acct)}</p>` : '';
         el('jWho').hidden = ask; sh.foot.hidden = ask;
-        el('jPick').innerHTML = html`${activeMembers().map(m => {
-          const taken = Object.keys(m.accounts).length > 0 && !(acct && acct.uid in m.accounts);        // that name belongs to someone else's Google account
-          return html`<button class="chip" type="button" role="radio" aria-checked="${String(pick === m.id)}" data-id="${m.id}" ${taken ? raw('disabled') : ''}><span>${m.name}${taken ? ' (already signed in)' : ''}</span></button>`;
-        })}<button class="chip" type="button" role="radio" aria-checked="${String(pick === 'new')}" data-id="new"><span>I’m not on the list</span></button>`;
+        const list = activeMembers(), taken = m => C.nameTaken(st, m.id) && !(acct && acct.uid in m.accounts);       // that name is someone's account already
+        if (pick && pick !== 'new' && (!st.members.get(pick) || st.members.get(pick).gone || taken(st.members.get(pick)))) pick = null;      // taken while this sheet was open
+        el('jLead').innerHTML = invited && pick === invited.id ? html`You’re invited as <b>${invited.name}</b>. Not you? Pick another name.` : list.some(m => !taken(m)) ? 'Which one is you?' : 'Add your name to join.';
+        el('jPick').innerHTML = html`${list.map(m => html`<button class="chip ${taken(m) ? 'off' : ''}" type="button" role="radio" aria-checked="${String(pick === m.id)}" data-id="${m.id}" ${taken(m) ? raw('aria-disabled="true" data-taken="1"') : ''}><span>${m.name}</span>${taken(m) ? html` <span class="tk">(joined)</span>` : ''}</button>`)}<button class="chip" type="button" role="radio" aria-checked="${String(pick === 'new')}" data-id="new"><span>I’m not on the list</span></button>`;
+        el('jTaken').hidden = !list.some(taken);
         el('jNew').hidden = pick !== 'new';
       };
       sh.refresh = draw; draw();
       Promise.all([store.preload(), checkGoogle()]).then(() => { if (sheets.includes(sh)) draw(); });
+      /* Joining makes the name this person's own: it gets a key, and this phone holds it. (Someone coming back through
+         their Google account is let in without one: the name already has its key on their other phone.) */
       const finish = (id, items, acct) => {
-        items.push({ t: 'claim', d: { m: id, acct: acctOf(acct) }, by: id, signed: !!acct });
-        S.me = id; S.trip.add(items);
-        Trips.put(S.code, { name: S.st.name, color: S.st.color, me: id, g: !!acct });
+        const m = S.st.members.get(id), has = !!(m && m.key), key = has ? '' : C.newKey(), k = keyOf(key);
+        if (!has) { items.push({ t: 'key.set', d: { m: id, k, was: '' }, by: id }); S.keying = true; S.claimed = k; }
+        items.push({ t: 'claim', d: { m: id, ...(has ? {} : { k }), acct: acctOf(acct) }, by: id, signed: !!acct });
+        S.me = id; S.key = key; S.login = null; S.trip.add(items);
+        Trips.put(S.code, { name: S.st.name, color: S.st.color, me: id, key, g: !!acct });
+        fresh = !has; if (fresh) prefs.set('mylink.' + S.code, 1);       // their link is shown as soon as this sheet is gone
         sh.close();
       };
       el('jTop').addEventListener('click', async e => {
@@ -837,7 +953,11 @@ function sheetJoin() {
         if (!el('jName').value.trim()) el('jName').value = (a.name || '').split(' ')[0];
         draw();
       });
-      el('jPick').onclick = e => { const b = e.target.closest('[data-id]'); if (!b || b.disabled) return; pick = b.dataset.id; msg.textContent = ''; draw(); if (pick === 'new') el('jName').focus(); };
+      el('jPick').onclick = e => {
+        const b = e.target.closest('[data-id]'); if (!b) return;
+        if (b.dataset.taken) { msg.textContent = `${nameOf(b.dataset.id)} has already joined. If that’s you, open your own link: on the phone you joined with it’s under More. Or ask a friend in the trip to make you a new one.`; return; }
+        pick = b.dataset.id; msg.textContent = ''; draw(); if (pick === 'new') el('jName').focus();
+      };
       const join = () => {
         if (!pick) { msg.textContent = 'Tap your name, or “I’m not on the list”.'; return; }
         let id = pick; const items = [], acct = myAccount();
@@ -845,15 +965,16 @@ function sheetJoin() {
           const name = el('jName').value.trim();
           if (!name) { msg.textContent = 'Type your name.'; el('jName').focus(); return; }
           const same = activeMembers().find(m => m.name.toLowerCase() === name.toLowerCase());
-          if (same && Object.keys(same.accounts).length && !(acct && acct.uid in same.accounts)) { msg.textContent = `Someone called ${same.name} is already signed in with another account. Add a last initial so friends can tell you apart.`; return; }
+          if (same && C.nameTaken(S.st, same.id) && !(acct && acct.uid in same.accounts)) { msg.textContent = `Someone called ${same.name} has already joined. If that’s you, open your own link. If not, add a last initial so friends can tell you apart.`; return; }
           if (same) id = same.id; else { id = C.newId('m'); items.push({ t: 'member.add', d: { id, name }, by: id }); }
           prefs.set('name', name);
         }
-        finish(id, items, acct); toast('You’re in');
+        finish(id, items, acct); if (!fresh) toast('You’re in');
       };
       el('jGo').onclick = join;
       el('jName').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); join(); } });
     },
+    onClose() { if (fresh && S.me) setTimeout(() => { if (S.me && S.key && !sheets.length) sheetMyLink(true); }, 320); },
   });
   sh.kind = 'join';
 }
@@ -1652,7 +1773,7 @@ function sheetTrip() {
     render(sh) {
       const typing = () => ['tNew', 'tName'].includes(document.activeElement && document.activeElement.id);
       const draw = () => {
-        const st = S.st, joined = new Set(st.log.filter(l => l.t === 'claim').map(l => l.ref)), keepName = document.activeElement && document.activeElement.id === 'tName' ? document.activeElement.value : null;
+        const st = S.st, joined = new Set(activeMembers().filter(m => C.nameTaken(st, m.id)).map(m => m.id)), keepName = document.activeElement && document.activeElement.id === 'tName' ? document.activeElement.value : null;
         const acct = myAccount(), must = st.signin === 'google', groups = liveGroups();
         const photos = [...st.expenses.values()].filter(x => !x.gone && x.rc.length).length, live = [...st.expenses.values()].filter(x => !x.gone).length;
         const status = m => { const a = firstAcct(m); return a ? `signed in with Google as ${acctText(a)}` : joined.has(m.id) ? (S.google ? 'joined, not signed in' : 'joined') : 'hasn’t opened the trip yet'; };
@@ -1670,7 +1791,8 @@ function sheetTrip() {
             ${acct || must ? html`<button class="prow" type="button" role="checkbox" aria-checked="${String(must)}" data-do="policy"><span class="tick">${IC.tick}</span><span class="nm wrap">New people must sign in with Google to join</span></button>` : ''}
             <div class="msg" id="tMsg" role="alert"></div></div>` : ''}`;
         $('#tB', sh.el).innerHTML = html`<div class="f"><div class="lab">Money</div><p class="note" style="padding-top:0">Everything is counted in ${currencyName(st.base, LOCALE)} (${st.base}). Other currencies are converted at the day’s rate, which is saved with each expense. Rates: fawazahmed0 currency-api, updated daily.</p></div>
-          <div class="f"><div class="list"><button class="li" type="button" data-do="invite"><span class="grow">Invite friends<small>code ${C.fmtCode(S.code)}</small></span><span class="go">Open</span></button>
+          <div class="f"><div class="list">${S.me ? html`<button class="li" type="button" data-do="mylink"><span class="grow">Your own link<small>your login on any phone</small></span><span class="go">Open</span></button>` : ''}
+            <button class="li" type="button" data-do="invite"><span class="grow">Invite friends<small>code ${C.fmtCode(S.code)}</small></span><span class="go">Open</span></button>
             <button class="li" type="button" data-do="final"><span class="grow">${st.final ? 'Final bill' : 'Finalize trip'}<small>${st.final ? 'the trip is finalized: see the bill, or reopen it' : 'the final bill for everyone, and no new expenses'}</small></span><span class="go">Open</span></button>
             <button class="li" type="button" data-do="receipts"><span class="grow">Receipt photos<small>${live ? `${photos} of ${live} ${live === 1 ? 'expense has' : 'expenses have'} one` : 'none yet'}</small></span><span class="go">Open</span></button>
             <button class="li" type="button" data-do="csv"><span class="grow">Download expenses<small>a spreadsheet file (CSV)</small></span><span class="go">Save</span></button>
@@ -1729,6 +1851,7 @@ function sheetTrip() {
         else if (act) {
           const a = act.dataset.do;
           if (a === 'invite') sheetInvite();
+          else if (a === 'mylink') sheetMyLink();
           else if (a === 'group') sheetGroup(null);
           else if (a === 'final') sheetFinal();
           else if (a === 'receipts') sheetReceipts();
@@ -1743,9 +1866,9 @@ function sheetTrip() {
             try { await store.signOut(); } catch (_) { /* reloading sorts it out either way */ }
             location.reload();                                 // the live connection belonged to the old sign-in
           }
-          else if (a === 'forget' && await confirmSheet({ title: 'Take this trip off this phone?', text: S.v.status.waiting ? 'Some entries from this phone haven’t been sent yet and would be lost. The trip itself stays for everyone else.' : 'The trip stays for everyone else. You can come back with the invite link or the code ' + C.fmtCode(S.code) + '.', yes: 'Take it off this phone', danger: true })) {
+          else if (a === 'forget' && await confirmSheet({ title: 'Take this trip off this phone?', text: S.v.status.waiting ? 'Some entries from this phone haven’t been sent yet and would be lost. The trip itself stays for everyone else.' : `The trip stays for everyone else. To come back as ${S.me ? nameOf(S.me) : 'yourself'} you need your own link, so copy it first (it’s on this list).`, yes: 'Take it off this phone', danger: true })) {
             const code = S.code; await closeSheets(sheets.length);
-            leaveTrip(); Trips.drop(code); prefs.del('nonudge.' + code); prefs.del('look.' + code); await store.forgetTrip(code);
+            leaveTrip(); Trips.drop(code); prefs.del('nonudge.' + code); prefs.del('look.' + code); prefs.del('mylink.' + code); await store.forgetTrip(code);
             history.replaceState({ v: 'home' }, '', pageUrl()); showHome(); toast('Trip taken off this phone');
           }
         }
@@ -1760,30 +1883,103 @@ function sheetPerson(id) {
     render(sh) {
       const st = S.st, b = S.bal, net = b.net[id] || 0, accts = Object.values(m.accounts), acct = myAccount();
       const used = [...st.expenses.values()].some(x => x.payer === id || id in x.parts) || [...st.payments.values()].some(p => p.from === id || p.to === id);
-      const theirs = accts.length > 0 && !(acct && acct.uid in m.accounts);      // signed in with a Google account that isn't this phone's
+      const theirs = id !== S.me && C.nameTaken(st, id) && !(acct && acct.uid in m.accounts);      // someone has joined under this name: it is their account
       sh.body.innerHTML = html`<div class="dl"><div><span>Paid so far</span><span>${money(b.paid[id] || 0)}</span></div><div><span>Own part of the trip</span><span>${money(b.share[id] || 0)}</span></div>
           <div><span>${net < 0 ? 'Owes' : net > 0 ? 'Gets back' : 'Balance'}</span><span class="${net < 0 ? 'red' : ''}">${net ? money(Math.abs(net)) : 'settled'}</span></div>
           ${accts.map(a => html`<div><span>Google account</span><span>${acctText(a)}</span></div>`)}</div>
         <button class="link" type="button" id="mWhy">Why this number?</button>
         <div class="f"><label for="mName">Name</label><div class="addrow" style="margin-top:0"><input class="in" id="mName" maxlength="40" value="${m.name}" enterkeyhint="done"><button class="btn line" type="button" id="mSave">Save</button></div></div>
-        <div class="f"><div class="list">${id !== S.me && !theirs ? html`<button class="li" type="button" id="mMe"><span class="grow">I’m ${m.name}<small>use this phone as ${m.name}. The log notes the switch.</small></span></button>` : ''}
+        <div class="f"><div class="list">${id === S.me ? html`<button class="li" type="button" id="mLink"><span class="grow">Your own link<small>your login on any phone</small></span><span class="go">Open</span></button>` : ''}
+          ${id !== S.me && !theirs ? html`<button class="li" type="button" id="mInvite"><span class="grow">Send ${m.name} an invite<small>a link that opens the trip with this name picked</small></span><span class="go">Send</span></button>
+            <button class="li" type="button" id="mMe"><span class="grow">I’m ${m.name}<small>use this phone as ${m.name}. The log notes the switch.</small></span></button>` : ''}
+          ${id !== S.me && theirs && S.me ? html`<button class="li" type="button" id="mReset"><span class="grow">${m.name} can’t get in?<small>make a new login link to send them</small></span><span class="go">Make</span></button>` : ''}
           ${!used && id !== S.me ? html`<button class="li" type="button" id="mDel"><span class="grow red">Remove from the trip<small>possible because ${m.name} has no expenses or payments</small></span></button>` : ''}</div>
-          ${id !== S.me && theirs ? html`<p class="note">${m.name} is signed in with Google, so another phone can’t take over this name.</p>` : ''}</div>`;
+          ${id !== S.me && theirs ? html`<p class="note">${m.name} has joined, so this name is their account. Another phone gets in with ${m.name}’s own link.</p>` : ''}</div>`;
       const save = () => { const n = $('#mName', sh.el).value.trim(); if (n && n !== m.name) { add([{ t: 'member.rename', d: { id, name: n } }]); if (id === S.me) prefs.set('name', n); sh.close(); toast('Name changed'); } else sh.close(); };
       $('#mSave', sh.el).onclick = save;
       $('#mWhy', sh.el).onclick = () => sheetWhy(id);
       $('#mName', sh.el).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
-      const me = $('#mMe', sh.el), del = $('#mDel', sh.el);
+      const me = $('#mMe', sh.el), del = $('#mDel', sh.el), link = $('#mLink', sh.el), invite = $('#mInvite', sh.el), reset = $('#mReset', sh.el);
+      if (link) link.onclick = () => sheetMyLink();
+      if (invite) invite.onclick = () => sendNamed(id);
+      if (reset) reset.onclick = async () => {
+        if (!(await confirmSheet({ title: `New link for ${m.name}?`, text: `For when ${m.name} can’t get into the trip any more. Their phones are signed out until they open the new link, and the log shows that you made it.`, yes: 'Make the link' }))) return;
+        const now = S.st.members.get(id); if (!now || !S.me) return;
+        const key = C.newKey();
+        add([{ t: 'key.set', d: { m: id, k: keyOf(key), was: now.key || '' } }]);
+        sheetHandOver(id, key);
+      };
       if (me) me.onclick = async () => {
-        if (!(await confirmSheet({ title: `Use this phone as ${m.name}?`, text: `From now on, what you add is recorded as ${m.name}. The log shows that this phone was ${nameOf(S.me)} before.`, yes: `Yes, I’m ${m.name}` }))) return;
-        const a = myAccount();
-        S.trip.add([{ t: 'claim', d: { m: id, acct: acctOf(a) }, by: id, signed: !!a }]); S.me = id; Trips.put(S.code, { me: id });
+        if (!needMe()) return;
+        const old = S.st.members.get(S.me);
+        if (!(await confirmSheet({ title: `Use this phone as ${m.name}?`, text: `From now on, what you add is recorded as ${m.name}, and the name ${old ? old.name : 'you had'} is free again. The log shows that this phone was ${old ? old.name : 'someone else'} before.`, yes: `Yes, I’m ${m.name}` }))) return;
+        if (C.nameTaken(S.st, id)) { toast(`${m.name} has joined in the meantime`); return; }
+        const a = myAccount(), key = C.newKey(), k = keyOf(key), items = [];
+        if (old && old.key && keyOf(S.key) === old.key) items.push({ t: 'key.set', d: { m: old.id, k: '', was: old.key }, by: old.id });      // let the old name go, so whoever it belongs to can take it
+        items.push({ t: 'key.set', d: { m: id, k, was: '' }, by: id }, { t: 'claim', d: { m: id, k, acct: acctOf(a) }, by: id, signed: !!a });
+        S.trip.add(items); S.me = id; S.key = key; S.claimed = k; S.keying = true; Trips.put(S.code, { me: id, key });
         await closeSheets(1); toast(`You’re ${m.name} now`);
       };
       if (del) del.onclick = () => { add([{ t: 'member.remove', d: { id } }]); sh.close(); toast(m.name + ' removed'); };
     },
   });
 }
+/* ---------- your own link: the login ---------- */
+const shareOrCopy = async (o, copied) => {
+  if (navigator.share) { try { await navigator.share(o); return; } catch (e) { if (e && e.name === 'AbortError') return; } }
+  copyText(o.url, copied);
+};
+function sheetMyLink(fresh = false) {
+  if (!S.me || !S.st) return;
+  prefs.set('mylink.' + S.code, 1);
+  openSheet({
+    title: fresh ? `You’re in, ${nameOf(S.me)}` : 'Your own link',
+    render(sh) {
+      const draw = () => {
+        const m = S.st.members.get(S.me); if (!m) return;
+        const has = !!(S.key && keyOf(S.key) === m.key);
+        sh.body.innerHTML = has ? html`<p class="lead">${fresh ? 'This is your own link.' : 'This link is your login.'} Open it on any phone and you’re in as <b>${m.name}</b>. Nobody else can take your name.</p>
+            <div class="mylink" id="kUrl">${ownUrl().replace(/^https?:\/\//, '')}</div>
+            <p class="note">Keep it to yourself: whoever opens it is you. Friends come in through Invite.</p>
+            ${fresh ? '' : html`<div class="f"><button class="link" type="button" id="kNew">Make a new link</button><p class="note">For when the old one got around. Your other phones are signed out until they open the new one.</p></div>`}`
+          : html`<p class="lead">This phone came in through your Google account, so it holds no link to show.</p>
+            <p class="note">Making a new one signs your other phones out until they open it.</p>`;
+        sh.footer(has ? html`<div class="acts">${navigator.share ? html`<button class="btn" type="button" id="kShare">Save my link</button>` : ''}<button class="btn ${navigator.share ? 'line' : ''}" type="button" id="kCopy">Copy my link</button></div>`
+          : html`<button class="btn big" type="button" id="kNew">Make a new link</button>`);
+      };
+      draw(); sh.refresh = draw;                               // a new link shows as soon as the trip has taken it in
+      sh.el.addEventListener('click', async e => {
+        if (e.target.closest('#kCopy')) return copyText(ownUrl(), 'Your link is copied');
+        if (e.target.closest('#kShare')) return shareOrCopy({ title: `My link for ${S.st.name}`, text: `My own link for “${S.st.name}” on Split. It signs me in:`, url: ownUrl() }, 'Your link is copied');
+        if (!e.target.closest('#kNew')) return;
+        if (!(await confirmSheet({ title: 'Make a new link?', text: 'The link you have now stops working, and your other phones are signed out until they open the new one.', yes: 'Make a new link' }))) return;
+        const m = S.st.members.get(S.me); if (!m || !S.me) return;
+        const key = C.newKey(), k = keyOf(key);
+        S.key = key; S.claimed = k; Trips.put(S.code, { key });
+        fresh = false;
+        add([{ t: 'key.set', d: { m: S.me, k, was: m.key || '' } }, { t: 'claim', d: { m: S.me, k } }]);
+        toast('New link made');
+      });
+    },
+  });
+}
+/* A login link made for someone else, to pass on to them. */
+function sheetHandOver(id, key) {
+  const name = nameOf(id), url = ownUrl(key);
+  openSheet({
+    title: `Send this to ${name}`,
+    render(sh) {
+      sh.body.innerHTML = html`<p class="lead">This is <b>${name}</b>’s new login link. Send it to ${name} and nobody else: whoever opens it is ${name}.</p>
+        <div class="mylink">${url.replace(/^https?:\/\//, '')}</div><p class="note">It isn’t shown again after this. If it gets lost, make another one.</p>`;
+      sh.footer(html`<div class="acts">${navigator.share ? html`<button class="btn" type="button" id="hShare">Send the link</button>` : ''}<button class="btn ${navigator.share ? 'line' : ''}" type="button" id="hCopy">Copy the link</button></div>`);
+      sh.el.addEventListener('click', e => {
+        if (e.target.closest('#hCopy')) copyText(url, `Link for ${name} copied`);
+        else if (e.target.closest('#hShare')) shareOrCopy({ title: S.st.name, text: `${name}, this is your own link for “${S.st.name}” on Split. It signs you in:`, url }, `Link for ${name} copied`);
+      });
+    },
+  });
+}
+const sendNamed = id => shareOrCopy({ title: S.st.name, text: `${nameOf(id)}, join “${S.st.name}” on Split and add what you paid:`, url: namedUrl(id) }, `Invite for ${nameOf(id)} copied`);
 function qrSvg(text) {
   const q = qrcode(0, 'M'); q.addData(text); q.make();
   const n = q.getModuleCount(); let d = '';
@@ -1795,10 +1991,14 @@ function sheetInvite(fresh = false) {
   openSheet({
     title: fresh ? 'Trip started' : 'Invite friends',
     render(sh) {
+      const waiting = activeMembers().filter(m => !C.nameTaken(S.st, m.id));
       sh.body.innerHTML = html`<p class="lead">${S.google ? (st.signin === 'google' ? 'Send friends the link. They open it, sign in with Google, pick their name, and they’re in.' : 'Send friends the link. They open it, pick their name, and they’re in. Signing in with Google is one tap, so you know it’s really them.')
-        : 'Send friends the link. They open it, pick their name, and they’re in. No account needed.'}</p>
+        : 'Send friends the link. They open it and pick their name. From then on that name is theirs, with a login link of their own.'}</p>
         <div class="ticket"><div class="tname">${st.name}</div><div class="tbody"><div class="qr">${qrSvg(url)}</div><div class="tcode"><span>Trip code</span><b>${C.fmtCode(S.code)}</b></div></div>
-          <p class="thow">Scan the square with a phone camera, or type the code at <b>${(location.host + location.pathname).replace(/index\.html$/, '').replace(/\/$/, '')}</b></p></div>`;
+          <p class="thow">Scan the square with a phone camera, or type the code at <b>${(location.host + location.pathname).replace(/index\.html$/, '').replace(/\/$/, '')}</b></p></div>
+        ${waiting.length ? html`<div class="f"><div class="lab">Or invite by name <small>the link opens with their name picked</small></div><div class="pick" id="iNames">${waiting.map(m => html`<button class="chip" type="button" data-as="${m.id}"><span>${m.name}</span></button>`)}</div></div>` : ''}`;
+      const names = $('#iNames', sh.el);
+      if (names) names.onclick = e => { const b = e.target.closest('[data-as]'); if (b) sendNamed(b.dataset.as); };
       sh.footer(html`<div class="acts">${navigator.share ? html`<button class="btn" type="button" id="iShare">Share the invite</button>` : ''}<button class="btn ${navigator.share ? 'line' : ''}" type="button" id="iCopy">Copy the link</button></div>`);
       const copy = async () => {
         try { await navigator.clipboard.writeText(url); toast('Link copied'); }
@@ -1845,24 +2045,24 @@ function seedDemo() {
   const code = 'TRYME234', room = 'split-' + code;
   if (demoServer.data.rooms && demoServer.data.rooms[room]) return code;
   const H = 3600000, now = Date.now(), day = n => C.localDate(new Date(now - n * 24 * H));
-  const ev = {}; let k = 0;
+  const ev = {}; let k = 0; const d1 = store.dev;
   const put = (ago, by, dev, t, d) => { const ts = now - ago * H + k++; ev[C.newEntryId(ts)] = { t, d: JSON.stringify(d), ts, ct: ts, by, dev, uid: 'u-' + dev, v: 1 }; };
   const all = { ana: 1, marko: 1, lena: 1, jon: 1, me: 1 };
-  put(80, 'me', 'd1', 'member.add', { id: 'me', name: prefs.get('name') || 'Matías' }); put(80, 'me', 'd1', 'claim', { m: 'me' });
-  for (const [id, name] of [['ana', 'Ana'], ['marko', 'Marko'], ['lena', 'Lena'], ['jon', 'Jon']]) put(79.9, 'me', 'd1', 'member.add', { id, name });
+  put(80, 'me', d1, 'member.add', { id: 'me', name: prefs.get('name') || 'Matías' }); put(80, 'me', d1, 'claim', { m: 'me' });
+  for (const [id, name] of [['ana', 'Ana'], ['marko', 'Marko'], ['lena', 'Lena'], ['jon', 'Jon']]) put(79.9, 'me', d1, 'member.add', { id, name });
   put(78, 'ana', 'd2', 'claim', { m: 'ana' }); put(77, 'marko', 'd3', 'claim', { m: 'marko' }); put(76, 'lena', 'd4', 'claim', { m: 'lena' });
   const x = (ago, by, dev, id, title, amt, cur, rate, dago, payer, parts, more = {}) => put(ago, by, dev, 'expense.add', { id, title, amt, cur, cd: C.curDecimals(cur), rate, rsrc: cur === 'EUR' ? 'same' : 'live', rdate: day(dago), date: day(dago), payer, mode: 'equal', parts, ...more });
-  x(52, 'me', 'd1', 'x1', 'Apartment in Sarandë', 420, 'EUR', 1, 2, 'me', all, { note: 'Three nights, the whole flat, two minutes from the beach' });
+  x(52, 'me', d1, 'x1', 'Apartment in Sarandë', 420, 'EUR', 1, 2, 'me', all, { note: 'Three nights, the whole flat, two minutes from the beach' });
   x(50, 'marko', 'd3', 'x2', 'Fuel', 6000, 'ALL', 0.01103, 2, 'marko', all);
   x(30, 'lena', 'd4', 'x3', 'Groceries for the house, Spar', 11350, 'ALL', 0.01103, 1, 'lena', all);
   x(28, 'ana', 'd2', 'x4', 'Boat to Ksamil', 7500, 'ALL', 0.01103, 1, 'ana', { ana: 1, marko: 1, me: 1 });
-  put(27, 'me', 'd1', 'group.set', { id: 'g1', name: 'Alcohol', members: ['me', 'ana', 'marko'] });
+  put(27, 'me', d1, 'group.set', { id: 'g1', name: 'Alcohol', members: ['me', 'ana', 'marko'] });
   x(20, 'marko', 'd3', 'x8', 'Wine and raki', 3200, 'ALL', 0.01103, 1, 'marko', { ana: 1, marko: 1, me: 1 }, { tag: 'Alcohol' });
   put(26, 'lena', 'd4', 'expense.edit', { id: 'x3', set: { amt: 12350 } });
   x(9, 'marko', 'd3', 'x5', 'Beach umbrellas', 1500, 'ALL', 0.01103, 0, 'marko', all);
-  x(7, 'me', 'd1', 'x6', 'Taxi from the airport', 30, 'EUR', 1, 0, 'me', { me: 1, ana: 1, jon: 1 });
+  x(7, 'me', d1, 'x6', 'Taxi from the airport', 30, 'EUR', 1, 0, 'me', { me: 1, ana: 1, jon: 1 });
   put(5, 'marko', 'd3', 'expense.delete', { id: 'x5' });
-  put(4, 'me', 'd1', 'pay.add', { id: 'p1', from: 'jon', to: 'me', amt: 40, cur: 'EUR', cd: 2, rate: 1, rsrc: 'same', date: day(0), x: 'x1', via: 'cash' });
+  put(4, 'me', d1, 'pay.add', { id: 'p1', from: 'jon', to: 'me', amt: 40, cur: 'EUR', cd: 2, rate: 1, rsrc: 'same', date: day(0), x: 'x1', via: 'cash' });
   x(2, 'ana', 'd2', 'x7', 'Dinner at Oda', 8400, 'ALL', 0.01103, 0, 'ana', { ana: 1, marko: 1, lena: 1, me: 1 });
   demoServer.data.rooms = { [room]: { meta: { kind: 'split', v: 1, name: 'Albania road trip', base: 'EUR', dec: 2, color: 'night', uid: 'u-d1', ts: now - 80 * H }, events: ev } };
   Trips.put(code, { name: 'Albania road trip', color: 'night', me: 'me', base: 'EUR', dec: 2, people: 5 });
