@@ -167,13 +167,51 @@ From Wikimedia Commons, resized for the trivia game.
 
 ## Trivia Night (Nov 20)
 
+Pictures hosted here for this game. Posters, covers, game and anime art are linked from their own sites, not copied here.
+
 - Man with a Movie Camera by Dziga Vertov.jpg. Dziga Vertov (film still, 1929). Public domain. https://commons.wikimedia.org/wiki/File:Man_with_a_Movie_Camera_by_Dziga_Vertov.jpg
-- Paris - The Eiffel Tower in spring - 2307.jpg. Jorge Royan. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Paris_-_The_Eiffel_Tower_in_spring_-_2307.jpg
+- 221ae37628.jpg: Pac-Man arcade machine, De Notaris Schaijk.jpg. YosemiteYamper. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Pac-Man_arcade_machine,_De_Notaris_Schaijk.jpg
+- 328ea6742f.jpg: Great Wall of China July 2006.JPG. Velatrix. CC0. https://commons.wikimedia.org/wiki/File:Great_Wall_of_China_July_2006.JPG
+- 73e2c73a87.jpg: Kissing the War Goodbye.jpg. Victor Jorgensen. Public domain. https://commons.wikimedia.org/wiki/File:Kissing_the_War_Goodbye.jpg
+- 1a4719b9aa.jpg: Marie Curie c. 1920s.jpg. Henri Manuel. Public domain. https://commons.wikimedia.org/wiki/File:Marie_Curie_c._1920s.jpg
+- f961c87b6c.jpg: Alexander Mosaic detail of Alexander the Great (3x4 cropped).jpg. Unknown authorUnknown author. Public domain. https://commons.wikimedia.org/wiki/File:Alexander_Mosaic_detail_of_Alexander_the_Great_(3x4_cropped).jpg
+- 8589abef87.jpg: William Orpen - The Signing of Peace in the Hall of Mirrors - Detail 4.jpg. William Orpen. Public domain. https://commons.wikimedia.org/wiki/File:William_Orpen_-_The_Signing_of_Peace_in_the_Hall_of_Mirrors_-_Detail_4.jpg
+- 3b00808af4.jpg: Bayeux Tapestry scene57 Harold death (cropped).jpg. Myrabella. Public domain. https://commons.wikimedia.org/wiki/File:Bayeux_Tapestry_scene57_Harold_death_(cropped).jpg
+- df53ce3035.jpg: Heritage LAPU LAPU MONUMENT.jpg. Claudio monceda. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Heritage_LAPU_LAPU_MONUMENT.jpg
+- 38254b97d9.jpg: Large Kneeling Statue of Hatshepsut MET DP117949.jpg. Unknown author. CC0. https://commons.wikimedia.org/wiki/File:Large_Kneeling_Statue_of_Hatshepsut_MET_DP117949.jpg
+- 355d5706ec.jpg: (Venice) Statue of the four tetrarchs St. Mark's Basilica.jpg. Archaeodontosaurus. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:(Venice)_Statue_of_the_four_tetrarchs_St._Mark%27s_Basilica.jpg
+- Sydneyoperahouse at night.jpg. Thomas Adams. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Sydneyoperahouse_at_night.jpg
 - Taj Mahal N-UP-A28-a.jpg. Asitjain. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Taj_Mahal_N-UP-A28-a.jpg
-- Kuala Lumpur Malaysia Petronas-Twin-Towers-01.jpg. CEphoto, Uwe Aranas. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Kuala_Lumpur_Malaysia_Petronas-Twin-Towers-01.jpg
-- Neuschwanstein Castle from Marienbrücke, 2011 May.jpg. Ximonic, Simo Räsänen (post-processing) &amp; Tauno Räsänen (photograph). CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Neuschwanstein_Castle_from_Marienbr%C3%BCcke,_2011_May.jpg
-- View of sea from Titov Island, Ha Long Bay, Vietnam, 20240128 1337 3732.jpg. Jakub Hałun. CC BY 4.0. https://commons.wikimedia.org/wiki/File:View_of_sea_from_Titov_Island,_Ha_Long_Bay,_Vietnam,_20240128_1337_3732.jpg
+- Sagrada Familia 03.jpg. Bernard Gagnon. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Sagrada_Familia_03.jpg
+- Neuschwanstein Castle from Marienbrücke, 2011 May.jpg. Ximonic, Simo Räsänen (post-processing) & Tauno Räsänen (photograph). CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Neuschwanstein_Castle_from_Marienbr%C3%BCcke,_2011_May.jpg
+- Atomium, Bruselas, Bélgica, 2021-12-15, DD 148-150 HDR.jpg. Diego Delso. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Atomium,_Bruselas,_B%C3%A9lgica,_2021-12-15,_DD_148-150_HDR.jpg
 - The windmills of Kinderdijk.JPG. Tarod. CC BY-SA 3.0 nl. https://commons.wikimedia.org/wiki/File:The_windmills_of_Kinderdijk.JPG
-- Shwedagon Zedi Daw Yangon 4.jpg. kallerna. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Shwedagon_Zedi_Daw_Yangon_4.jpg
-- Sintra Portugal Palácio da Pena-01.jpg. CEphoto, Uwe Aranas. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Sintra_Portugal_Pal%C3%A1cio_da_Pena-01.jpg
+- Dubrovnik Old Town 1.jpg. kallerna. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Dubrovnik_Old_Town_1.jpg
+- Bled Island in Lake Bled, Slovenia, 20240504 0902 8306.jpg. Jakub Hałun. CC BY 4.0. https://commons.wikimedia.org/wiki/File:Bled_Island_in_Lake_Bled,_Slovenia,_20240504_0902_8306.jpg
 - Berat - Mangalem 4b Häuser.jpg. Wolfgang Sauber. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Berat_-_Mangalem_4b_H%C3%A4user.jpg
+- cc362f0ffb.jpg: Flag of the Philippines.svg. See File history below for details.. Public domain. https://commons.wikimedia.org/wiki/File:Flag_of_the_Philippines.svg
+- 7511a0d7eb.jpg: Kevin O'Leary 2012-crop.jpg. Randstad Canada. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Kevin_O%27Leary_2012-crop.jpg
+- 6db617ea20.jpg: A human skeleton, seen from the front, resting the bones of Wellcome V00077. Unknown author. CC BY 4.0. https://commons.wikimedia.org/wiki/File:A_human_skeleton,_seen_from_the_front,_resting_the_bones_of_Wellcome_V0007798.jpg
+- a91f06f390.jpg: Flag of South Africa.svg. Flag design by Frederick Brownell, image by Wikimedia Commons users. Public domain. https://commons.wikimedia.org/wiki/File:Flag_of_South_Africa.svg
+- 441f88d03d.jpg: Dramatic plumes, both large and small, spray water ice out from many locati. NASA/JPL-Caltech/Space Science Institute. Public domain. https://commons.wikimedia.org/wiki/File:Dramatic_plumes,_both_large_and_small,_spray_water_ice_out_from_many_locations_along_the_famed_tiger_stripes_near_the_south_pole_of_Saturn%E2%80%99s_moon_Enceladus_in_this_image_released_on_Feb_23_(newly-found-organics-in-enceladus-plumes).jpg
+- 34d21925de.jpg: Bananas by the bunch - Carrara Market (2569636765).jpg. Alpha from Melbourne, Australia. CC BY-SA 2.0. https://commons.wikimedia.org/wiki/File:Bananas_by_the_bunch_-_Carrara_Market_(2569636765).jpg
+- 67326c6b1f.jpg: Silver crystal.jpg. Alchemist-hp (talk) (www.pse-mendelejew.de). CC BY-SA 3.0 de. https://commons.wikimedia.org/wiki/File:Silver_crystal.jpg
+- 1aab4ca27e.jpg: Artist’s impression of the quasar 3C 279.jpg. ESO/M. Kornmesser. CC BY 4.0. https://commons.wikimedia.org/wiki/File:Artist%E2%80%99s_impression_of_the_quasar_3C_279.jpg
+- b7384b3ccf.jpg: diagram drawn for this game (Video Editing), no third-party material
+- c3633951d4.jpg: diagram drawn for this game (Video Editing), no third-party material
+- 13a25b6f70.jpg: Kdenlive 19.04.2 English.png. KDE. GPLv2. https://commons.wikimedia.org/wiki/File:Kdenlive_19.04.2_English.png
+- 96c34d5198.jpg: diagram drawn for this game (Video Editing), no third-party material
+- 11f99ae189.jpg: PM5544 with non-PAL signals.png. Zacabeb. Public domain. https://commons.wikimedia.org/wiki/File:PM5544_with_non-PAL_signals.png
+- c7c7e10c3f.jpg: diagram drawn for this game (Video Editing), no third-party material
+- f9ebf8b56b.jpg: Moviola - 35mm Film Editing Machine - Kolkata 2012-10-09 1577.JPG. Biswarup Ganguly. CC BY 3.0. https://commons.wikimedia.org/wiki/File:Moviola_-_35mm_Film_Editing_Machine_-_Kolkata_2012-10-09_1577.JPG
+- 2fa27b7990.jpg: Blow of a blue whale in the Arctic sea.jpg. AWeith. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Blow_of_a_blue_whale_in_the_Arctic_sea.jpg
+- a101b3b114.jpg: Wikipedia-Bats-001-v01.jpg. MathKnight. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Wikipedia-Bats-001-v01.jpg
+- 53da449cd2.jpg: Polar Bear AdF.jpg. Arturo de Frias Marques. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Polar_Bear_AdF.jpg
+- 56cede708f.jpg: Carrion crows Corvus corone, Tottenham, London, England 3.jpg. Acabashi. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Carrion_crows_Corvus_corone,_Tottenham,_London,_England_3.jpg
+- 99cddf6032.jpg: Royal coat of arms of Scotland - Edinburgh Castle - C - Stierch.jpg. Sarah Stierch. CC BY 2.0. https://commons.wikimedia.org/wiki/File:Royal_coat_of_arms_of_Scotland_-_Edinburgh_Castle_-_C_-_Stierch.jpg
+- 2a341928b1.jpg: Axolotl ambystoma mexicanum anfibio ASAG.jpg. Amandasofiarana. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Axolotl_ambystoma_mexicanum_anfibio_ASAG.jpg
+- 57a4421b25.jpg: Pangolin borneo.jpg. Piekfrosch at German Wikipedia
+
+(Original text: Piekfrosch (Wikipedia-User)). CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Pangolin_borneo.jpg
+- c3f0888487.jpg: Sea Otter 3.jpg. Mrkoww. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Sea_Otter_3.jpg
+- bc03cf60fc.jpg: Somniosus microcephalus with Ommatokoita.png. Hemming1952. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Somniosus_microcephalus_with_Ommatokoita.png
