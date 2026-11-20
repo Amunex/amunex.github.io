@@ -164,3 +164,16 @@ From Wikimedia Commons, resized for the trivia game.
 - n2-b497b00935.webp: YosemiteYamper, CC BY-SA 4.0, https://commons.wikimedia.org/wiki/File:Pac-Man_arcade_machine,_De_Notaris_Schaijk.jpg
 - n2-5ef544fad9.webp: Roblox Corporation, Public domain, https://commons.wikimedia.org/wiki/File:Roblox_Logo_Black.svg
 - n2-9c1c21128c.webp: Metro-Goldwyn-Mayer, Public domain, https://commons.wikimedia.org/wiki/File:Metro-Goldwyn-Mayer_%E2%80%94_Slats_the_Lion_(1926).png
+
+## Trivia Night (Nov 20)
+
+- Man with a Movie Camera by Dziga Vertov.jpg. Dziga Vertov (film still, 1929). Public domain. https://commons.wikimedia.org/wiki/File:Man_with_a_Movie_Camera_by_Dziga_Vertov.jpg
+- Paris - The Eiffel Tower in spring - 2307.jpg. Jorge Royan. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Paris_-_The_Eiffel_Tower_in_spring_-_2307.jpg
+- Taj Mahal N-UP-A28-a.jpg. Asitjain. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Taj_Mahal_N-UP-A28-a.jpg
+- Kuala Lumpur Malaysia Petronas-Twin-Towers-01.jpg. CEphoto, Uwe Aranas. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Kuala_Lumpur_Malaysia_Petronas-Twin-Towers-01.jpg
+- Neuschwanstein Castle from Marienbrücke, 2011 May.jpg. Ximonic, Simo Räsänen (post-processing) &amp; Tauno Räsänen (photograph). CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Neuschwanstein_Castle_from_Marienbr%C3%BCcke,_2011_May.jpg
+- View of sea from Titov Island, Ha Long Bay, Vietnam, 20240128 1337 3732.jpg. Jakub Hałun. CC BY 4.0. https://commons.wikimedia.org/wiki/File:View_of_sea_from_Titov_Island,_Ha_Long_Bay,_Vietnam,_20240128_1337_3732.jpg
+- The windmills of Kinderdijk.JPG. Tarod. CC BY-SA 3.0 nl. https://commons.wikimedia.org/wiki/File:The_windmills_of_Kinderdijk.JPG
+- Shwedagon Zedi Daw Yangon 4.jpg. kallerna. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Shwedagon_Zedi_Daw_Yangon_4.jpg
+- Sintra Portugal Palácio da Pena-01.jpg. CEphoto, Uwe Aranas. CC BY-SA 3.0. https://commons.wikimedia.org/wiki/File:Sintra_Portugal_Pal%C3%A1cio_da_Pena-01.jpg
+- Berat - Mangalem 4b Häuser.jpg. Wolfgang Sauber. CC BY-SA 4.0. https://commons.wikimedia.org/wiki/File:Berat_-_Mangalem_4b_H%C3%A4user.jpg
